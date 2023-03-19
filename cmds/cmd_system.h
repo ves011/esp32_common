@@ -32,6 +32,9 @@ void register_system_common(void);
 void register_system_sleep(void);
 
 void register_ping(void);
+//int set_console(int argc, char **argv);
+void do_system_cmd(int argc, char **argv);
+
 
 #ifdef __cplusplus
 }

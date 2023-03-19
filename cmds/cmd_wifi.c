@@ -14,21 +14,30 @@
 #include "argtable3/argtable3.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/event_groups.h"
+#include "lwip/netif.h"
 #include "esp_wifi.h"
 #include "esp_netif.h"
 #include "esp_wifi_netif.h"
 #include "esp_wifi_default.h"
 #include "esp_event.h"
+#include "mqtt_client.h"
+#include "esp_vfs.h"
+#include "esp_spiffs.h"
+#include "common_defines.h"
+#include "external_defs.h"
+#include "utils.h"
 #include "cmd_wifi.h"
 
 static bool initialized = false;
 static EventGroupHandle_t wifi_event_group;
 const int CONNECTED_BIT = BIT0;
 const int DISCONNECTED_BIT = BIT1;
+static int scan_done;
+esp_netif_ip_info_t dev_ipinfo;
 #define WIFITAG "wifi op"
 
 static void print_auth_mode(int authmode, char *logbuf)
-{
+	{
     switch (authmode) {
     case WIFI_AUTH_OPEN:
         //ESP_LOGI(WIFITAG, "Authmode \tWIFI_AUTH_OPEN");
@@ -85,11 +94,11 @@ static int wifi_disconnect(int argc, char **argv)
 		}
 	else
 		{
-		wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
-		wifi_config_t wifi_config = { 0 };
-		memset(&cfg, 0, sizeof(wifi_init_config_t));
-		ESP_ERROR_CHECK( esp_wifi_init(&cfg) );
-		ESP_ERROR_CHECK( esp_wifi_set_config(WIFI_IF_STA, &wifi_config) );
+		//wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
+		//wifi_config_t wifi_config = { 0 };
+		//memset(&cfg, 0, sizeof(wifi_init_config_t));
+		//ESP_ERROR_CHECK( esp_wifi_init(&cfg) );
+		//ESP_ERROR_CHECK( esp_wifi_set_config(WIFI_IF_STA, &wifi_config) );
 		esp_wifi_disconnect();
 		// stop tcp_server if running
 
@@ -102,13 +111,36 @@ static void event_handler(void* arg, esp_event_base_t event_base,
 	{
     if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED)
     	{
-       	esp_wifi_connect();
+    	//ESP_LOGE(WIFITAG, "WiFi connection lost");
+    	//esp_restart();
+
+    	ESP_ERROR_CHECK(esp_wifi_disconnect());
+       	ESP_ERROR_CHECK(esp_wifi_connect());
        	xEventGroupClearBits(wifi_event_group, CONNECTED_BIT);
     	}
     else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP)
     	{
         xEventGroupSetBits(wifi_event_group, CONNECTED_BIT);
+        ip_event_got_ip_t *ipevt = event_data;
+        memcpy(&dev_ipinfo, &ipevt->ip_info, sizeof(dev_ipinfo));
+
     	}
+    else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_LOST_IP)
+    	{
+    	ESP_LOGE(WIFITAG, "IP lost");
+    	//esp_restart();
+
+    	ESP_ERROR_CHECK(esp_wifi_disconnect());
+       	ESP_ERROR_CHECK(esp_wifi_connect());
+       	xEventGroupClearBits(wifi_event_group, CONNECTED_BIT);
+    	}
+	}
+
+static void scan_done_handler(void* arg, esp_event_base_t event_base,
+                              int32_t event_id, void* event_data)
+	{
+	ESP_LOGI(WIFITAG, "SCAN DONE event");
+	scan_done = 1;
 	}
 
 static void initialise_wifi(void)
@@ -127,15 +159,20 @@ static void initialise_wifi(void)
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
     ESP_ERROR_CHECK( esp_wifi_init(&cfg) );
     ESP_ERROR_CHECK( esp_event_handler_register(WIFI_EVENT, WIFI_EVENT_STA_DISCONNECTED, &event_handler, NULL) );
+    ESP_ERROR_CHECK( esp_event_handler_register(WIFI_EVENT, WIFI_EVENT_SCAN_DONE, &scan_done_handler, NULL) );
     ESP_ERROR_CHECK( esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &event_handler, NULL) );
     ESP_ERROR_CHECK( esp_wifi_set_storage(WIFI_STORAGE_RAM) );
     ESP_ERROR_CHECK( esp_wifi_set_mode(WIFI_MODE_NULL) );
+
     ESP_ERROR_CHECK( esp_wifi_start() );
+    //ESP_ERROR_CHECK( esp_wifi_set_ps(WIFI_PS_MIN_MODEM));
     initialized = true;
 }
 
 bool wifi_join(const char *ssid, const char *pass, int timeout_ms)
 	{
+	int bits = 0;
+	esp_netif_t *netif = NULL;
 	if(isConnected())
 	    wifi_disconnect(1, NULL);
     initialise_wifi();
@@ -146,10 +183,18 @@ bool wifi_join(const char *ssid, const char *pass, int timeout_ms)
 
     ESP_ERROR_CHECK( esp_wifi_set_mode(WIFI_MODE_STA) );
     ESP_ERROR_CHECK( esp_wifi_set_config(WIFI_IF_STA, &wifi_config) );
-    esp_wifi_connect();
 
-    int bits = xEventGroupWaitBits(wifi_event_group, CONNECTED_BIT,
+    //while((bits & CONNECTED_BIT) != CONNECTED_BIT)
+    	{
+    	esp_wifi_connect();
+    	bits = xEventGroupWaitBits(wifi_event_group, CONNECTED_BIT,
                                    pdFALSE, pdTRUE, timeout_ms / portTICK_PERIOD_MS);
+    	//ESP_LOGI(WIFITAG, "WiFi connect timeout. retrying...");
+    	}
+	netif = esp_netif_next(netif);
+	//int err;
+	//if(netif)
+	//    err = esp_netif_create_ip6_linklocal(netif);
     return (bits & CONNECTED_BIT) != 0;
 	}
 
@@ -212,6 +257,8 @@ int wifi_connect(int argc, char **argv)
 				netif = esp_netif_next(netif);
 				if(!netif)
 					break;
+				uint8_t mac[NETIF_MAX_HWADDR_LEN];
+				esp_netif_get_mac(netif, mac);
 				err = esp_netif_get_ip_info(netif, &ip_info);
 				if(err == ESP_OK)
 					{
@@ -219,9 +266,27 @@ int wifi_connect(int argc, char **argv)
 							IP2STR(&ip_info.ip),
 							IP2STR(&ip_info.netmask),
 							IP2STR(&ip_info.gw));
+					ESP_LOGI(WIFITAG, "sta MAC = %02x:%02x:%02x:%02x:%02x:%02x", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);//, netif->mac[1], netif->mac[2], netif->mac[3], netif->mac[4], netif->mac[5]);
 
 					}
-
+				/*
+				esp_ip6_addr_t if_ip6[3];
+				err = esp_netif_get_all_ip6(netif, if_ip6);
+				if(err > 0)
+					{
+					ESP_LOGI(WIFITAG, "ipv6: %04x:%04x:%04x:%04x:%04x:%04x:%04x:%04x:",
+						(htonl(if_ip6[0].addr[0]) >> 16 & 0xffff),
+						htonl(if_ip6[0].addr[0]) & 0xffff,
+						(htonl(if_ip6[0].addr[1]) >> 16 & 0xffff),
+						htonl(if_ip6[0].addr[1]) & 0xffff,
+						(htonl(if_ip6[0].addr[2]) >> 16 & 0xffff),
+						htonl(if_ip6[0].addr[2]) & 0xffff,
+						(htonl(if_ip6[0].addr[3]) >> 16 & 0xffff),
+						htonl(if_ip6[0].addr[3]) & 0xffff);
+					}
+				else
+					ESP_LOGI(WIFITAG, "No ipv6 found");
+				*/
 				} while (netif);
 
 			//esp_err_t esp_netif_get_ip_info(esp_netif_t *esp_netif, esp_netif_ip_info_t *ip_info);
@@ -241,7 +306,8 @@ int wifi_connect(int argc, char **argv)
     int nerrors = arg_parse(argc, argv, (void **) &join_args);
     if (nerrors != 0)
     	{
-        arg_print_errors(stderr, join_args.end, argv[0]);
+        //arg_print_errors(stderr, join_args.end, argv[0]);
+        my_printf("\n%s arguments error", argv[0]);
         return 1;
     	}
     ESP_LOGI(__func__, "Connecting to '%s'", join_args.ssid->sval[0]);
@@ -270,7 +336,10 @@ static int wifi_scan(int argc, char **argv)
 	wifi_mode_t mode;
 	int deinit = 0;
 	esp_netif_t *sta_netif;
-	char logbuf[256];
+	uint16_t sta_number = 0;
+    uint8_t i;
+    wifi_ap_record_t *ap_list_buffer;
+    char logbuf[256];
 	err  = esp_wifi_get_mode(&mode);
 	if(err != ESP_OK && err != ESP_ERR_WIFI_NOT_INIT) //error case return 1
 		{
@@ -297,25 +366,49 @@ static int wifi_scan(int argc, char **argv)
 	    ESP_ERROR_CHECK(esp_wifi_start());
 	    deinit = 1;
 		}
-	uint16_t number = SCAN_LIST_SIZE;
     wifi_ap_record_t ap_info[SCAN_LIST_SIZE];
-    uint16_t ap_count = 0;
     memset(ap_info, 0, sizeof(ap_info));
-    esp_wifi_scan_start(NULL, true);
-    ESP_ERROR_CHECK(esp_wifi_scan_get_ap_records(&number, ap_info));
-    ESP_ERROR_CHECK(esp_wifi_scan_get_ap_num(&ap_count));
-    ESP_LOGI(WIFITAG, "Total APs scanned = %u", ap_count);
-    ESP_LOGI(WIFITAG, "\n");
-    ESP_LOGI(WIFITAG, "           SSID             RSSI  Channel                 Auth mode");
-    ESP_LOGI(WIFITAG, "-----------------------------------------------------------------------------------");
-    for (int i = 0; (i < SCAN_LIST_SIZE) && (i < ap_count); i++)
+    scan_done = 0;
+    int count = 0;
+    ESP_LOGI(WIFITAG, "scan_done start");
+    ESP_ERROR_CHECK(esp_wifi_scan_start(NULL, true));
+    while(scan_done == 0 && count++ < 100)
+    	usleep(10000);
+    if(scan_done == 0)
+    	ESP_LOGI(WIFITAG, "timeout wifi scan timeout");
+    else
     	{
-    	print_auth_mode(ap_info[i].authmode, logbuf);
-    	//sprintf(logbuf, "SSID: %25s\t\RSSI: %d\tChannel: %d", ap_info[i].ssid, ap_info[i].rssi, ap_info[i].primary);
-        //ESP_LOGI(WIFITAG, "SSID: %25s \tRSSI: %5d\tChannel: %8d\tAuth mode: %s", ap_info[i].ssid, ap_info[i].rssi, ap_info[i].primary, logbuf);
-    	ESP_LOGI(WIFITAG, "%-25s%5d%8d               %-s", ap_info[i].ssid, ap_info[i].rssi, ap_info[i].primary, logbuf);
-        }
-    ESP_LOGI(WIFITAG, "\n");
+    	ESP_LOGI(WIFITAG, "scan_done complete");
+    	esp_wifi_scan_get_ap_num(&sta_number);
+		if (!sta_number)
+			{
+			ESP_LOGE(WIFITAG, "No AP found\n");
+			return 1;
+			}
+		ESP_LOGI(WIFITAG, "Total APs scanned = %u", sta_number);
+
+		ap_list_buffer = malloc(sta_number * sizeof(wifi_ap_record_t));
+		if (ap_list_buffer == NULL)
+			{
+			ESP_LOGE(WIFITAG, "Failed to malloc buffer to print scan results\n");
+			return 1;
+			}
+
+		if (esp_wifi_scan_get_ap_records(&sta_number,(wifi_ap_record_t *)ap_list_buffer) == ESP_OK)
+			{
+			ESP_LOGI(WIFITAG, "           SSID             RSSI  Channel                 Auth mode");
+			ESP_LOGI(WIFITAG, "-----------------------------------------------------------------------------------");
+			for(i=0; i<sta_number; i++)
+				{
+				print_auth_mode(ap_list_buffer[i].authmode, logbuf);
+				ESP_LOGI(WIFITAG, "%-25s%5d%8d               %-s", ap_list_buffer[i].ssid, ap_list_buffer[i].rssi, ap_list_buffer[i].primary, logbuf);
+				}
+			}
+
+		free(ap_list_buffer);
+		ESP_LOGI(WIFITAG, "AP scan done\n");
+    	}
+
     if(deinit)
     	{
     	esp_netif_destroy(sta_netif);
