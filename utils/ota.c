@@ -52,14 +52,6 @@ static void http_cleanup(esp_http_client_handle_t client)
     esp_http_client_cleanup(client);
 	}
 
-static void __attribute__((noreturn)) task_fatal_error(void)
-	{
-    ESP_LOGE(TAG, "Exiting task due to fatal error...");
-    (void)vTaskDelete(NULL);
-    while (1);
-	}
-
-
 void print_sha256 (const uint8_t *image_hash, const char *label)
 	{
     char hash_print[HASH_LEN * 2 + 1];
@@ -71,19 +63,7 @@ void print_sha256 (const uint8_t *image_hash, const char *label)
     ESP_LOGI(TAG, "%s: %s", label, hash_print);
 	}
 
-static void infinite_loop(void)
-	{
-    int i = 0;
-    ESP_LOGI(TAG, "When a new firmware is available on the server, press the reset button to download it");
-    while(1)
-    	{
-        ESP_LOGI(TAG, "Waiting for a new firmware ... %d", ++i);
-        vTaskDelay(2000 / portTICK_PERIOD_MS);
-    	}
-	}
-
-
-void ota_task(char *url)
+void ota_task(const char *url)
 	{
     esp_err_t err;
     /* update handle : set by esp_ota_begin(), must be freed via esp_ota_end() */
@@ -101,6 +81,11 @@ void ota_task(char *url)
                  configured->address, running->address);
         ESP_LOGW(TAG, "(This can happen if either the OTA boot data or preferred boot image become corrupted somehow.)");
     	}
+    if(!strcmp(running->label, OTA_PART_NAME))
+    		{
+    		ESP_LOGI(TAG, "Cannot do upgrade while running from %s partition\nReboot from factory partition first", OTA_PART_NAME);
+    		return;
+    		}
     ESP_LOGI(TAG, "Running partition type %d subtype %d (offset 0x%08x)",
              running->type, running->subtype, running->address);
 
@@ -116,7 +101,6 @@ void ota_task(char *url)
     if (client == NULL)
     	{
         ESP_LOGE(TAG, "Failed to initialise HTTP connection");
-        //task_fatal_error();
         return;
     	}
     err = esp_http_client_open(client, 0);
@@ -124,7 +108,6 @@ void ota_task(char *url)
     	{
         ESP_LOGE(TAG, "Failed to open HTTP connection: %s", esp_err_to_name(err));
         esp_http_client_cleanup(client);
-        //task_fatal_error();
         return;
     	}
     esp_http_client_fetch_headers(client);
@@ -144,7 +127,6 @@ void ota_task(char *url)
         	{
             ESP_LOGE(TAG, "Error: SSL data read error");
             http_cleanup(client);
-            task_fatal_error();
         	}
         else if (data_read > 0)
         	{
@@ -197,14 +179,12 @@ void ota_task(char *url)
 	*/
 						image_header_was_checked = true;
 
-						//err = esp_ota_begin(update_partition, OTA_WITH_SEQUENTIAL_WRITES, &update_handle);
-						err = ESP_OK;
+						err = esp_ota_begin(update_partition, OTA_WITH_SEQUENTIAL_WRITES, &update_handle);
 						if (err != ESP_OK)
 							{
-							ESP_LOGE(TAG, "esp_ota_begin failed (%s)", esp_err_to_name(err));
+							ESP_LOGE(TAG, "esp_ota_begin failed %d (%s)", err, esp_err_to_name(err));
 							http_cleanup(client);
 							esp_ota_abort(update_handle);
-							//task_fatal_error();
 							return;
 							}
 						ESP_LOGI(TAG, "esp_ota_begin succeeded");
@@ -214,7 +194,6 @@ void ota_task(char *url)
 						ESP_LOGE(TAG, "received package is not fit len (%d / %d)", data_read, sizeof(esp_image_header_t) + sizeof(esp_image_segment_header_t) + sizeof(esp_app_desc_t));
 						http_cleanup(client);
 						esp_ota_abort(update_handle);
-						//task_fatal_error();
 						return;
 						}
 					}
@@ -225,13 +204,12 @@ void ota_task(char *url)
 					return;
 					}
 				}
-            //err = esp_ota_write( update_handle, (const void *)ota_write_data, data_read);
-            err = ESP_OK;
+            err = esp_ota_write( update_handle, (const void *)ota_write_data, data_read);
             if (err != ESP_OK)
             	{
+            	ESP_LOGE(TAG, "esp_ota_write error %d (%s)", err, esp_err_to_name(err));
                 http_cleanup(client);
                 esp_ota_abort(update_handle);
-                //task_fatal_error();
                 return;
             	}
             binary_file_length += data_read;
@@ -261,12 +239,10 @@ void ota_task(char *url)
         ESP_LOGE(TAG, "Error in receiving complete file");
         http_cleanup(client);
         esp_ota_abort(update_handle);
-        //task_fatal_error();
         return;
     	}
 
-    //err = esp_ota_end(update_handle);
-    err = ESP_OK;
+    err = esp_ota_end(update_handle);
     if (err != ESP_OK)
     	{
         if (err == ESP_ERR_OTA_VALIDATE_FAILED)
@@ -275,23 +251,11 @@ void ota_task(char *url)
         	}
         else
         	{
-            ESP_LOGE(TAG, "esp_ota_end failed (%s)!", esp_err_to_name(err));
+            ESP_LOGE(TAG, "esp_ota_end failed %d (%s)!", err, esp_err_to_name(err));
         	}
-        http_cleanup(client);
-        //task_fatal_error();
-        return;
     	}
-
-    /*
-    err = esp_ota_set_boot_partition(update_partition);
-    if (err != ESP_OK)
-    	{
-        ESP_LOGE(TAG, "esp_ota_set_boot_partition failed (%s)!", esp_err_to_name(err));
-        http_cleanup(client);
-        task_fatal_error();
-    	}
-    ESP_LOGI(TAG, "Prepare to restart system!");
-    esp_restart();
-    */
+    else
+    	ESP_LOGI(TAG, "Image validation OK");
+    http_cleanup(client);
 	}
 

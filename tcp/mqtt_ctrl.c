@@ -92,7 +92,7 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
     ESP_LOGI(TAG, "Event dispatched from event loop base=%s, event_id=%d", base, event_id);
     esp_mqtt_event_handle_t event = event_data;
     //esp_mqtt_client_handle_t client = event->client;
-    char topic[80], msg[150], topic_cmd[30], topic_ctrl[30];
+    char topic[80], msg[150];
     char **argv;
     int i, argc, ac;
 
@@ -134,7 +134,7 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
 			ac = 0;
 			for(i = 0; i < 10; i++)
 				{
-				argv[i] = calloc(30, sizeof(uint8_t));
+				argv[i] = calloc(256, sizeof(uint8_t));
 				argv[i][0] = 0;
 				}
 			for(i = 0; i < event->data_len; i++)
@@ -310,7 +310,7 @@ int mqtt_start(void)
     return ret;
     }
 
-void publish(char *topic, void *msg, int len, int qos, int retain)
+void publish(char *topic, char *msg, int qos, int retain)
 	{
 	time_t now;
     struct tm timeinfo;
@@ -323,11 +323,9 @@ void publish(char *topic, void *msg, int len, int qos, int retain)
 		localtime_r(&now, &timeinfo);
 		strftime(strtime, sizeof(strtime), "%Y-%m-%d/%H:%M:%S\1", &timeinfo);
 		strcat(strtime, USER_MQTT);
-		if(strcmp(topic, TOPIC_SYSTEM))
-			strcat(strtime, "\1");
-		else
-			strcat(strtime, ": ");
+		strcat(strtime, "\1");
 		strcat(strtime, msg);
+
 		esp_mqtt_client_publish(client, topic, strtime, strlen(strtime), qos, retain);
 		}
 	}
@@ -340,5 +338,5 @@ void publish_MQTT_client_status()
 	time(&now);
 	sprintf(msg, "%s\1" IPSTR "\1%d\1%lu\1%llu",
 			DEV_NAME, IP2STR(&dev_ipinfo.ip), CTRL_DEV_ID, now, tmsec);
-	publish(DEVICE_TOPIC_R, msg, strlen(msg), 0, 1);
+	publish(DEVICE_TOPIC_R, msg, 0, 1);
 	}

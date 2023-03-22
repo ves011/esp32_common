@@ -23,6 +23,7 @@
 #include "common_defines.h"
 #include "mqtt_ctrl.h"
 #include "external_defs.h"
+#include "tcp_log.h"
 #if ACTIVE_CONTROLLER == PUMP_CONTROLLER
 #include "adc_op.h"
 #include "pumpop.h"
@@ -34,39 +35,31 @@ int my_log_vprintf(const char *fmt, va_list arguments)
 	{
 	if(console_state == CONSOLE_ON)
 		return vprintf(fmt, arguments);
-	/*
-	else if(console_state == CONSOLE_MQTT)
+	else if(console_state == CONSOLE_TCP)
 		{
-		vprintf(fmt, arguments);
-		int ret = 0;
-		if(client_connected)
-			{
-			char buf[1024];
-			ret = vsnprintf(buf, sizeof(buf), fmt, arguments);
-			publish(TOPIC_SYSTEM, buf, strlen(buf), 0, 0);
-			}
-		return ret;
-		}*/
-	else
-		return 0;
+		char buf[1024];
+		vsnprintf(buf, sizeof(buf) - 1, fmt, arguments);
+		return tcp_log_message(buf);
+		}
+	return 0;
 	}
 
 void my_printf(char *format, ...)
 	{
+	char buf[1024];
+	va_list args;
+	va_start( args, format );
+	vsnprintf( buf, sizeof(buf) - 1, format, args );
+	va_end( args );
 	if(console_state == CONSOLE_ON)
 		{
-		char buf[1024];
-		va_list args;
-		va_start( args, format );
-		vsnprintf( buf, sizeof(buf), format, args );
-		va_end( args );
 		puts(buf);
 		}
-	/*else if(console_state == CONSOLE_MQTT && client_connected)
+	else if(console_state == CONSOLE_TCP)
 		{
-		puts(buf);
-		publish(TOPIC_SYSTEM, buf, strlen(buf), 0, 0);
-		}*/
+		//puts(buf);
+		tcp_log_message(buf);
+		}
 	}
 int rw_params(int rw, int param_type, void * param_val)
 	{

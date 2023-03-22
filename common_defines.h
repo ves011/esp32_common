@@ -15,12 +15,14 @@
 
 //#define ACTIVE_CONTROLLER			AGATE_CONTROLLER
 //#define ACTIVE_CONTROLLER			PUMP_CONTROLLER
-#define ACTIVE_CONTROLLER			OTA_CONTROLLER
-#define CTRL_DEV_ID					1
+//#define ACTIVE_CONTROLLER			OTA_CONTROLLER
+//#define CTRL_DEV_ID					1
+
+#include "project_specific.h"
 
 #define USER_TASK_PRIORITY			5
 
-#define CONSOLE_MQTT				2
+#define CONSOLE_TCP					2
 #define CONSOLE_ON					1
 #define CONSOLE_OFF					0
 
@@ -28,11 +30,6 @@
 #define PIN_ON						(1)
 #define PIN_OFF						(0)
 #define PIN_DONT_TOUCH				(2)
-
-#if ACTIVE_CONTROLLER == HEATER_CONTROLLER
-	#define NOOFHEATERS					(2)
-	#define TEMP_MAX_DEVICES        	(8)
-#endif
 
 #define TIMER_DIVIDER         		(80)  //  Hardware timer clock divider -> 1us resolution
 #define TIMER_SCALE           		(TIMER_BASE_CLK / TIMER_DIVIDER /1000)  // convert counter value to mseconds
@@ -74,7 +71,6 @@
 	#define TOPIC_MONITOR			"gate01/monitor"
 	#define TOPIC_CMD				"gate01/cmd"
 	#define TOPIC_CTRL				"gate01/ctrl"
-	#define TOPIC_SYSTEM			"gate01/system"
 	#define USER_MQTT				"gate01"
 	#define DEV_NAME				"Poarta Auto"
 #endif
@@ -84,13 +80,15 @@
 	#define TOPIC_MONITOR			"pump01/monitor"
 	#define TOPIC_CMD				"pump01/cmd"
 	#define TOPIC_CTRL				"pump01/ctrl"
-	#define TOPIC_SYSTEM			"pump01/system"
 	#define USER_MQTT				"pump01"
 	#define DEV_NAME				"Pompa Foraj"
 #endif
 
 #define LOG_SERVER					"proxy.gnet"
 #define LOG_SERVER_PORT				6001
+
+#define FACTORY_PART_NAME			"factory"
+#define OTA_PART_NAME				"ota_0"
 
 
 

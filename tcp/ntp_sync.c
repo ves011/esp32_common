@@ -32,7 +32,10 @@ void time_sync_notification_cb(struct timeval *tv)
 static void initialize_sntp(void)
 	{
     sntp_setoperatingmode(SNTP_OPMODE_POLL);
-    sntp_setservername(0, "pool.ntp.org");
+    sntp_setservername(0, "0.pool.ntp.org");
+    sntp_setservername(1, "1.pool.ntp.org");
+    sntp_setservername(2, "2.pool.ntp.org");
+    sntp_setservername(3, "3.pool.ntp.org");
     sntp_set_time_sync_notification_cb(time_sync_notification_cb);
     sntp_init();
 	}

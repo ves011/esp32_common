@@ -113,9 +113,11 @@ static void event_handler(void* arg, esp_event_base_t event_base,
     	{
     	//ESP_LOGE(WIFITAG, "WiFi connection lost");
     	//esp_restart();
-
-    	ESP_ERROR_CHECK(esp_wifi_disconnect());
-       	ESP_ERROR_CHECK(esp_wifi_connect());
+    	if(!restart_in_progress)
+    		{
+			ESP_ERROR_CHECK(esp_wifi_disconnect());
+			ESP_ERROR_CHECK(esp_wifi_connect());
+			}
        	xEventGroupClearBits(wifi_event_group, CONNECTED_BIT);
     	}
     else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP)
@@ -184,7 +186,7 @@ bool wifi_join(const char *ssid, const char *pass, int timeout_ms)
     ESP_ERROR_CHECK( esp_wifi_set_mode(WIFI_MODE_STA) );
     ESP_ERROR_CHECK( esp_wifi_set_config(WIFI_IF_STA, &wifi_config) );
 
-    //while((bits & CONNECTED_BIT) != CONNECTED_BIT)
+    while((bits & CONNECTED_BIT) != CONNECTED_BIT)
     	{
     	esp_wifi_connect();
     	bits = xEventGroupWaitBits(wifi_event_group, CONNECTED_BIT,

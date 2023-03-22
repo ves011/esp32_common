@@ -31,6 +31,9 @@
 #include "esp_spiffs.h"
 #include "ping/ping_sock.h"
 #include "mqtt_client.h"
+#include "esp_flash_partitions.h"
+#include "esp_partition.h"
+#include "esp_ota_ops.h"
 #include "common_defines.h"
 #include "external_defs.h"
 #include "utils.h"
@@ -55,7 +58,11 @@ static void register_light_sleep(void);
 static void register_uptime(void);
 static void register_ls(void);
 static void register_console(void);
+static void register_boot(void);
+#if ACTIVE_CONTROLLER == OTA_CONTROLLER
+static int ota_start(int argc, char **argv);
 static void register_ota(void);
+#endif
 #if WITH_TASKS_INFO
 static void register_tasks(void);
 #endif
@@ -69,7 +76,10 @@ void register_system_common(void)
     register_uptime();
     register_ls();
     register_console();
+    register_boot();
+#if ACTIVE_CONTROLLER == OTA_CONTROLLER
     register_ota();
+#endif
 #if WITH_TASKS_INFO
     register_tasks();
 #endif
@@ -253,6 +263,7 @@ static void register_version(void)
 static int restart(int argc, char **argv)
 	{
     ESP_LOGI(TAG, "Restarting");
+    restart_in_progress = 1;
     esp_restart();
     return 1;
 	}
@@ -700,8 +711,8 @@ int set_console(int argc, char **argv)
 			cs = CONSOLE_ON;
 		else if(strcmp(console_args.op->sval[0], "off") == 0)
 			cs = CONSOLE_OFF;
-		else if(strcmp(console_args.op->sval[0], "mqtt") == 0)
-			cs = CONSOLE_MQTT;
+		else if(strcmp(console_args.op->sval[0], "tcp") == 0)
+			cs = CONSOLE_TCP;
 		else
 			{
 			my_printf("console: unknown option [%s]", console_args.op->sval[0]);
@@ -729,7 +740,7 @@ static void register_console(void)
     	};
     ESP_ERROR_CHECK( esp_console_cmd_register(&cmd) );
 	}
-
+#if ACTIVE_CONTROLLER == OTA_CONTROLLER
 static struct
 	{
     struct arg_str *url;
@@ -763,6 +774,77 @@ static void register_ota(void)
     	};
     ESP_ERROR_CHECK( esp_console_cmd_register(&cmd) );
 	}
+#endif
+static struct
+	{
+    struct arg_str *pname;
+    struct arg_end *end;
+	} boot_args;
+static int boot_from(int argc, char **argv)
+	{
+	int nerrors = arg_parse(argc, argv, (void **)&boot_args);
+	if (nerrors != 0)
+		{
+		my_printf("\n%s arguments error", argv[0]);
+        return 1;
+    	}
+    const esp_partition_t *running = esp_ota_get_running_partition();
+    const esp_partition_t *bootp = esp_ota_get_boot_partition();
+    const esp_partition_t *np = NULL, *sbp = NULL;;
+    int bp = 0, rp = 0;
+    esp_partition_iterator_t pit = esp_partition_find(ESP_PARTITION_TYPE_APP, ESP_PARTITION_SUBTYPE_ANY, NULL);
+    my_printf("\nAvailable partitions");
+    while(pit)
+    	{
+    	np = esp_partition_get(pit);
+    	if(np)
+    		{
+    		if(boot_args.pname->count)
+    			{
+    			if(!strcmp(np->label, boot_args.pname->sval[0]))
+    			sbp = np;
+    			}
+    		bp = 0, rp = 0;
+    		if(np == running)
+    			rp = 1;
+    		if(np == bootp)
+    			bp = 0;
+    		my_printf("\n%s\t%06x\tboot = %d\trunning = %d", np->label, np->address, bp, rp);
+    		}
+    	pit = esp_partition_next(pit);
+    	}
+    my_printf("\n");
+    if(boot_args.pname->count)
+    	{
+		if(sbp)
+			{
+			int err = esp_ota_set_boot_partition(sbp);
+			if(err == ESP_OK)
+				{
+				my_printf("\nBoot partition set to \"%s\" @ %06x", sbp->label, sbp->address);
+				my_printf("\nReboot now");
+				}
+			else
+				my_printf("\nCould not set boot partition to \"%s\" @ %06x", sbp->label, sbp->address);
+			}
+		else
+			my_printf("\nPritition \"%s\", not found in partition list", boot_args.pname->sval[0]);
+		}
+	return 0;
+	}
+static void register_boot(void)
+	{
+	boot_args.pname = arg_str0(NULL, NULL, "<part_name>", NULL);
+	boot_args.end = arg_end(1);
+    const esp_console_cmd_t cmd = {
+        .command = "boot",
+        .help = "set boot partition = <part_name>",
+        .hint = NULL,
+        .func = &boot_from,
+        .argtable = &boot_args
+    	};
+    ESP_ERROR_CHECK( esp_console_cmd_register(&cmd) );
+	}
 void do_system_cmd(int argc, char **argv)
 	{
 	ESP_LOGI(TAG, "%d, %s", argc, argv[0]);
@@ -784,4 +866,10 @@ void do_system_cmd(int argc, char **argv)
 		get_version(argc, argv);
 	else if(!strcmp(argv[0], "ping"))
 		do_ping_cmd(argc, argv);
+	else if(!strcmp(argv[0], "boot"))
+		boot_from(argc, argv);
+#if ACTIVE_CONTROLLER == OTA_CONTROLLER
+	else if(!strcmp(argv[0], "ota"))
+		ota_start(argc, argv);
+#endif
 	}

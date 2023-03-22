@@ -10,6 +10,6 @@
 
 int mqtt_start(void);
 void register_mqtt(void);
-void publish(char *topic, void *msg, int len, int qos, int retain);
+void publish(char *topic, char *msg, int qos, int retain);
 void publish_MQTT_client_status();
 #endif /* TCP_MQTT_CTRL_H_ */
