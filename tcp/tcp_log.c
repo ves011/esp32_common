@@ -20,6 +20,8 @@
 #include "freertos/freertos.h"
 #include "freertos/task.h"
 #include "freertos/queue.h"
+#include "common_defines.h"
+#include "tcp_log.h"
 
 static int tcp_log_enable;
 
@@ -67,7 +69,9 @@ int tcp_log_message(char *message)
 	char buf[1024];
 	if(tcp_log_enable)
 		{
-		strncpy(buf, message, 1023);
+		strcpy(buf, USER_MQTT);
+		strcat(buf, ":: ");
+		strncat(buf, message, 1023 - 2 - strlen(USER_MQTT) );
 		xQueueSend(tcp_log_evt_queue, buf, ( TickType_t ) 10);
 		}
 	return 0;
