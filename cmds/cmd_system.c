@@ -152,7 +152,7 @@ static int do_ping_cmd(int argc, char **argv)
     if (nerrors != 0)
     	{
         //arg_print_errors(stderr, ping_args.end, argv[0]);
-        my_printf("\n%s arguments error", argv[0]);
+        my_printf("%s arguments error\n", argv[0]);
         return 1;
     	}
     if(!isConnected())
@@ -317,7 +317,7 @@ static int ls_files(int argc, char **argv)
 	if (nerrors != 0)
     	{
         //arg_print_errors(stderr, ls_args.end, argv[0]);
-        my_printf("\n%s arguments error", argv[0]);
+        my_printf("%s arguments error\n", argv[0]);
         return 1;
     	}
 	if(ls_args.path->count  == 1)
@@ -368,7 +368,7 @@ static int ls_files(int argc, char **argv)
 				return ret;
 				}
 			}
-		my_printf("\nPartition name: %s / total size: %-d / used: %-d\n", conf.partition_label, total, used);
+		my_printf("Partition name: %s / total size: %-d / used: %-d\n", conf.partition_label, total, used);
 		strcpy(pfname, "/var");
 		strcat(pfname, path);
 		strcpy(path, pfname);
@@ -493,7 +493,7 @@ static int deep_sleep(int argc, char **argv)
     if (nerrors != 0)
     	{
         //arg_print_errors(stderr, deep_sleep_args.end, argv[0]);
-        my_printf("\n%s arguments error", argv[0]);
+        my_printf("%s arguments error\n", argv[0]);
         return 1;
     	}
     if (deep_sleep_args.wakeup_time->count)
@@ -584,7 +584,7 @@ static int light_sleep(int argc, char **argv)
     int nerrors = arg_parse(argc, argv, (void **) &light_sleep_args);
     if (nerrors != 0) {
         //arg_print_errors(stderr, light_sleep_args.end, argv[0]);
-        my_printf("\n%s arguments error", argv[0]);
+        my_printf("%s arguments error\n", argv[0]);
         return 1;
     }
     esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_ALL);
@@ -676,7 +676,7 @@ static int uptime()
 	tmsec = tmsec % 3600;
 	tm = tmsec / 60;
 	ts = tmsec % 60;
-	my_printf("\nUptime: %d days %02u hours %02u min %02u sec since last boot\n", td, th, tm, ts);
+	my_printf("Uptime: %d days %02u hours %02u min %02u sec since last boot\n", td, th, tm, ts);
 	return 0;
 	}
 static void register_uptime(void)
@@ -702,7 +702,7 @@ int set_console(int argc, char **argv)
     if (nerrors != 0)
     	{
         //arg_print_errors(stderr, console_args.end, argv[0]);
-        my_printf("\n%s arguments error", argv[0]);
+        my_printf("%s arguments error\n", argv[0]);
         return 1;
     	}
     if(console_args.op->count)
@@ -715,7 +715,7 @@ int set_console(int argc, char **argv)
 			cs = CONSOLE_TCP;
 		else
 			{
-			my_printf("console: unknown option [%s]", console_args.op->sval[0]);
+			my_printf("console: unknown option [%s]\n", console_args.op->sval[0]);
 			return 0;
 			}
 		if(console_state != cs)
@@ -723,7 +723,7 @@ int set_console(int argc, char **argv)
 		console_state = cs;
 		}
 	else
-		my_printf("\nConsole state: %d", console_state);
+		my_printf("Console state: %d\n", console_state);
     return 0;
     }
 static void register_console(void)
@@ -752,7 +752,7 @@ static int ota_start(int argc, char **argv)
 	int nerrors = arg_parse(argc, argv, (void **)&ota_args);
 	if (nerrors != 0)
     	{
-        my_printf("\n%s arguments error", argv[0]);
+        my_printf("%s arguments error\n", argv[0]);
         return 1;
     	}
     if(ota_args.url->count)
@@ -785,7 +785,7 @@ static int boot_from(int argc, char **argv)
 	int nerrors = arg_parse(argc, argv, (void **)&boot_args);
 	if (nerrors != 0)
 		{
-		my_printf("\n%s arguments error", argv[0]);
+		my_printf("%s arguments error\n", argv[0]);
         return 1;
     	}
     const esp_partition_t *running = esp_ota_get_running_partition();
@@ -793,7 +793,7 @@ static int boot_from(int argc, char **argv)
     const esp_partition_t *np = NULL, *sbp = NULL;;
     int bp = 0, rp = 0;
     esp_partition_iterator_t pit = esp_partition_find(ESP_PARTITION_TYPE_APP, ESP_PARTITION_SUBTYPE_ANY, NULL);
-    my_printf("\nAvailable partitions");
+    my_printf("Available partitions\n");
     while(pit)
     	{
     	np = esp_partition_get(pit);
@@ -809,7 +809,7 @@ static int boot_from(int argc, char **argv)
     			rp = 1;
     		if(np == bootp)
     			bp = 0;
-    		my_printf("\n%s\t%06x\tboot = %d\trunning = %d", np->label, np->address, bp, rp);
+    		my_printf("%s\t%06x\tboot = %d\trunning = %d\n", np->label, np->address, bp, rp);
     		}
     	pit = esp_partition_next(pit);
     	}
@@ -821,14 +821,14 @@ static int boot_from(int argc, char **argv)
 			int err = esp_ota_set_boot_partition(sbp);
 			if(err == ESP_OK)
 				{
-				my_printf("\nBoot partition set to \"%s\" @ %06x", sbp->label, sbp->address);
-				my_printf("\nReboot now");
+				my_printf("Boot partition set to \"%s\" @ %06x\n", sbp->label, sbp->address);
+				my_printf("Reboot now to run it\n");
 				}
 			else
-				my_printf("\nCould not set boot partition to \"%s\" @ %06x", sbp->label, sbp->address);
+				my_printf("Could not set boot partition to \"%s\" @ %06x\n", sbp->label, sbp->address);
 			}
 		else
-			my_printf("\nPritition \"%s\", not found in partition list", boot_args.pname->sval[0]);
+			my_printf("Partition \"%s\", not found in partition list\n", boot_args.pname->sval[0]);
 		}
 	return 0;
 	}

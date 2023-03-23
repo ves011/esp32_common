@@ -309,7 +309,7 @@ int wifi_connect(int argc, char **argv)
     if (nerrors != 0)
     	{
         //arg_print_errors(stderr, join_args.end, argv[0]);
-        my_printf("\n%s arguments error", argv[0]);
+        my_printf("%s arguments error\n", argv[0]);
         return 1;
     	}
     ESP_LOGI(__func__, "Connecting to '%s'", join_args.ssid->sval[0]);

@@ -207,12 +207,12 @@ static int mqtt_send(int argc, char **argv)
 	if (nerrors != 0)
     	{
         //arg_print_errors(stderr, mqtt_pargs.end, argv[0]);
-        my_printf("\n%s arguments error", argv[0]);
+        my_printf("%s arguments error\n", argv[0]);
         return 1;
     	}
 	if(mqtt_pargs.topic->count == 0)
 		{
-		my_printf("\nNo topic provided");
+		my_printf("No topic provided\n");
 		return 1;
 		}
 	else
@@ -236,12 +236,12 @@ static int mqtt_subscribe(int argc, char **argv)
 	if (nerrors != 0)
     	{
         //arg_print_errors(stderr, mqtt_sargs.end, argv[0]);
-        my_printf("\n%s arguments error", argv[0]);
+        my_printf("%s arguments error\n", argv[0]);
         return 1;
     	}
     if(mqtt_sargs.topic->count == 0)
 		{
-		my_printf("\nNo topic provided");
+		my_printf("No topic provided\n");
 		return 1;
 		}
 	else
