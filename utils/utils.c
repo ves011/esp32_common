@@ -161,11 +161,7 @@ int rw_params(int rw, int param_type, void * param_val)
 								if(fgets(buf, 64, f))
 									{
 									((pump_limits_t *)param_val)->stdev = atoi(buf);
-									if(fgets(buf, 64, f))
-										{
-										((pump_limits_t *)param_val)->overp_lim = atoi(buf);
-										ret = ESP_OK;
-										}
+									ret = ESP_OK;
 									}
 								}
 							}
@@ -277,9 +273,7 @@ int rw_params(int rw, int param_type, void * param_val)
 				}
 			else
 				{
-				sprintf(buf, "%d\n%d\n%d\n%d\n%d\n",
-						((pump_limits_t *)param_val)->min_val, ((pump_limits_t *)param_val)->max_val, ((pump_limits_t *)param_val)->faultc,
-						((pump_limits_t *)param_val)->stdev, ((pump_limits_t *)param_val)->overp_lim);
+				sprintf(buf, "%d\n%d\n%d\n%d\n", ((pump_limits_t *)param_val)->min_val, ((pump_limits_t *)param_val)->max_val, ((pump_limits_t *)param_val)->faultc, ((pump_limits_t *)param_val)->stdev);
 				if(fputs(buf, f) >= 0)
 					ret = ESP_OK;
 				fclose(f);
