@@ -790,7 +790,7 @@ static int boot_from(int argc, char **argv)
     	}
     const esp_partition_t *running = esp_ota_get_running_partition();
     const esp_partition_t *bootp = esp_ota_get_boot_partition();
-    const esp_partition_t *np = NULL, *sbp = NULL;;
+    const esp_partition_t *np = NULL, *sbp = NULL;
     int bp = 0, rp = 0;
     esp_partition_iterator_t pit = esp_partition_find(ESP_PARTITION_TYPE_APP, ESP_PARTITION_SUBTYPE_ANY, NULL);
     my_printf("Available partitions\n");
