@@ -13,11 +13,6 @@
 #define PUMP_CONTROLLER					2 //pump controller
 #define OTA_CONTROLLER					3 // OTA factory app
 
-//#define ACTIVE_CONTROLLER			AGATE_CONTROLLER
-//#define ACTIVE_CONTROLLER			PUMP_CONTROLLER
-//#define ACTIVE_CONTROLLER			OTA_CONTROLLER
-//#define CTRL_DEV_ID					1
-
 #include "project_specific.h"
 
 #define USER_TASK_PRIORITY			5
@@ -50,37 +45,16 @@
 #define DEVICE_TOPIC_Q				"gnetdev/query"
 #define DEVICE_TOPIC_R				"gnetdev/response"
 
-/*
- * topics base definition and USR_MQTT
- * prefix + 2 digit ctrl_id
- * pump + 01 for pump with CTRL_DEV_ID = 1
- */
 
 #if ACTIVE_CONTROLLER  == OTA_CONTROLLER
-	#define TOPIC_STATE				"ota/state"
-	#define TOPIC_MONITOR			"NA"
-	#define TOPIC_CMD				"ota/cmd"
-	#define TOPIC_CTRL				"ota/ctrl"
-	#define TOPIC_SYSTEM			"ota/system"
-	#define USER_MQTT				"OTA"
 	#define DEV_NAME				"OTA"
 #endif
 
 #if ACTIVE_CONTROLLER == AGATE_CONTROLLER
-	#define TOPIC_STATE				"gate01/state"
-	#define TOPIC_MONITOR			"gate01/monitor"
-	#define TOPIC_CMD				"gate01/cmd"
-	#define TOPIC_CTRL				"gate01/ctrl"
-	#define USER_MQTT				"gate01"
 	#define DEV_NAME				"Poarta Auto"
 #endif
 
 #if ACTIVE_CONTROLLER == PUMP_CONTROLLER
-	#define TOPIC_STATE				"pump01/state"
-	#define TOPIC_MONITOR			"pump01/monitor"
-	#define TOPIC_CMD				"pump01/cmd"
-	#define TOPIC_CTRL				"pump01/ctrl"
-	#define USER_MQTT				"pump01"
 	#define DEV_NAME				"Pompa Foraj"
 #endif
 

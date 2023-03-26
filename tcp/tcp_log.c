@@ -20,7 +20,12 @@
 #include "freertos/freertos.h"
 #include "freertos/task.h"
 #include "freertos/queue.h"
+#include "esp_spiffs.h"
+#include "esp_vfs_dev.h"
+#include "esp_vfs_fat.h"
+#include "mqtt_client.h"
 #include "common_defines.h"
+#include "external_defs.h"
 #include "tcp_log.h"
 
 static int tcp_log_enable;

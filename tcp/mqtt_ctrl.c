@@ -43,12 +43,17 @@ esp_mqtt_client_handle_t client;
 int client_connected = 0;
 static const char *TAG = "MQTTClient";
 
+static char TOPIC_STATE[32], TOPIC_MONITOR[32], TOPIC_CTRL[32], TOPIC_CMD[32];
+char USER_MQTT[32];
+
 extern const uint8_t client_cert_pem_start[] asm("_binary_client_crt_start");
 extern const uint8_t client_cert_pem_end[] asm("_binary_client_crt_end");
 extern const uint8_t client_key_pem_start[] asm("_binary_client_key_start");
 extern const uint8_t client_key_pem_end[] asm("_binary_client_key_end");
 extern const uint8_t server_cert_pem_start[] asm("_binary_ca_crt_start");
 extern const uint8_t server_cert_pem_end[] asm("_binary_ca_crt_end");
+
+static void create_topics(void);
 
 static struct
 	{
@@ -300,6 +305,7 @@ int mqtt_start(void)
         .task_stack = 8192,
         //.disable_clean_session = false,
     	};
+    create_topics();
     client = esp_mqtt_client_init(&mqtt_cfg);
     if(client)
     	{
@@ -310,7 +316,7 @@ int mqtt_start(void)
     return ret;
     }
 
-void publish(char *topic, char *msg, int qos, int retain)
+void publish_state(char *msg, int qos, int retain)
 	{
 	time_t now;
     struct tm timeinfo;
@@ -326,7 +332,27 @@ void publish(char *topic, char *msg, int qos, int retain)
 		strcat(strtime, "\1");
 		strcat(strtime, msg);
 
-		esp_mqtt_client_publish(client, topic, strtime, strlen(strtime), qos, retain);
+		esp_mqtt_client_publish(client, TOPIC_STATE, strtime, strlen(strtime), qos, retain);
+		}
+	}
+
+void publish_monitor(char *msg, int qos, int retain)
+	{
+	time_t now;
+    struct tm timeinfo;
+    char strtime[1024];
+	if(!client)
+		ESP_LOGE(TAG, "Client not connected");
+	else
+		{
+		time(&now);
+		localtime_r(&now, &timeinfo);
+		strftime(strtime, sizeof(strtime), "%Y-%m-%d/%H:%M:%S\1", &timeinfo);
+		strcat(strtime, USER_MQTT);
+		strcat(strtime, "\1");
+		strcat(strtime, msg);
+
+		esp_mqtt_client_publish(client, TOPIC_MONITOR, strtime, strlen(strtime), qos, retain);
 		}
 	}
 
@@ -336,7 +362,26 @@ void publish_MQTT_client_status()
     char msg[150];
     uint64_t tmsec = esp_timer_get_time() /1000000;
 	time(&now);
-	sprintf(msg, "%s\1" IPSTR "\1%d\1%lu\1%llu",
-			DEV_NAME, IP2STR(&dev_ipinfo.ip), CTRL_DEV_ID, now, tmsec);
-	publish(DEVICE_TOPIC_R, msg, 0, 1);
+	sprintf(msg, "%s\1%s\1" IPSTR "\1%d\1%lu\1%llu",
+			USER_MQTT, DEV_NAME, IP2STR(&dev_ipinfo.ip), CTRL_DEV_ID, now, tmsec);
+	esp_mqtt_client_publish(client, DEVICE_TOPIC_R, msg, strlen(msg), 0, 1);
+	}
+
+void create_topics()
+	{
+#if ACTIVE_CONTROLLER == PUMP_CONTROLLER
+	sprintf(USER_MQTT, "pump%02d", CTRL_DEV_ID);
+#elif ACTIVE_CONTROLLER == AGATE_CONTROLLER
+	sprintf(USER_MQTT, "gate%02d", CTRL_DEV_ID);
+#elif ACTIVE_CONTROLLER == OTA_CONTROLLER
+	sprintf(USER_MQTT, "ota%02d", CTRL_DEV_ID);
+#endif
+	strcpy(TOPIC_STATE, USER_MQTT);
+	strcat(TOPIC_STATE, "/state");
+	strcpy(TOPIC_MONITOR, USER_MQTT);
+	strcat(TOPIC_MONITOR, "/monitor");
+	strcpy(TOPIC_CMD, USER_MQTT);
+	strcat(TOPIC_CMD, "/cmd");
+	strcpy(TOPIC_CTRL, USER_MQTT);
+	strcat(TOPIC_CTRL, "/ctrl");
 	}
