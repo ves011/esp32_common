@@ -359,12 +359,16 @@ void publish_monitor(char *msg, int qos, int retain)
 void publish_MQTT_client_status()
 	{
 	time_t now;
+	struct tm timeinfo;
     char msg[150];
+    char strtime[50];
     uint64_t tmsec = esp_timer_get_time() /1000000;
 	time(&now);
-	sprintf(msg, "%s\1%s\1" IPSTR "\1%d\1%lu\1%llu",
-			USER_MQTT, DEV_NAME, IP2STR(&dev_ipinfo.ip), CTRL_DEV_ID, now, tmsec);
-	esp_mqtt_client_publish(client, DEVICE_TOPIC_R, msg, strlen(msg), 0, 1);
+	localtime_r(&now, &timeinfo);
+	strftime(strtime, sizeof(strtime), "%Y-%m-%d/%H:%M:%S\1", &timeinfo);
+	sprintf(msg, "%s\1%s\1" IPSTR "\1%d\1%s\1%llu",
+			USER_MQTT, DEV_NAME, IP2STR(&dev_ipinfo.ip), CTRL_DEV_ID, strtime, tmsec);
+	esp_mqtt_client_publish(client, DEVICE_TOPIC_R, msg, strlen(msg), 0, 0);
 	}
 
 void create_topics()
