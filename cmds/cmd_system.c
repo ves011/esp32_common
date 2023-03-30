@@ -7,6 +7,12 @@
    CONDITIONS OF ANY KIND, either express or implied.
 */
 
+/**
+ * @file cmd_system.c
+ * @brief implements processing functions for "system" commands
+ * @brief register functions: register_...() --> register the specific system command and specifies the arguments
+ */
+
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>
