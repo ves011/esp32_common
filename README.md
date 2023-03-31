@@ -11,6 +11,14 @@ The current CMakeList.txt places this folder at the same level with application 
 If you place it differently update CMakeList.txt<br>
 ### esp32_common/cmds
 implements system and wifi utility commands
+> Note about <b>console</b> command
+>> console on | off | tcp
+>>> on --> display messages (printfs, ESP_LOGx) on the serial console<br>
+>>> tcp --> redirects all messages to LOG_SERVER listening on LOG_PORT (tcp_log.h)
+>>>> on the server machine just run <b>ncat -l LOG_PORT -k</b><br>
+
+>>> off --> mute all your messages, but IDF components using printf directly cannot be muted
+
 ### esp32_common/tcp
 implements mqtt client, NTP sync and log redirection over TCP
 ### esp32_common/utils
