@@ -134,6 +134,10 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
 				msg[i] = event->data[i];
 			msg[i] = 0;
 			ESP_LOGI(TAG, "MQTT_EVENT_DATA: %s - %s / %d / %d", topic, msg, event->topic_len, event->data_len);
+			/*
+			 * based on assumption no more than 10 arguments will be provided for a command
+			 * if wrong assumption: CRASH
+			*/
 			argv = calloc(10, sizeof(char *));
 			argc = 0;
 			ac = 0;
