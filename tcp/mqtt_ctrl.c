@@ -36,6 +36,8 @@
 #include "pumpop.h"
 #elif ACTIVE_CONTROLLER == AGATE_CONTROLLER
 #include "gateop.h"
+#elif ACTIVE_CONTROLLER == WESTA_CONTROLLER
+#include "westaop.h"
 #endif
 
 #define CONFIG_BROKER_URL "mqtts://proxy.gnet:1886"
@@ -173,6 +175,9 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
 #elif ACTIVE_CONTROLLER == AGATE_CONTROLLER
 				strcpy(argv[0], "gate");
 				do_gateop(argc, argv);
+#elif ACTIVE_CONTROLLER == WESTA_CONTROLLER
+				strcpy(argv[0], "westa");
+				do_westaop(argc, argv);
 #endif
 				}
 			else if(strcmp(topic, TOPIC_CTRL) == 0)
@@ -383,6 +388,8 @@ void create_topics()
 	sprintf(USER_MQTT, "gate%02d", CTRL_DEV_ID);
 #elif ACTIVE_CONTROLLER == OTA_CONTROLLER
 	sprintf(USER_MQTT, "ota%02d", CTRL_DEV_ID);
+#elif ACTIVE_CONTROLLER == WESTA_CONTROLLER
+	sprintf(USER_MQTT, "westa%02d", CTRL_DEV_ID);
 #endif
 	strcpy(TOPIC_STATE, USER_MQTT);
 	strcat(TOPIC_STATE, "/state");

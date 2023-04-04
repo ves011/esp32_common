@@ -65,6 +65,8 @@ static void register_uptime(void);
 static void register_ls(void);
 static void register_console(void);
 static void register_boot(void);
+static void register_cat(void);
+static void register_rm(void);
 #if ACTIVE_CONTROLLER == OTA_CONTROLLER
 static int ota_start(int argc, char **argv);
 static void register_ota(void);
@@ -83,6 +85,8 @@ void register_system_common(void)
     register_ls();
     register_console();
     register_boot();
+    register_cat();
+    register_rm();
 #if ACTIVE_CONTROLLER == OTA_CONTROLLER
     register_ota();
 #endif
@@ -310,6 +314,12 @@ struct
     struct arg_end *end;
 	} ls_args;
 
+struct
+	{
+    struct arg_str *fname;
+    struct arg_end *end;
+	} cat_args;
+
 static int ls_files(int argc, char **argv)
 	{
 	esp_err_t ret;
@@ -341,74 +351,58 @@ static int ls_files(int argc, char **argv)
 		.max_files = 5,
 		.format_if_mount_failed = true
 		};
-	/*
-	ret = esp_vfs_spiffs_register(&conf);
-	if(ret != ESP_OK)
-		{
-		if (ret == ESP_FAIL)
-            ESP_LOGE(TAG, "Failed to mount or format filesystem");
-        else if (ret == ESP_ERR_NOT_FOUND)
-            ESP_LOGE(TAG, "Failed to find SPIFFS partition");
-        else
-            ESP_LOGE(TAG, "Failed to initialize SPIFFS (%d)", ret);
-        return ret;
-        }
-    else*/
-    	{
-    	ret = esp_spiffs_info(conf.partition_label, &total, &used);
-		if (ret != ESP_OK)
-			{
-			ESP_LOGI(TAG, "Failed to get SPIFFS partition information (%s). Formatting...", esp_err_to_name(ret));
-			ret = esp_spiffs_format(conf.partition_label);
-			if(ret != ESP_OK)
-				{
-				ESP_LOGI(TAG, "Failed to format SPIFFS partition (%s)", esp_err_to_name(ret));
-				esp_vfs_spiffs_unregister(conf.partition_label);
-				return ret;
-				}
-			ret = esp_spiffs_info(conf.partition_label, &total, &used);
-			if(ret != ESP_OK)
-				{
-				ESP_LOGI(TAG, "Failed to get SPIFFS partition information (%s).", esp_err_to_name(ret));
-				esp_vfs_spiffs_unregister(conf.partition_label);
-				return ret;
-				}
-			}
-		my_printf("Partition name: %s / total size: %-d / used: %-d\n", conf.partition_label, total, used);
-		strcpy(pfname, "/var");
-		strcat(pfname, path);
-		strcpy(path, pfname);
-		dir = opendir(path);
-		ESP_LOGI(TAG, "%s", path);
-		if (!dir)
-			{
-			my_printf("Error opening %s directory\n", path);
-			esp_vfs_spiffs_unregister(conf.partition_label);
-			return ESP_FAIL;
-			}
 
-		while ((ent = readdir(dir)) != NULL)
+   	ret = esp_spiffs_info(conf.partition_label, &total, &used);
+	if (ret != ESP_OK)
+		{
+		ESP_LOGI(TAG, "Failed to get SPIFFS partition information (%s). Formatting...", esp_err_to_name(ret));
+		ret = esp_spiffs_format(conf.partition_label);
+		if(ret != ESP_OK)
 			{
-			if (ent->d_type == DT_REG)
-				ftype  = '-';
-			else
-				ftype = 'd';
-			strcpy(pfname, path);
-			strcat(pfname, "/");
-			strcat(pfname, ent->d_name);
-			sprintf(outputm, " %c    %-25s   ", ftype, ent->d_name);
-			if(stat(pfname, &st) == 0)
-				{
-				sprintf(pfname, "%6d    ", (uint32_t)(st.st_size));
-				strcat(outputm, pfname);
-				strcat(outputm, ctime (&st.st_mtim.tv_sec));
-				}
-			my_printf("%s", outputm);
+			ESP_LOGI(TAG, "Failed to format SPIFFS partition (%s)", esp_err_to_name(ret));
+			esp_vfs_spiffs_unregister(conf.partition_label);
+			return ret;
 			}
-		my_printf("\n");
-		closedir(dir);
-    	}
-    //esp_vfs_spiffs_unregister(conf.partition_label);
+		ret = esp_spiffs_info(conf.partition_label, &total, &used);
+		if(ret != ESP_OK)
+			{
+			ESP_LOGI(TAG, "Failed to get SPIFFS partition information (%s).", esp_err_to_name(ret));
+			esp_vfs_spiffs_unregister(conf.partition_label);
+			return ret;
+			}
+		}
+	my_printf("Partition name: %s / total size: %-d / used: %-d\n", conf.partition_label, total, used);
+	strcpy(pfname, "/var");
+	strcat(pfname, path);
+	strcpy(path, pfname);
+	dir = opendir(path);
+	ESP_LOGI(TAG, "%s", path);
+	if (!dir)
+		{
+		my_printf("Error opening %s directory\n", path);
+		//esp_vfs_spiffs_unregister(conf.partition_label);
+		return ESP_FAIL;
+		}
+	while ((ent = readdir(dir)) != NULL)
+		{
+		if (ent->d_type == DT_REG)
+			ftype  = '-';
+		else
+			ftype = 'd';
+		strcpy(pfname, path);
+		strcat(pfname, "/");
+		strcat(pfname, ent->d_name);
+		sprintf(outputm, " %c    %-25s   ", ftype, ent->d_name);
+		if(stat(pfname, &st) == 0)
+			{
+			sprintf(pfname, "%6d    ", (uint32_t)(st.st_size));
+			strcat(outputm, pfname);
+			strcat(outputm, ctime (&st.st_mtim.tv_sec));
+			}
+		my_printf("%s", outputm);
+		}
+	my_printf("\n");
+	closedir(dir);
 	return ret;
 	}
 static void register_ls(void)
@@ -426,6 +420,99 @@ static void register_ls(void)
 	ESP_ERROR_CHECK( esp_console_cmd_register(&cmd) );
 	}
 
+static int cat_file(int argc, char **argv)
+	{
+	char path[64], outputm[300];
+	struct stat st;
+	int nerrors = arg_parse(argc, argv, (void **)&cat_args);
+	if (nerrors != 0)
+    	{
+        //arg_print_errors(stderr, ls_args.end, argv[0]);
+        my_printf("%s arguments error\n", argv[0]);
+        return 1;
+    	}
+    strcpy(path, "/var/");
+	strcat(path, cat_args.fname->sval[0]);
+	if (stat(path, &st) != 0)
+		{
+		// file does no exists
+		my_printf("file %s does not exists\n", path);
+		return 0;
+		}
+	else
+		{
+		FILE *f = fopen(path, "r");
+		if (f != NULL)
+			{
+			while(!feof(f))
+				{
+				fgets(outputm, 298, f);
+				if(feof(f))
+					break;
+				my_printf("%s", outputm);
+				}
+			fclose(f);
+			my_printf("\nEOF\n");
+			}
+		}
+	return 0;
+	}
+static void register_cat(void)
+	{
+	cat_args.fname = arg_str1(NULL, NULL, "<file_name>", "file name");
+	cat_args.end = arg_end(1);
+	const esp_console_cmd_t cmd =
+		{
+		.command = "cat",
+		.help = "show content of file in \"user\" partition",
+		.hint = NULL,
+		.func = &cat_file,
+		.argtable = &cat_args,
+		};
+	ESP_ERROR_CHECK( esp_console_cmd_register(&cmd) );
+	}
+
+static int rm_file(int argc, char **argv)
+	{
+	char path[64];
+	struct stat st;
+	int nerrors = arg_parse(argc, argv, (void **)&cat_args);
+	if (nerrors != 0)
+    	{
+        //arg_print_errors(stderr, ls_args.end, argv[0]);
+        my_printf("%s arguments error\n", argv[0]);
+        return 1;
+    	}
+    strcpy(path, "/var/");
+	strcat(path, cat_args.fname->sval[0]);
+	if (stat(path, &st) != 0)
+		{
+		// file does no exists
+		my_printf("file %s does not exists\n", path);
+		return 0;
+		}
+	else
+		{
+		int res = unlink(path);
+		if(res < 0)
+			my_printf("Error deleting file %d\n", errno);
+		}
+	return 0;
+	}
+static void register_rm(void)
+	{
+	cat_args.fname = arg_str1(NULL, NULL, "<file_name>", "file name");
+	cat_args.end = arg_end(1);
+	const esp_console_cmd_t cmd =
+		{
+		.command = "rm",
+		.help = "remove the file in \"user\" partition",
+		.hint = NULL,
+		.func = &rm_file,
+		.argtable = &cat_args,
+		};
+	ESP_ERROR_CHECK( esp_console_cmd_register(&cmd) );
+	}
 /* 'heap' command prints minumum heap size */
 static int heap_size(int argc, char **argv)
 {

@@ -12,6 +12,7 @@
 #define AGATE_CONTROLLER				1 //auto gate
 #define PUMP_CONTROLLER					2 //pump controller
 #define OTA_CONTROLLER					3 // OTA factory app
+#define WESTA_CONTROLLER				4 // weather station controller
 
 #include "project_specific.h"
 
@@ -48,14 +49,12 @@
 
 #if ACTIVE_CONTROLLER  == OTA_CONTROLLER
 	#define DEV_NAME				"OTA"
-#endif
-
-#if ACTIVE_CONTROLLER == AGATE_CONTROLLER
+#elif ACTIVE_CONTROLLER == AGATE_CONTROLLER
 	#define DEV_NAME				"Poarta Auto"
-#endif
-
-#if ACTIVE_CONTROLLER == PUMP_CONTROLLER
+#elif ACTIVE_CONTROLLER == PUMP_CONTROLLER
 	#define DEV_NAME				"Pompa Foraj"
+#elif ACTIVE_CONTROLLER == WESTA_CONTROLLER
+	#define DEV_NAME				"Statia meteo"
 #endif
 
 #define LOG_SERVER					"proxy.gnet"

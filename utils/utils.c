@@ -322,4 +322,31 @@ int rw_params(int rw, int param_type, void * param_val)
     //esp_vfs_spiffs_unregister(conf.partition_label);
 	return ret;
 	}
+int rw_tpdata(int rw, double bmp_t, double bmp_p, double dht_t, double dht_h)
+	{
+	FILE *f = NULL;
+	time_t now = 0;
+    struct tm timeinfo = { 0 };
+    char strtime[100], file_name[64], fbuf[400];
+    int ret;
+	time(&now);
+	localtime_r(&now, &timeinfo);
+	strftime(strtime, sizeof(strtime), "%Y-%m-%d/%H:%M:%S", &timeinfo);
+	sprintf(file_name, "%s/%d.tph", BASE_PATH, timeinfo.tm_year + 1900);
+	if(rw == PARAM_WRITE)
+	f = fopen(file_name, "a");
+	if(f)
+		{
+		sprintf(fbuf, "%s %.3f %.3f %.3f %.3f\n", strtime, bmp_t, bmp_p, dht_t, dht_h);
+		fputs(fbuf, f);
+		fclose(f);
+		ret =  ESP_OK;
+		}
+	else
+		{
+		ESP_LOGI(TAG, "Cannot open %s for writing. errnp = %d", file_name, errno);
+		ret = ESP_FAIL;
+		}
+	return ret;
+	}
 
