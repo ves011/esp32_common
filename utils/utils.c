@@ -29,7 +29,7 @@
 #include "pumpop.h"
 #endif
 
-const char *TAG = "SPIFFS_RW";
+static const char *TAG = "SPIFFS_RW";
 
 int my_log_vprintf(const char *fmt, va_list arguments)
 	{
@@ -322,7 +322,7 @@ int rw_params(int rw, int param_type, void * param_val)
     //esp_vfs_spiffs_unregister(conf.partition_label);
 	return ret;
 	}
-int rw_tpdata(int rw, double bmp_t, double bmp_p, double dht_t, double dht_h)
+int rw_tpdata(int rw, char *bufdata)
 	{
 	FILE *f = NULL;
 	time_t now = 0;
@@ -334,10 +334,10 @@ int rw_tpdata(int rw, double bmp_t, double bmp_p, double dht_t, double dht_h)
 	strftime(strtime, sizeof(strtime), "%Y-%m-%d/%H:%M:%S", &timeinfo);
 	sprintf(file_name, "%s/%d.tph", BASE_PATH, timeinfo.tm_year + 1900);
 	if(rw == PARAM_WRITE)
-	f = fopen(file_name, "a");
+		f = fopen(file_name, "a");
 	if(f)
 		{
-		sprintf(fbuf, "%s %.3f %.3f %.3f %.3f\n", strtime, bmp_t, bmp_p, dht_t, dht_h);
+		sprintf(fbuf, "%s %s\n", strtime, bufdata);
 		fputs(fbuf, f);
 		fclose(f);
 		ret =  ESP_OK;
