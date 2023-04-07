@@ -41,6 +41,7 @@
 #define PARAM_V_OFFSET				(1)
 #define PARAM_LIMITS				(2)
 #define PARAM_OPERATIONAL			(3)
+#define PARAM_PNORM					(4)
 #define PARAM_CONSOLE				(10)
 
 #define DEVICE_TOPIC_Q				"gnetdev/query"

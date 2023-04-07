@@ -28,6 +28,9 @@
 #include "adc_op.h"
 #include "pumpop.h"
 #endif
+#if ACTIVE_CONTROLLER == WESTA_CONTROLLER
+#include "westaop.h"
+#endif
 
 static const char *TAG = "SPIFFS_RW";
 
@@ -103,6 +106,40 @@ int rw_params(int rw, int param_type, void * param_val)
     ret = ESP_FAIL;
     if(rw == PARAM_READ)
     	{
+#if ACTIVE_CONTROLLER == WESTA_CONTROLLER
+		if(param_type == PARAM_PNORM)
+			{
+			if (stat(BASE_PATH"/"PNORM_FILE, &st) != 0)
+				{
+				// file does no exists
+				((pnorm_param_t *)param_val)->hmp = DEFAULT_ELEVATION;
+				((pnorm_param_t *)param_val)->psl = DEFAULT_PSL;
+				ret = ESP_OK;
+				}
+			else
+				{
+				FILE *f = fopen(BASE_PATH"/"PNORM_FILE, "r");
+				if (f != NULL)
+					{
+					double p = 0, h = 0;
+					if(fgets(buf, 64, f))
+						{
+						sscanf(buf, "%lf %lf", &p, &h);
+						}
+					((pnorm_param_t *)param_val)->hmp = h;
+					((pnorm_param_t *)param_val)->psl = p;
+					fclose(f);
+					ret = ESP_OK;
+					}
+				else
+					{
+					ESP_LOGE(TAG, "Failed to open pnorm file for reading");
+						//esp_vfs_spiffs_unregister(conf.partition_label);
+					return ret;
+					}
+				}
+			}
+#endif
 #if ACTIVE_CONTROLLER == PUMP_CONTROLLER
     	if(param_type == PARAM_V_OFFSET)
     		{
@@ -252,6 +289,23 @@ int rw_params(int rw, int param_type, void * param_val)
 		}
     else if(rw == PARAM_WRITE)
     	{
+#if ACTIVE_CONTROLLER == WESTA_CONTROLLER
+    	if(param_type == PARAM_PNORM)
+    		{
+    		FILE *f = fopen(BASE_PATH"/"PNORM_FILE, "w");
+			if (f == NULL)
+				{
+				ESP_LOGE(TAG, "Failed to create pnorm param file");
+				}
+			else
+				{
+				sprintf(buf, "%.3lf %.3lf\n", ((pnorm_param_t *)param_val)->hmp, ((pnorm_param_t *)param_val)->psl);
+				if(fputs(buf, f) >= 0)
+					ret = ESP_OK;
+				fclose(f);
+				}
+			}
+#endif
 #if ACTIVE_CONTROLLER == PUMP_CONTROLLER
     	if(param_type == PARAM_V_OFFSET)
     		{
