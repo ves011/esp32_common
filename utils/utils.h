@@ -11,6 +11,6 @@
 void my_printf(char *format, ...);
 int my_log_vprintf(const char *fmt, va_list arguments);
 int rw_params(int rw, int param_type, void * param_val);
-int rw_tpdata(int rw, char * bufdata);
+int write_tpdata(int rw, char *bufdata);
 
 #endif /* MAIN_UTILS_H_ */

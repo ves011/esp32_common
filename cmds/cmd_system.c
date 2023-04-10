@@ -424,6 +424,7 @@ static int cat_file(int argc, char **argv)
 	{
 	char path[64], outputm[300];
 	struct stat st;
+	int i;
 	int nerrors = arg_parse(argc, argv, (void **)&cat_args);
 	if (nerrors != 0)
     	{
@@ -444,15 +445,17 @@ static int cat_file(int argc, char **argv)
 		FILE *f = fopen(path, "r");
 		if (f != NULL)
 			{
+			i = 0;
 			while(!feof(f))
 				{
 				fgets(outputm, 298, f);
 				if(feof(f))
 					break;
 				my_printf("%s", outputm);
+				i++;
 				}
 			fclose(f);
-			my_printf("\nEOF\n");
+			my_printf("\nEOF %d lines\n", i);
 			}
 		}
 	return 0;

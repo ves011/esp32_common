@@ -299,7 +299,7 @@ int rw_params(int rw, int param_type, void * param_val)
 				}
 			else
 				{
-				sprintf(buf, "%.3lf %.3lf\n", ((pnorm_param_t *)param_val)->hmp, ((pnorm_param_t *)param_val)->psl);
+				sprintf(buf, "%.3lf %.3lf\n", ((pnorm_param_t *)param_val)->psl, ((pnorm_param_t *)param_val)->hmp);
 				if(fputs(buf, f) >= 0)
 					ret = ESP_OK;
 				fclose(f);
@@ -376,30 +376,38 @@ int rw_params(int rw, int param_type, void * param_val)
     //esp_vfs_spiffs_unregister(conf.partition_label);
 	return ret;
 	}
-int rw_tpdata(int rw, char *bufdata)
+int write_tpdata(int rw, char *bufdata)
 	{
 	FILE *f = NULL;
 	time_t now = 0;
     struct tm timeinfo = { 0 };
     char strtime[100], file_name[64], fbuf[400];
-    int ret;
+    int ret = ESP_FAIL;
 	time(&now);
 	localtime_r(&now, &timeinfo);
 	strftime(strtime, sizeof(strtime), "%Y-%m-%d/%H:%M:%S", &timeinfo);
 	sprintf(file_name, "%s/%d.tph", BASE_PATH, timeinfo.tm_year + 1900);
 	if(rw == PARAM_WRITE)
-		f = fopen(file_name, "a");
-	if(f)
 		{
-		sprintf(fbuf, "%s %s\n", strtime, bufdata);
-		fputs(fbuf, f);
-		fclose(f);
-		ret =  ESP_OK;
-		}
-	else
-		{
-		ESP_LOGI(TAG, "Cannot open %s for writing. errnp = %d", file_name, errno);
-		ret = ESP_FAIL;
+		if(xSemaphoreTake(pthfile_mutex, ( TickType_t ) 50 )) // 2 sec wait
+			{
+			f = fopen(file_name, "a");
+			if(f)
+				{
+				sprintf(fbuf, "%s %s\n", strtime, bufdata);
+				fputs(fbuf, f);
+				fclose(f);
+				ret =  ESP_OK;
+				}
+			else
+				{
+				ESP_LOGI(TAG, "Cannot open %s for writing. errno = %d", file_name, errno);
+				ret = ESP_FAIL;
+				}
+			xSemaphoreGive(pthfile_mutex);
+			}
+		else
+			ret = ESP_FAIL;
 		}
 	return ret;
 	}
