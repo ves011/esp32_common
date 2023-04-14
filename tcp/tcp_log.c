@@ -72,6 +72,9 @@ int tcp_log_init(void)
 int tcp_log_message(char *message)
 	{
 	char buf[1024];
+	//if !tcp_log_enable try to init first
+	if(!tcp_log_enable)
+		tcp_log_init();
 	if(tcp_log_enable)
 		{
 		strcpy(buf, USER_MQTT);

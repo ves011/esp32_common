@@ -17,6 +17,8 @@
 #include <string.h>
 #include <ctype.h>
 #include <unistd.h>
+#include <netdb.h>
+#include <sys/dirent.h>
 #include "esp_log.h"
 #include "esp_console.h"
 #include "esp_system.h"
@@ -35,18 +37,21 @@
 #include <sys/fcntl.h>
 #include "esp_vfs.h"
 #include "esp_spiffs.h"
+#include <dirent.h>
+#include <sys/stat.h>
 #include "ping/ping_sock.h"
 #include "mqtt_client.h"
 #include "esp_flash_partitions.h"
 #include "esp_partition.h"
 #include "esp_ota_ops.h"
+#include "sdkconfig.h"
 #include "common_defines.h"
 #include "external_defs.h"
 #include "utils.h"
 #include "ota.h"
 #include "cmd_system.h"
 #include "cmd_wifi.h"
-#include "sdkconfig.h"
+
 
 
 #ifdef CONFIG_FREERTOS_USE_STATS_FORMATTING_FUNCTIONS
@@ -67,10 +72,8 @@ static void register_console(void);
 static void register_boot(void);
 static void register_cat(void);
 static void register_rm(void);
-#if ACTIVE_CONTROLLER == OTA_CONTROLLER
 static int ota_start(int argc, char **argv);
 static void register_ota(void);
-#endif
 #if WITH_TASKS_INFO
 static void register_tasks(void);
 #endif
@@ -87,9 +90,7 @@ void register_system_common(void)
     register_boot();
     register_cat();
     register_rm();
-#if ACTIVE_CONTROLLER == OTA_CONTROLLER
     register_ota();
-#endif
 #if WITH_TASKS_INFO
     register_tasks();
 #endif
@@ -547,13 +548,13 @@ static int tasks_info(int argc, char **argv)
         ESP_LOGE(TAG, "failed to allocate buffer for vTaskList output");
         return 1;
     }
-    fputs("Task Name\tStatus\tPrio\tHWM\tTask#", stdout);
+    my_fputs("Task Name\tStatus\tPrio\tHWM\tTask#", stdout);
 #ifdef CONFIG_FREERTOS_VTASKLIST_INCLUDE_COREID
     fputs("\tAffinity", stdout);
 #endif
-    fputs("\n", stdout);
+    my_fputs("\n", stdout);
     vTaskList(task_list_buffer);
-    fputs(task_list_buffer, stdout);
+    my_fputs(task_list_buffer, stdout);
     free(task_list_buffer);
     return 0;
 }
@@ -836,7 +837,7 @@ static void register_console(void)
     	};
     ESP_ERROR_CHECK( esp_console_cmd_register(&cmd) );
 	}
-#if ACTIVE_CONTROLLER == OTA_CONTROLLER
+
 static struct
 	{
     struct arg_str *url;
@@ -870,7 +871,7 @@ static void register_ota(void)
     	};
     ESP_ERROR_CHECK( esp_console_cmd_register(&cmd) );
 	}
-#endif
+
 static struct
 	{
     struct arg_str *pname;
@@ -964,8 +965,10 @@ void do_system_cmd(int argc, char **argv)
 		do_ping_cmd(argc, argv);
 	else if(!strcmp(argv[0], "boot"))
 		boot_from(argc, argv);
-#if ACTIVE_CONTROLLER == OTA_CONTROLLER
+	else if(!strcmp(argv[0], "cat"))
+		cat_file(argc, argv);
+	else if(!strcmp(argv[0], "rm"))
+		rm_file(argc, argv);
 	else if(!strcmp(argv[0], "ota"))
 		ota_start(argc, argv);
-#endif
 	}

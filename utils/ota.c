@@ -21,7 +21,6 @@
 #include "wear_levelling.h"
 #include "esp_console.h"
 #include "driver/gpio.h"
-#include "protocol_examples_common.h"
 #include "errno.h"
 #include "esp_spi_flash.h"
 #include "esp_spiffs.h"
@@ -35,7 +34,7 @@
 #define BUFFSIZE 1024
 
 #define OTA_URL_SIZE 256
-#define FW_UPGRADE_URL "http://proxy.gnet:444/fw_upgrade.bin"
+//#define FW_UPGRADE_URL "http://proxy.gnet:444/fw_upgrade.bin"
 TaskHandle_t ota_task_handle;
 
 #define TAG "OTA_TASK"
@@ -43,6 +42,10 @@ TaskHandle_t ota_task_handle;
 /*an ota data write buffer ready to write to the flash*/
 static char ota_write_data[BUFFSIZE + 1] = { 0 };
 
+extern const uint8_t client_cert_pem_start[] asm("_binary_client_crt_start");
+extern const uint8_t client_cert_pem_end[] asm("_binary_client_crt_end");
+extern const uint8_t client_key_pem_start[] asm("_binary_client_key_start");
+extern const uint8_t client_key_pem_end[] asm("_binary_client_key_end");
 extern const uint8_t server_cert_pem_start[] asm("_binary_ca_crt_start");
 extern const uint8_t server_cert_pem_end[] asm("_binary_ca_crt_end");
 
@@ -62,6 +65,27 @@ void print_sha256 (const uint8_t *image_hash, const char *label)
     	}
     ESP_LOGI(TAG, "%s: %s", label, hash_print);
 	}
+static esp_partition_t *get_updateable_partition()
+	{
+	const esp_partition_t *np = NULL;
+	const esp_partition_t *running = esp_ota_get_running_partition();
+	esp_partition_iterator_t pit = esp_partition_find(ESP_PARTITION_TYPE_APP, ESP_PARTITION_SUBTYPE_ANY, NULL);
+    while(pit)
+    	{
+    	np = esp_partition_get(pit);
+    	if(np)
+    		{
+    		if(np != running && np->type == ESP_PARTITION_TYPE_APP)
+				break;
+    		}
+    	pit = esp_partition_next(pit);
+    	}
+	if(np)
+		ESP_LOGI(TAG, "Updateable partition %s @ %0x", np->label, np->address);
+	else
+		ESP_LOGI(TAG, "No updateable partition found");
+	return (esp_partition_t *)np;
+	}
 
 void ota_task(const char *url)
 	{
@@ -71,7 +95,9 @@ void ota_task(const char *url)
     const esp_partition_t *update_partition = NULL;
 
     ESP_LOGI(TAG, "Starting OTA");
-
+	update_partition = get_updateable_partition();
+	if(!update_partition)
+		return;
     const esp_partition_t *configured = esp_ota_get_boot_partition();
     const esp_partition_t *running = esp_ota_get_running_partition();
 
@@ -81,11 +107,13 @@ void ota_task(const char *url)
                  configured->address, running->address);
         ESP_LOGW(TAG, "(This can happen if either the OTA boot data or preferred boot image become corrupted somehow.)");
     	}
+	/*
     if(!strcmp(running->label, OTA_PART_NAME))
     		{
     		ESP_LOGI(TAG, "Cannot do upgrade while running from %s partition\nReboot from factory partition first", OTA_PART_NAME);
     		return;
     		}
+	*/
     ESP_LOGI(TAG, "Running partition type %d subtype %d (offset 0x%08x)",
              running->type, running->subtype, running->address);
 
@@ -93,6 +121,8 @@ void ota_task(const char *url)
     	{
         .url = url,
         .cert_pem = (char *)server_cert_pem_start,
+		.client_cert_pem = (char *)client_cert_pem_start,
+		.client_key_pem = (char *)client_key_pem_start,
         .timeout_ms = 10000,
         .keep_alive_enable = true,
     	};
@@ -112,8 +142,8 @@ void ota_task(const char *url)
     	}
     esp_http_client_fetch_headers(client);
 
-    update_partition = esp_ota_get_next_update_partition(NULL);
-    assert(update_partition != NULL);
+    //update_partition = esp_ota_get_next_update_partition(NULL);
+    //assert(update_partition != NULL);
     ESP_LOGI(TAG, "Writing to partition subtype %d at offset 0x%x",
              update_partition->subtype, update_partition->address);
 

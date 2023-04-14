@@ -1,0 +1,37 @@
+{
+    "env": 
+        {
+        "IDF_TOOLS": "D:/dev/.espressif/tools",
+        "IDF_PATH": "D:/dev/esp-idf-v4.4.3"
+        },
+    "configurations": [
+        {
+            "name": "esp32",
+            "browse": 
+                {
+                "path": [
+                    "${workspaceFolder}",
+                    "${IDF_PATH}",
+                    "${IDF_TOOLS}"
+                ],
+                "limitSymbolsToIncludedHeaders": true
+                },
+            "includePath": [
+                "D:/dev/esp32/esp32_ota/**",
+                "D:/dev/esp32/esp32_common/**",
+                "D:/dev/esp-idf-v4.4.3/components/**",
+                "D:/dev/.espressif/tools/**"
+            ],
+            "defines": [
+                "_DEBUG",
+                "UNICODE",
+                "_UNICODE"
+            ],
+            "compilerPath": "",
+            "cStandard": "c11",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "clang-x64"
+        }
+    ],
+    "version": 4
+    }

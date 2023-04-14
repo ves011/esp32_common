@@ -64,6 +64,18 @@ void my_printf(char *format, ...)
 		tcp_log_message(buf);
 		}
 	}
+void my_fputs(char *buf, FILE *f)
+	{
+	if(console_state == CONSOLE_ON)
+		{
+		puts(buf);
+		}
+	else if(console_state == CONSOLE_TCP)
+		{
+		//puts(buf);
+		tcp_log_message(buf);
+		}
+	}
 int rw_params(int rw, int param_type, void * param_val)
 	{
 	char buf[64];
@@ -376,6 +388,7 @@ int rw_params(int rw, int param_type, void * param_val)
     //esp_vfs_spiffs_unregister(conf.partition_label);
 	return ret;
 	}
+#if ACTIVE_CONTROLLER == WESTA_CONTROLLER
 int write_tpdata(int rw, char *bufdata)
 	{
 	FILE *f = NULL;
@@ -385,7 +398,7 @@ int write_tpdata(int rw, char *bufdata)
     int ret = ESP_FAIL;
 	time(&now);
 	localtime_r(&now, &timeinfo);
-	strftime(strtime, sizeof(strtime), "%Y-%m-%d/%H:%M:%S", &timeinfo);
+	strftime(strtime, sizeof(strtime), "%Y-%m-%dT%H:%M:%S", &timeinfo);
 	sprintf(file_name, "%s/%d.tph", BASE_PATH, timeinfo.tm_year + 1900);
 	if(rw == PARAM_WRITE)
 		{
@@ -411,4 +424,4 @@ int write_tpdata(int rw, char *bufdata)
 		}
 	return ret;
 	}
-
+#endif
