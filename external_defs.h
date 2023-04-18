@@ -2,6 +2,7 @@
 #define EXTERNAL_DEFS_H_
 
 extern int tsync, client_connect_sync;
+extern int controller_op_registered;
 extern esp_netif_ip_info_t dev_ipinfo;
 extern int console_state;
 extern esp_vfs_spiffs_conf_t conf_spiffs;

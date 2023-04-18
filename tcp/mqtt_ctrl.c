@@ -136,65 +136,69 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
 				msg[i] = event->data[i];
 			msg[i] = 0;
 			ESP_LOGI(TAG, "MQTT_EVENT_DATA: %s - %s / %d / %d", topic, msg, event->topic_len, event->data_len);
-			/*
-			 * based on assumption no more than 10 arguments will be provided for a command
-			 * if wrong assumption: CRASH
-			*/
-			argv = calloc(10, sizeof(char *));
-			argc = 0;
-			ac = 0;
-			for(i = 0; i < 10; i++)
+			if(controller_op_registered == 1)
 				{
-				argv[i] = calloc(256, sizeof(uint8_t));
-				argv[i][0] = 0;
-				}
-			for(i = 0; i < event->data_len; i++)
-				{
-				if(isspace(msg[i]))
+				/*
+				 * based on assumption no more than 10 arguments will be provided for a command
+				 * if wrong assumption: CRASH
+				*/
+				argv = calloc(10, sizeof(char *));
+				argc = 0;
+				ac = 0;
+				for(i = 0; i < 10; i++)
 					{
-					if(ac)
-						argv[argc][ac] = 0;
-					ac = 0;
+					argv[i] = calloc(256, sizeof(uint8_t));
+					argv[i][0] = 0;
 					}
-				else
+				for(i = 0; i < event->data_len; i++)
 					{
-					if(ac == 0)
-						argc++;
-					argv[argc][ac++] = msg[i];
+					if(isspace(msg[i]))
+						{
+						if(ac)
+							argv[argc][ac] = 0;
+						ac = 0;
+						}
+					else
+						{
+						if(ac == 0)
+							argc++;
+						argv[argc][ac++] = msg[i];
+						}
 					}
+				if(ac)
+					argv[argc][ac] = 0;
+				ESP_LOGI(TAG, "argc, %d, %s, %s, %s, %s", argc, argv[0], argv[1], argv[2], argv[3]);
+				argc++;
+
+				if(strcmp(topic, TOPIC_CMD) == 0)
+					{
+	#if ACTIVE_CONTROLLER == PUMP_CONTROLLER
+					strcpy(argv[0], "pump");
+					do_pumpop(argc, argv);
+	#elif ACTIVE_CONTROLLER == AGATE_CONTROLLER
+					strcpy(argv[0], "gate");
+					do_gateop(argc, argv);
+	#elif ACTIVE_CONTROLLER == WESTA_CONTROLLER
+					strcpy(argv[0], "westa");
+					do_westaop(argc, argv);
+	#endif
+					}
+				else if(strcmp(topic, TOPIC_CTRL) == 0)
+					{
+					for(i = 0; i < argc - 1; i++)
+						strcpy(argv[i], argv[i + 1]);
+					argc--;
+					do_system_cmd(argc, argv);
+					}
+				else if(strcmp(topic, DEVICE_TOPIC_Q) == 0)
+					{
+					if(!strcmp(argv[1], "reqID"))
+						publish_MQTT_client_status();
+					}
+				for(i = 0; i < 10; i++)
+					free(argv[i]);
+				free(argv);
 				}
-			if(ac)
-				argv[argc][ac] = 0;
-			ESP_LOGI(TAG, "argc, %d, %s, %s, %s, %s", argc, argv[0], argv[1], argv[2], argv[3]);
-			argc++;
-			if(strcmp(topic, TOPIC_CMD) == 0)
-				{
-#if ACTIVE_CONTROLLER == PUMP_CONTROLLER
-				strcpy(argv[0], "pump");
-				do_pumpop(argc, argv);
-#elif ACTIVE_CONTROLLER == AGATE_CONTROLLER
-				strcpy(argv[0], "gate");
-				do_gateop(argc, argv);
-#elif ACTIVE_CONTROLLER == WESTA_CONTROLLER
-				strcpy(argv[0], "westa");
-				do_westaop(argc, argv);
-#endif
-				}
-			else if(strcmp(topic, TOPIC_CTRL) == 0)
-				{
-				for(i = 0; i < argc - 1; i++)
-					strcpy(argv[i], argv[i + 1]);
-				argc--;
-				do_system_cmd(argc, argv);
-				}
-			else if(strcmp(topic, DEVICE_TOPIC_Q) == 0)
-				{
-				if(!strcmp(argv[1], "reqID"))
-					publish_MQTT_client_status();
-				}
-			for(i = 0; i < 10; i++)
-				free(argv[i]);
-			free(argv);
 			break;
 		case MQTT_EVENT_ERROR:
 			ESP_LOGI(TAG, "MQTT_EVENT_ERROR");
