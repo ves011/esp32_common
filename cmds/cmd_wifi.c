@@ -141,7 +141,7 @@ static void event_handler(void* arg, esp_event_base_t event_base,
 static void scan_done_handler(void* arg, esp_event_base_t event_base,
                               int32_t event_id, void* event_data)
 	{
-	ESP_LOGI(WIFITAG, "SCAN DONE event");
+	//ESP_LOGI(WIFITAG, "SCAN DONE event");
 	scan_done = 1;
 	}
 
@@ -458,4 +458,14 @@ void register_wifi(void)
     ESP_ERROR_CHECK( esp_console_cmd_register(&join_cmd) );
     ESP_ERROR_CHECK( esp_console_cmd_register(&wifi_scan_cmd));
     ESP_ERROR_CHECK( esp_console_cmd_register(&wifi_disconnect_cmd));
+	}
+
+void do_wifi_cmd(int argc, char **argv)
+	{
+	if(!strcmp(argv[0], "wifiscan"))
+		wifi_scan(argc, argv);
+	else if(!strcmp(argv[0], "disconnect"))
+		wifi_disconnect(argc, argv);
+	else if(!strcmp(argv[0], "connect"))
+		wifi_connect(argc, argv);
 	}

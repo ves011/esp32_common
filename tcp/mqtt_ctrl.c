@@ -30,6 +30,7 @@
 #include "external_defs.h"
 #include "utils.h"
 #include "cmd_system.h"
+#include "cmd_wifi.h"
 #include "mqtt_ctrl.h"
 #if ACTIVE_CONTROLLER == PUMP_CONTROLLER
 #include "adc_op.h"
@@ -189,6 +190,7 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
 						strcpy(argv[i], argv[i + 1]);
 					argc--;
 					do_system_cmd(argc, argv);
+					do_wifi_cmd(argc, argv);
 					}
 				else if(strcmp(topic, DEVICE_TOPIC_Q) == 0)
 					{

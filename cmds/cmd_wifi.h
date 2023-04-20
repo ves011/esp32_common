@@ -17,5 +17,6 @@ void register_wifi(void);
 bool isConnected(void);
 int wifi_connect(int argc, char **argv);
 bool wifi_join(const char *ssid, const char *pass, int timeout_ms);
+void do_wifi_cmd(int argc, char **argv);
 
 #endif
