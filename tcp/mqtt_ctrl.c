@@ -39,6 +39,8 @@
 #include "gateop.h"
 #elif ACTIVE_CONTROLLER == WESTA_CONTROLLER
 #include "westaop.h"
+#elif ACTIVE_CONTROLLER == WATER_CONTROLLER
+#include "waterop.h"
 #endif
 
 #define CONFIG_BROKER_URL "mqtts://proxy.gnet:1886"
@@ -79,7 +81,7 @@ static void log_error_if_nonzero(const char *message, int error_code)
         ESP_LOGE(TAG, "Last error %s: 0x%x", message, error_code);
 	}
 
-static void subscribe(char *topic)
+void subscribe(char *topic)
 	{
 	if(!client)
 		ESP_LOGE(TAG, "Client not connected");
@@ -90,7 +92,7 @@ static void subscribe(char *topic)
 			ESP_LOGE(TAG, "cannot subscribe");
 			//esp_restart();
 			}
-		//ESP_LOGI(TAG, "Client subscribed to %s", topic);
+		ESP_LOGI(TAG, "Client subscribed to %s", topic);
 		}
 	}
 
@@ -112,7 +114,11 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
 			subscribe(TOPIC_CMD);
 			subscribe(TOPIC_CTRL);
 			subscribe(DEVICE_TOPIC_Q);
+	#if ACTIVE_CONTROLLER == WATER_CONTROLLER
+			subscribe(DEVICE_TOPIC_R);
+	#endif
 #endif
+
 			publish_MQTT_client_status();
 			client_connected = 1;
 			break;
@@ -182,6 +188,9 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
 	#elif ACTIVE_CONTROLLER == WESTA_CONTROLLER
 					strcpy(argv[0], "westa");
 					do_westaop(argc, argv);
+	#elif ACTIVE_CONTROLLER == WATER_CONTROLLER
+					strcpy(argv[0], "dv");
+					do_dvop(argc, argv);
 	#endif
 					}
 				else if(strcmp(topic, TOPIC_CTRL) == 0)
@@ -197,6 +206,15 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
 					if(!strcmp(argv[1], "reqID"))
 						publish_MQTT_client_status();
 					}
+#if ACTIVE_CONTROLLER == WATER_CONTROLLER
+				else if(!strcmp(topic, DEVICE_TOPIC_R) ||
+						!strcmp(topic, WATER_PUMP_DESC"/monitor")  ||
+						!strcmp(topic, WATER_PUMP_DESC"/state"))
+					{
+					strcpy(argv[0], topic);
+					parse_devstr(argc, argv);
+					}
+#endif
 				for(i = 0; i < 10; i++)
 					free(argv[i]);
 				free(argv);
@@ -350,6 +368,12 @@ void publish_state(char *msg, int qos, int retain)
 		esp_mqtt_client_publish(client, TOPIC_STATE, strtime, strlen(strtime), qos, retain);
 		}
 	}
+void publish_reqID()
+	{
+	char msg[20];
+	strcpy(msg, "reqID");
+	esp_mqtt_client_publish(client, DEVICE_TOPIC_Q, msg, strlen(msg), 0,0);
+	}
 
 void publish_monitor(char *msg, int qos, int retain)
 	{
@@ -396,6 +420,8 @@ void create_topics()
 	sprintf(USER_MQTT, "ota%02d", CTRL_DEV_ID);
 #elif ACTIVE_CONTROLLER == WESTA_CONTROLLER
 	sprintf(USER_MQTT, "westa%02d", CTRL_DEV_ID);
+#elif ACTIVE_CONTROLLER == WATER_CONTROLLER
+	sprintf(USER_MQTT, "water%02d", CTRL_DEV_ID);
 #endif
 	strcpy(TOPIC_STATE, USER_MQTT);
 	strcat(TOPIC_STATE, "/state");

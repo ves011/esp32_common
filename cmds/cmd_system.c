@@ -47,8 +47,8 @@
 #include "sdkconfig.h"
 #include "common_defines.h"
 #include "external_defs.h"
-#include "utils.h"
-#include "ota.h"
+	#include "utils.h"
+	#include "ota.h"
 #include "cmd_system.h"
 #include "cmd_wifi.h"
 

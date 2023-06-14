@@ -13,6 +13,7 @@
 #define PUMP_CONTROLLER					2 //pump controller
 #define OTA_CONTROLLER					3 // OTA factory app
 #define WESTA_CONTROLLER				4 // weather station controller
+#define WATER_CONTROLLER				5 // irrigation and water solenoids control
 
 #include "project_specific.h"
 
@@ -42,6 +43,7 @@
 #define PARAM_LIMITS				(2)
 #define PARAM_OPERATIONAL			(3)
 #define PARAM_PNORM					(4)
+#define PARAM_PROGRAM				(5)
 #define PARAM_CONSOLE				(10)
 
 #define DEVICE_TOPIC_Q				"gnetdev/query"
@@ -56,6 +58,8 @@
 	#define DEV_NAME				"Pompa Foraj"
 #elif ACTIVE_CONTROLLER == WESTA_CONTROLLER
 	#define DEV_NAME				"Statia meteo"
+#elif ACTIVE_CONTROLLER == WATER_CONTROLLER
+	#define DEV_NAME				"Controler irigatie"
 #endif
 
 #define LOG_SERVER					"proxy.gnet"

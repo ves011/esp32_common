@@ -32,6 +32,10 @@
 #include "westaop.h"
 #endif
 
+#if ACTIVE_CONTROLLER == WATER_CONTROLLER
+#include "waterop.h"
+#endif
+
 static const char *TAG = "SPIFFS_RW";
 
 int my_log_vprintf(const char *fmt, va_list arguments)
@@ -80,40 +84,6 @@ int rw_params(int rw, int param_type, void * param_val)
 	{
 	char buf[64];
 	esp_err_t ret;
-
-    size_t total = 0, used = 0;
-    ret = esp_spiffs_info(conf_spiffs.partition_label, &total, &used);
-    if (ret != ESP_OK)
-    	{
-        ESP_LOGE(TAG, "Failed to get SPIFFS partition information (%s). Formatting...", esp_err_to_name(ret));
-        if(esp_spiffs_format(conf_spiffs.partition_label) != ESP_OK)
-        	{
-        	//esp_vfs_spiffs_unregister(conf.partition_label);
-        	return ret;
-        	}
-        ret = esp_spiffs_info(conf_spiffs.partition_label, &total, &used);
-        if(ret != ESP_OK)
-        	{
-			//esp_vfs_spiffs_unregister(conf.partition_label);
-			return ret;
-			}
-		// Check consistency of reported partiton size info.
-		if (used > total)
-			{
-			ESP_LOGW(TAG, "Number of used bytes cannot be larger than total. Performing SPIFFS_check().");
-			ret = esp_spiffs_check(conf_spiffs.partition_label);
-			// Could be also used to mean broken files, to clean unreferenced pages, etc.
-			// More info at https://github.com/pellepl/spiffs/wiki/FAQ#powerlosses-contd-when-should-i-run-spiffs_check
-			if (ret != ESP_OK)
-				{
-				ESP_LOGE(TAG, "SPIFFS_check() failed (%s)", esp_err_to_name(ret));
-				//esp_vfs_spiffs_unregister(conf.partition_label);
-				return ret;
-				}
-			else
-				ESP_LOGI(TAG, "SPIFFS_check() successful");
-			}
-    	}
     struct stat st;
     ret = ESP_FAIL;
     if(rw == PARAM_READ)
@@ -267,6 +237,7 @@ int rw_params(int rw, int param_type, void * param_val)
 				}
 			}
 #endif
+
 		if(param_type == PARAM_CONSOLE)
     		{
 			if (stat(BASE_PATH"/"CONSOLE_FILE, &st) != 0)
@@ -368,6 +339,7 @@ int rw_params(int rw, int param_type, void * param_val)
 				}
 			}
 #endif
+
 		if(param_type == PARAM_CONSOLE)
     		{
     		FILE *f = fopen(BASE_PATH"/"CONSOLE_FILE, "w");
@@ -425,3 +397,53 @@ int write_tpdata(int rw, char *bufdata)
 	return ret;
 	}
 #endif
+
+int spiffs_storage_check()
+	{
+	esp_err_t ret;
+    size_t total = 0, used = 0;
+    ret = esp_vfs_spiffs_register(&conf_spiffs);
+    if (ret != ESP_OK)
+		{
+        if (ret == ESP_FAIL)
+            ESP_LOGE(TAG, "Failed to mount or format filesystem");
+        else if (ret == ESP_ERR_NOT_FOUND)
+            ESP_LOGE(TAG, "Failed to find SPIFFS partition");
+        else
+            ESP_LOGE(TAG, "Failed to initialize SPIFFS (%s)", esp_err_to_name(ret));
+        esp_restart();
+		}
+    ret = esp_spiffs_info(conf_spiffs.partition_label, &total, &used);
+    if (ret != ESP_OK)
+    	{
+        ESP_LOGE(TAG, "Failed to get SPIFFS partition information (%s). Formatting...", esp_err_to_name(ret));
+        if(esp_spiffs_format(conf_spiffs.partition_label) != ESP_OK)
+        	{
+        	//esp_vfs_spiffs_unregister(conf.partition_label);
+        	return ret;
+        	}
+        ret = esp_spiffs_info(conf_spiffs.partition_label, &total, &used);
+        if(ret != ESP_OK)
+        	{
+			//esp_vfs_spiffs_unregister(conf.partition_label);
+			return ret;
+			}
+		// Check consistency of reported partiton size info.
+		if (used > total)
+			{
+			ESP_LOGW(TAG, "Number of used bytes cannot be larger than total. Performing SPIFFS_check().");
+			ret = esp_spiffs_check(conf_spiffs.partition_label);
+			// Could be also used to mean broken files, to clean unreferenced pages, etc.
+			// More info at https://github.com/pellepl/spiffs/wiki/FAQ#powerlosses-contd-when-should-i-run-spiffs_check
+			if (ret != ESP_OK)
+				{
+				ESP_LOGE(TAG, "SPIFFS_check() failed (%s)", esp_err_to_name(ret));
+				//esp_vfs_spiffs_unregister(conf.partition_label);
+				return ret;
+				}
+			else
+				ESP_LOGI(TAG, "SPIFFS_check() successful");
+			}
+    	}
+    return ESP_OK;
+    }
