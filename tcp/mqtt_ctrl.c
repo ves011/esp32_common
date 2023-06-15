@@ -92,7 +92,7 @@ void subscribe(char *topic)
 			ESP_LOGE(TAG, "cannot subscribe");
 			//esp_restart();
 			}
-		ESP_LOGI(TAG, "Client subscribed to %s", topic);
+		//ESP_LOGI(TAG, "Client subscribed to %s", topic);
 		}
 	}
 
@@ -142,7 +142,7 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
 			for(i = 0; i < event->data_len; i++)
 				msg[i] = event->data[i];
 			msg[i] = 0;
-			ESP_LOGI(TAG, "MQTT_EVENT_DATA: %s - %s / %d / %d", topic, msg, event->topic_len, event->data_len);
+			//ESP_LOGI(TAG, "MQTT_EVENT_DATA: %s - %s / %d / %d", topic, msg, event->topic_len, event->data_len);
 			if(controller_op_registered == 1)
 				{
 				/*
@@ -373,6 +373,10 @@ void publish_reqID()
 	char msg[20];
 	strcpy(msg, "reqID");
 	esp_mqtt_client_publish(client, DEVICE_TOPIC_Q, msg, strlen(msg), 0,0);
+	}
+void publish_topic(char * topic, char * msg, int qos, int retain)
+	{
+	esp_mqtt_client_publish(client, topic, msg, strlen(msg), qos, retain);
 	}
 
 void publish_monitor(char *msg, int qos, int retain)
