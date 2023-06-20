@@ -174,7 +174,7 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
 					}
 				if(ac)
 					argv[argc][ac] = 0;
-				ESP_LOGI(TAG, "argc, %d, %s, %s, %s, %s", argc, argv[0], argv[1], argv[2], argv[3]);
+				//ESP_LOGI(TAG, "argc, %d, %s, %s, %s, %s", argc, argv[0], argv[1], argv[2], argv[3]);
 				argc++;
 
 				if(strcmp(topic, TOPIC_CMD) == 0)
