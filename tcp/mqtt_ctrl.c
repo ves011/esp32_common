@@ -92,7 +92,7 @@ void subscribe(char *topic)
 			ESP_LOGE(TAG, "cannot subscribe");
 			//esp_restart();
 			}
-		//ESP_LOGI(TAG, "Client subscribed to %s", topic);
+		ESP_LOGI(TAG, "Client subscribed to %s", topic);
 		}
 	}
 
@@ -116,6 +116,8 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
 			subscribe(DEVICE_TOPIC_Q);
 	#if ACTIVE_CONTROLLER == WATER_CONTROLLER
 			subscribe(DEVICE_TOPIC_R);
+			subscribe(WATER_PUMP_DESC"/monitor");
+			subscribe(WATER_PUMP_DESC"/state");
 	#endif
 #endif
 
