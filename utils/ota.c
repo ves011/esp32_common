@@ -22,10 +22,12 @@
 #include "esp_console.h"
 #include "driver/gpio.h"
 #include "errno.h"
-#include "esp_spi_flash.h"
+#include "spi_flash_mmap.h"
+#include "esp_netif.h"
 #include "esp_spiffs.h"
 #include "esp_vfs_dev.h"
 #include "esp_vfs_fat.h"
+#include "esp_app_format.h"
 #include "mqtt_client.h"
 #include "common_defines.h"
 #include "external_defs.h"
@@ -81,7 +83,7 @@ static esp_partition_t *get_updateable_partition()
     	pit = esp_partition_next(pit);
     	}
 	if(np)
-		ESP_LOGI(TAG, "Updateable partition %s @ %0x", np->label, np->address);
+		ESP_LOGI(TAG, "Updateable partition %s @ 0x%0lx", np->label, np->address);
 	else
 		ESP_LOGI(TAG, "No updateable partition found");
 	return (esp_partition_t *)np;
@@ -103,7 +105,7 @@ void ota_task(const char *url)
 
     if (configured != running)
     	{
-        ESP_LOGW(TAG, "Configured OTA boot partition at offset 0x%08x, but running from offset 0x%08x",
+        ESP_LOGW(TAG, "Configured OTA boot partition at offset 0x%08lx, but running from offset 0x%08lx",
                  configured->address, running->address);
         ESP_LOGW(TAG, "(This can happen if either the OTA boot data or preferred boot image become corrupted somehow.)");
     	}
@@ -114,7 +116,7 @@ void ota_task(const char *url)
     		return;
     		}
 	*/
-    ESP_LOGI(TAG, "Running partition type %d subtype %d (offset 0x%08x)",
+    ESP_LOGI(TAG, "Running partition type %d subtype %d (offset 0x%08lx)",
              running->type, running->subtype, running->address);
 
     esp_http_client_config_t config =
@@ -144,7 +146,7 @@ void ota_task(const char *url)
 
     //update_partition = esp_ota_get_next_update_partition(NULL);
     //assert(update_partition != NULL);
-    ESP_LOGI(TAG, "Writing to partition subtype %d at offset 0x%x",
+    ESP_LOGI(TAG, "Writing to partition subtype %d at offset %0lx",
              update_partition->subtype, update_partition->address);
 
     int binary_file_length = 0;

@@ -22,8 +22,9 @@
 #include "esp_log.h"
 #include "esp_console.h"
 #include "esp_system.h"
+#include "esp_chip_info.h"
 #include "esp_sleep.h"
-#include "esp_spi_flash.h"
+#include "spi_flash_mmap.h"
 #include "esp_netif.h"
 #include "driver/rtc_io.h"
 #include "driver/uart.h"
@@ -42,6 +43,7 @@
 #include "ping/ping_sock.h"
 #include "mqtt_client.h"
 #include "esp_flash_partitions.h"
+#include "esp_flash.h"
 #include "esp_partition.h"
 #include "esp_ota_ops.h"
 #include "sdkconfig.h"
@@ -57,6 +59,16 @@
 #ifdef CONFIG_FREERTOS_USE_STATS_FORMATTING_FUNCTIONS
 #define WITH_TASKS_INFO 1
 #endif
+
+struct {
+    struct arg_dbl *timeout;
+    struct arg_dbl *interval;
+    struct arg_int *data_size;
+    struct arg_int *count;
+    struct arg_int *tos;
+    struct arg_str *host;
+    struct arg_end *end;
+} ping_args;
 
 static const char *TAG = "cmd_system";
 
@@ -241,22 +253,55 @@ void register_ping(void)
 	}
 /* 'version' command */
 static int get_version(int argc, char **argv)
-{
-    esp_chip_info_t info;
-    esp_chip_info(&info);
-    my_printf("IDF Version:%s\r\n", esp_get_idf_version());
-    my_printf("Chip info:\r\n");
-    my_printf("\tmodel:%s\r\n", info.model == CHIP_ESP32 ? "ESP32" : "Unknow");
-    my_printf("\tcores:%d\r\n", info.cores);
-    my_printf("\tfeature:%s%s%s%s%d%s\r\n",
-           info.features & CHIP_FEATURE_WIFI_BGN ? "/802.11bgn" : "",
-           info.features & CHIP_FEATURE_BLE ? "/BLE" : "",
-           info.features & CHIP_FEATURE_BT ? "/BT" : "",
-           info.features & CHIP_FEATURE_EMB_FLASH ? "/Embedded-Flash:" : "/External-Flash:",
-           spi_flash_get_chip_size() / (1024 * 1024), " MB");
-    my_printf("\trevision number:%d\r\n", info.revision);
-    return 0;
-}
+	{
+	const char *model;
+	esp_chip_info_t info;
+	uint32_t flash_size;
+	esp_chip_info(&info);
+
+	switch(info.model)
+		{
+		case CHIP_ESP32:
+			model = "ESP32";
+			break;
+		case CHIP_ESP32S2:
+			model = "ESP32-S2";
+			break;
+		case CHIP_ESP32S3:
+			model = "ESP32-S3";
+			break;
+		case CHIP_ESP32C3:
+			model = "ESP32-C3";
+			break;
+		case CHIP_ESP32H2:
+			model = "ESP32-H2";
+			break;
+		case CHIP_ESP32C2:
+			model = "ESP32-C2";
+			break;
+		default:
+			model = "Unknown";
+			break;
+		}
+
+	if(esp_flash_get_size(NULL, &flash_size) != ESP_OK)
+		{
+		printf("Get flash size failed");
+		return 1;
+		}
+	printf("IDF Version:%s\r\n", esp_get_idf_version());
+	printf("Chip info:\r\n");
+	printf("\tmodel:%s\r\n", model);
+	printf("\tcores:%d\r\n", info.cores);
+	printf("\tfeature:%s%s%s%s%"PRIu32"%s\r\n",
+		   info.features & CHIP_FEATURE_WIFI_BGN ? "/802.11bgn" : "",
+		   info.features & CHIP_FEATURE_BLE ? "/BLE" : "",
+		   info.features & CHIP_FEATURE_BT ? "/BT" : "",
+		   info.features & CHIP_FEATURE_EMB_FLASH ? "/Embedded-Flash:" : "/External-Flash:",
+		   flash_size / (1024 * 1024), " MB");
+	printf("\trevision number:%d\r\n", info.revision);
+	return 0;
+	}
 
 static void register_version(void)
 {
@@ -396,7 +441,7 @@ static int ls_files(int argc, char **argv)
 		sprintf(outputm, " %c    %-25s   ", ftype, ent->d_name);
 		if(stat(pfname, &st) == 0)
 			{
-			sprintf(pfname, "%6d    ", (uint32_t)(st.st_size));
+			sprintf(pfname, "%6lu    ", (uint32_t)(st.st_size));
 			strcat(outputm, pfname);
 			strcat(outputm, ctime (&st.st_mtim.tv_sec));
 			}

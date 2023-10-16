@@ -11,9 +11,10 @@
 #include <unistd.h>
 #include "esp_log.h"
 #include "esp_console.h"
+#include "esp_netif.h"
 #include "esp_system.h"
 #include "esp_sleep.h"
-#include "esp_spi_flash.h"
+#include "spi_flash_mmap.h"
 #include "driver/rtc_io.h"
 #include "driver/uart.h"
 #include "argtable3/argtable3.h"
@@ -161,7 +162,7 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
 					}
 				for(i = 0; i < event->data_len; i++)
 					{
-					if(isspace(msg[i]))
+					if(isspace((int)msg[i]))
 						{
 						if(ac)
 							argv[argc][ac] = 0;
@@ -323,6 +324,17 @@ void register_mqtt()
 int mqtt_start(void)
 	{
 	esp_err_t ret = ESP_FAIL;
+	const esp_mqtt_client_config_t mqtt_cfg = {
+		    .broker.address.uri = CONFIG_BROKER_URL,
+		    .broker.verification.certificate = (const char *)server_cert_pem_start,
+		    .credentials = {
+		      .authentication = {
+		        .certificate = (const char *)client_cert_pem_start,
+		        .key = (const char *)client_key_pem_start,
+		      },
+		    }
+		  };
+	/*
     esp_mqtt_client_config_t mqtt_cfg =
     	{
         .uri = CONFIG_BROKER_URL,
@@ -340,6 +352,7 @@ int mqtt_start(void)
         .task_stack = 8192,
         //.disable_clean_session = false,
     	};
+    	*/
     create_topics();
     client = esp_mqtt_client_init(&mqtt_cfg);
     if(client)

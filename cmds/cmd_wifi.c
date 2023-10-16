@@ -212,7 +212,7 @@ static struct
 bool isConnected()
 	{
 	esp_err_t err;
-	mode_t mode;
+	wifi_mode_t mode;
 	wifi_ap_record_t ap_info;
 	err = esp_wifi_get_mode(&mode);
 	if(err == ESP_ERR_WIFI_NOT_INIT)
@@ -227,7 +227,7 @@ bool isConnected()
 int wifi_connect(int argc, char **argv)
 	{
 	esp_err_t err;
-	mode_t mode;
+	wifi_mode_t mode;
 	wifi_ap_record_t ap_info;
 	esp_netif_t *netif;
 	esp_netif_ip_info_t ip_info;

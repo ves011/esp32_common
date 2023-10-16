@@ -17,7 +17,7 @@
 #include "lwip/sockets.h"
 #include "lwip/sys.h"
 #include "lwip/netdb.h"
-#include "freertos/freertos.h"
+#include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/queue.h"
 #include "esp_spiffs.h"
@@ -34,7 +34,7 @@ static int tcp_log_enable;
 #include "tcp_log.h"
 static 	struct sockaddr_in srv_addr;
 static TaskHandle_t tcp_log_task_handle;
-static xQueueHandle tcp_log_evt_queue;
+static QueueHandle_t tcp_log_evt_queue;
 static void tcp_log_task(void *pvParameters);
 #define MSG_QUEUE_SIZE		20
 int tcp_log_init(void)
