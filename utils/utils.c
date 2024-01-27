@@ -319,7 +319,7 @@ int rw_params(int rw, int param_type, void * param_val)
 				}
 			else
 				{
-				sprintf(buf, "%d\n%d\n%d\n%d\n%d\n%d\n",
+				sprintf(buf, "%lu\n%lu\n%lu\n%lu\n%lu\n%lu\n",
 						((pump_limits_t *)param_val)->min_val, ((pump_limits_t *)param_val)->max_val, ((pump_limits_t *)param_val)->faultc,
 						((pump_limits_t *)param_val)->stdev, ((pump_limits_t *)param_val)->overp_lim, ((pump_limits_t *)param_val)->void_run_count);
 				if(fputs(buf, f) >= 0)

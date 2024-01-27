@@ -91,6 +91,8 @@ static void tcp_log_task(void *pvParameters)
 		{
 		xQueueReceive(tcp_log_evt_queue, buf, portMAX_DELAY);
 		int sendsock = socket(AF_INET, SOCK_STREAM, 0);
+		if(buf[strlen(buf) - 1] != '\n')
+			strcat(buf, "\n");
 		int written = 0;
 		if (sendsock >= 0)
 			{

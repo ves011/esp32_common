@@ -29,6 +29,7 @@
 #define PIN_DONT_TOUCH				(2)
 
 #define TIMER_DIVIDER         		(80)  //  Hardware timer clock divider -> 1us resolution
+#define TIMER_BASE_CLK				APB_CLK_FREQ
 #define TIMER_SCALE           		(TIMER_BASE_CLK / TIMER_DIVIDER /1000)  // convert counter value to mseconds
 
 #define CLIENT_CONNECT_WDOG_G		TIMER_GROUP_0
@@ -37,6 +38,8 @@
 #define BASE_PATH					"/var"
 #define PARTITION_LABEL				"user"
 #define CONSOLE_FILE				"conoff.txt"
+#define HISTORY_FILE				"/sys/history.txt"
+#define MAX_NO_FILES				(5)
 #define PARAM_READ					(1)
 #define PARAM_WRITE					(2)
 #define PARAM_V_OFFSET				(1)

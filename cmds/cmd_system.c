@@ -134,7 +134,7 @@ static void cmd_ping_on_ping_success(esp_ping_handle_t hdl, void *args)
     esp_ping_get_profile(hdl, ESP_PING_PROF_IPADDR, &target_addr, sizeof(target_addr));
     esp_ping_get_profile(hdl, ESP_PING_PROF_SIZE, &recv_len, sizeof(recv_len));
     esp_ping_get_profile(hdl, ESP_PING_PROF_TIMEGAP, &elapsed_time, sizeof(elapsed_time));
-    my_printf("%d bytes from %s icmp_seq=%d ttl=%d time=%d ms\n",
+    my_printf("%d bytes from %s icmp_seq=%d ttl=%d time=%d ms",
            recv_len, ipaddr_ntoa((ip_addr_t*)&target_addr), seqno, ttl, elapsed_time);
 	}
 
@@ -144,7 +144,7 @@ static void cmd_ping_on_ping_timeout(esp_ping_handle_t hdl, void *args)
     ip_addr_t target_addr;
     esp_ping_get_profile(hdl, ESP_PING_PROF_SEQNO, &seqno, sizeof(seqno));
     esp_ping_get_profile(hdl, ESP_PING_PROF_IPADDR, &target_addr, sizeof(target_addr));
-    my_printf("From %s icmp_seq=%d timeout\n",ipaddr_ntoa((ip_addr_t*)&target_addr), seqno);
+    my_printf("From %s icmp_seq=%d timeout",ipaddr_ntoa((ip_addr_t*)&target_addr), seqno);
 	}
 
 static void cmd_ping_on_ping_end(esp_ping_handle_t hdl, void *args)
@@ -158,7 +158,7 @@ static void cmd_ping_on_ping_end(esp_ping_handle_t hdl, void *args)
     esp_ping_get_profile(hdl, ESP_PING_PROF_IPADDR, &target_addr, sizeof(target_addr));
     esp_ping_get_profile(hdl, ESP_PING_PROF_DURATION, &total_time_ms, sizeof(total_time_ms));
     uint32_t loss = (uint32_t)((1 - ((float)received) / transmitted) * 100);
-    my_printf("\n--- %s ping statistics ---\n", inet_ntoa(*ip_2_ip4(&target_addr)));
+    my_printf("\n--- %s ping statistics ---", inet_ntoa(*ip_2_ip4(&target_addr)));
 
     my_printf("%d packets transmitted, %d received, %d%% packet loss, time %dms\n",
            transmitted, received, loss, total_time_ms);
@@ -175,7 +175,7 @@ static int do_ping_cmd(int argc, char **argv)
     if (nerrors != 0)
     	{
         //arg_print_errors(stderr, ping_args.end, argv[0]);
-        my_printf("%s arguments error\n", argv[0]);
+        my_printf("%s arguments error", argv[0]);
         return 1;
     	}
     if(!isConnected())
@@ -339,7 +339,7 @@ static void register_restart(void)
 
 static int free_mem(int argc, char **argv)
 {
-    my_printf("%d\n", esp_get_free_heap_size());
+    my_printf("%d", esp_get_free_heap_size());
     return 0;
 }
 
@@ -379,7 +379,7 @@ static int ls_files(int argc, char **argv)
 	if (nerrors != 0)
     	{
         //arg_print_errors(stderr, ls_args.end, argv[0]);
-        my_printf("%s arguments error\n", argv[0]);
+        my_printf("%s arguments error", argv[0]);
         return 1;
     	}
 	if(ls_args.path->count  == 1)
@@ -394,7 +394,7 @@ static int ls_files(int argc, char **argv)
 		{
 		.base_path = "/var",
 		.partition_label = "user",
-		.max_files = 5,
+		.max_files = MAX_NO_FILES,
 		.format_if_mount_failed = true
 		};
 
@@ -422,13 +422,12 @@ static int ls_files(int argc, char **argv)
 	strcat(pfname, path);
 	strcpy(path, pfname);
 	dir = opendir(path);
-	ESP_LOGI(TAG, "%s", path);
 	if (!dir)
 		{
 		my_printf("Error opening %s directory\n", path);
-		//esp_vfs_spiffs_unregister(conf.partition_label);
 		return ESP_FAIL;
 		}
+	my_printf("%s", path);
 	while ((ent = readdir(dir)) != NULL)
 		{
 		if (ent->d_type == DT_REG)
@@ -445,6 +444,9 @@ static int ls_files(int argc, char **argv)
 			strcat(outputm, pfname);
 			strcat(outputm, ctime (&st.st_mtim.tv_sec));
 			}
+// remove ending \n character, because it is added by fputs()
+		if(outputm[strlen(outputm) - 1] == '\n')
+			outputm[strlen(outputm) - 1] = 0;
 		my_printf("%s", outputm);
 		}
 	my_printf("\n");
@@ -475,7 +477,7 @@ static int cat_file(int argc, char **argv)
 	if (nerrors != 0)
     	{
         //arg_print_errors(stderr, ls_args.end, argv[0]);
-        my_printf("%s arguments error\n", argv[0]);
+        my_printf("%s arguments error", argv[0]);
         return 1;
     	}
     strcpy(path, "/var/");
@@ -497,6 +499,8 @@ static int cat_file(int argc, char **argv)
 				fgets(outputm, 298, f);
 				if(feof(f))
 					break;
+				if(outputm[strlen(outputm) - 1] == '\n')
+					outputm[strlen(outputm) - 1] = 0;
 				my_printf("%s", outputm);
 				i++;
 				}
@@ -529,7 +533,7 @@ static int rm_file(int argc, char **argv)
 	if (nerrors != 0)
     	{
         //arg_print_errors(stderr, ls_args.end, argv[0]);
-        my_printf("%s arguments error\n", argv[0]);
+        my_printf("%s arguments error", argv[0]);
         return 1;
     	}
     strcpy(path, "/var/");
@@ -537,14 +541,14 @@ static int rm_file(int argc, char **argv)
 	if (stat(path, &st) != 0)
 		{
 		// file does no exists
-		my_printf("file %s does not exists\n", path);
+		my_printf("file %s does not exists", path);
 		return 0;
 		}
 	else
 		{
 		int res = unlink(path);
 		if(res < 0)
-			my_printf("Error deleting file %d\n", errno);
+			my_printf("Error deleting file %d", errno);
 		}
 	return 0;
 	}
@@ -566,7 +570,7 @@ static void register_rm(void)
 static int heap_size(int argc, char **argv)
 {
     uint32_t heap_size = heap_caps_get_minimum_free_size(MALLOC_CAP_DEFAULT);
-    my_printf("min heap size: %u\n", heap_size);
+    my_printf("min heap size: %u", heap_size);
     return 0;
 }
 
@@ -635,7 +639,7 @@ static int deep_sleep(int argc, char **argv)
     if (nerrors != 0)
     	{
         //arg_print_errors(stderr, deep_sleep_args.end, argv[0]);
-        my_printf("%s arguments error\n", argv[0]);
+        my_printf("%s arguments error", argv[0]);
         return 1;
     	}
     if (deep_sleep_args.wakeup_time->count)
@@ -726,7 +730,7 @@ static int light_sleep(int argc, char **argv)
     int nerrors = arg_parse(argc, argv, (void **) &light_sleep_args);
     if (nerrors != 0) {
         //arg_print_errors(stderr, light_sleep_args.end, argv[0]);
-        my_printf("%s arguments error\n", argv[0]);
+        my_printf("%s arguments error", argv[0]);
         return 1;
     }
     esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_ALL);
@@ -818,7 +822,7 @@ static int uptime()
 	tmsec = tmsec % 3600;
 	tm = tmsec / 60;
 	ts = tmsec % 60;
-	my_printf("Uptime: %d days %02u hours %02u min %02u sec since last boot\n", td, th, tm, ts);
+	my_printf("Uptime: %d days %02u hours %02u min %02u sec since last boot", td, th, tm, ts);
 	return 0;
 	}
 static void register_uptime(void)
@@ -844,7 +848,7 @@ int set_console(int argc, char **argv)
     if (nerrors != 0)
     	{
         //arg_print_errors(stderr, console_args.end, argv[0]);
-        my_printf("%s arguments error\n", argv[0]);
+        my_printf("%s arguments error", argv[0]);
         return 1;
     	}
     if(console_args.op->count)
@@ -857,7 +861,7 @@ int set_console(int argc, char **argv)
 			cs = CONSOLE_TCP;
 		else
 			{
-			my_printf("console: unknown option [%s]\n", console_args.op->sval[0]);
+			my_printf("console: unknown option [%s]", console_args.op->sval[0]);
 			return 0;
 			}
 		if(console_state != cs)
@@ -870,11 +874,11 @@ int set_console(int argc, char **argv)
     }
 static void register_console(void)
 	{
-	console_args.op = arg_str0(NULL, NULL, "on | off", "enable | disable log console output");
+	console_args.op = arg_str0(NULL, NULL, "on | off | tcp", "console output: enable | disable | send to tcp logserver");
 	console_args.end = arg_end(1);
 	const esp_console_cmd_t cmd = {
         .command = "console",
-        .help = "Set on/off console",
+        .help = "Set on/off/tcp console",
         .hint = NULL,
         .func = &set_console,
         .argtable = &console_args
@@ -894,7 +898,7 @@ static int ota_start(int argc, char **argv)
 	int nerrors = arg_parse(argc, argv, (void **)&ota_args);
 	if (nerrors != 0)
     	{
-        my_printf("%s arguments error\n", argv[0]);
+        my_printf("%s arguments error", argv[0]);
         return 1;
     	}
     if(ota_args.url->count)
@@ -927,7 +931,7 @@ static int boot_from(int argc, char **argv)
 	int nerrors = arg_parse(argc, argv, (void **)&boot_args);
 	if (nerrors != 0)
 		{
-		my_printf("%s arguments error\n", argv[0]);
+		my_printf("%s arguments error", argv[0]);
         return 1;
     	}
     const esp_partition_t *running = esp_ota_get_running_partition();
@@ -935,7 +939,9 @@ static int boot_from(int argc, char **argv)
     const esp_partition_t *np = NULL, *sbp = NULL;
     int bp = 0, rp = 0;
     esp_partition_iterator_t pit = esp_partition_find(ESP_PARTITION_TYPE_APP, ESP_PARTITION_SUBTYPE_ANY, NULL);
-    my_printf("Available partitions\n");
+    my_printf("\nAvailable boot partitions\n");
+    my_printf("name\toffset hex(dec)\t\tsize hex(dec)\t\tboot\t running");
+    my_printf("-------------------------------------------------------------------------");
     while(pit)
     	{
     	np = esp_partition_get(pit);
@@ -951,7 +957,7 @@ static int boot_from(int argc, char **argv)
     			rp = 1;
     		if(np == bootp)
     			bp = 0;
-    		my_printf("%s\t%06x\tboot = %d\trunning = %d\n", np->label, np->address, bp, rp);
+    		my_printf("%s\t%06x(%8d)\t%06x(%8d)\t%2d\t%5d", np->label, np->address, np->address, np->size, np->size, bp, rp);
     		}
     	pit = esp_partition_next(pit);
     	}
@@ -963,20 +969,20 @@ static int boot_from(int argc, char **argv)
 			int err = esp_ota_set_boot_partition(sbp);
 			if(err == ESP_OK)
 				{
-				my_printf("Boot partition set to \"%s\" @ %06x\n", sbp->label, sbp->address);
+				my_printf("Boot partition set to \"%s\" @ %06x", sbp->label, sbp->address);
 				my_printf("Reboot now to run it\n");
 				}
 			else
-				my_printf("Could not set boot partition to \"%s\" @ %06x\n", sbp->label, sbp->address);
+				my_printf("Could not set boot partition to \"%s\" @ %06x", sbp->label, sbp->address);
 			}
 		else
-			my_printf("Partition \"%s\", not found in partition list\n", boot_args.pname->sval[0]);
+			my_printf("Partition \"%s\", not found in partition list", boot_args.pname->sval[0]);
 		}
 	return 0;
 	}
 static void register_boot(void)
 	{
-	boot_args.pname = arg_str0(NULL, NULL, "<part_name>", NULL);
+	boot_args.pname = arg_str0(NULL, NULL, "<part_name>", "select boot partition");
 	boot_args.end = arg_end(1);
     const esp_console_cmd_t cmd = {
         .command = "boot",
@@ -989,7 +995,7 @@ static void register_boot(void)
 	}
 void do_system_cmd(int argc, char **argv)
 	{
-	ESP_LOGI(TAG, "%d, %s", argc, argv[0]);
+	//ESP_LOGI(TAG, "%d, %s", argc, argv[0]);
 	if(!strcmp(argv[0], "console"))
 		set_console(argc, argv);
 	else if(!strcmp(argv[0], "uptime"))
