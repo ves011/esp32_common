@@ -25,8 +25,8 @@
 #include "mqtt_ctrl.h"
 #include "external_defs.h"
 #include "tcp_log.h"
-#if ACTIVE_CONTROLLER == PUMP_CONTROLLER
-#include "adc_op.h"
+#if ACTIVE_CONTROLLER == PUMP_CONTROLLER || ACTIVE_CONTROLLER == WP_CONTROLLER
+//#include "adc_op.h"
 #include "pumpop.h"
 #endif
 #if ACTIVE_CONTROLLER == WESTA_CONTROLLER
@@ -123,7 +123,7 @@ int rw_params(int rw, int param_type, void * param_val)
 				}
 			}
 #endif
-#if ACTIVE_CONTROLLER == PUMP_CONTROLLER
+#if ACTIVE_CONTROLLER == PUMP_CONTROLLER || ACTIVE_CONTROLLER == WP_CONTROLLER
     	if(param_type == PARAM_V_OFFSET)
     		{
 			if (stat(BASE_PATH"/"OFFSET_FILE, &st) != 0)

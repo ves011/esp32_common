@@ -13,7 +13,8 @@
 #define PUMP_CONTROLLER					2 //pump controller
 #define OTA_CONTROLLER					3 // OTA factory app
 #define WESTA_CONTROLLER				4 // weather station controller
-#define WATER_CONTROLLER				5 // irrigation and water solenoids control
+#define WATER_CONTROLLER				5 // irrigation and water actuators control
+#define WP_CONTROLLER					6 //combined pump & water controller
 
 #include "project_specific.h"
 
@@ -63,6 +64,8 @@
 	#define DEV_NAME				"Statia meteo"
 #elif ACTIVE_CONTROLLER == WATER_CONTROLLER
 	#define DEV_NAME				"Controler irigatie"
+#elif ACTIVE_CONTROLLER == WP_CONTROLLER
+	#define DEV_NAME				"Controler irigatie&pompa"
 #endif
 
 #define LOG_SERVER					"proxy.gnet"
@@ -71,6 +74,11 @@
 #define FACTORY_PART_NAME			"factory"
 #define OTA_PART_NAME				"ota_0"
 
+typedef struct
+		{
+		uint32_t source;
+		uint32_t val;
+		}msg_t;
 
 
 #endif /* COMMON_COMMON_DEFINES_H_ */

@@ -46,6 +46,7 @@
 #include "esp_flash.h"
 #include "esp_partition.h"
 #include "esp_ota_ops.h"
+#include "esp_timer.h"
 #include "sdkconfig.h"
 #include "common_defines.h"
 #include "external_defs.h"
@@ -293,12 +294,13 @@ static int get_version(int argc, char **argv)
 	printf("Chip info:\r\n");
 	printf("\tmodel:%s\r\n", model);
 	printf("\tcores:%d\r\n", info.cores);
-	printf("\tfeature:%s%s%s%s%"PRIu32"%s\r\n",
+	printf("\tfeature:%s%s%s%s%"PRIu32"%s%s\r\n",
 		   info.features & CHIP_FEATURE_WIFI_BGN ? "/802.11bgn" : "",
 		   info.features & CHIP_FEATURE_BLE ? "/BLE" : "",
 		   info.features & CHIP_FEATURE_BT ? "/BT" : "",
 		   info.features & CHIP_FEATURE_EMB_FLASH ? "/Embedded-Flash:" : "/External-Flash:",
-		   flash_size / (1024 * 1024), " MB");
+		   flash_size / (1024 * 1024), " MB",
+		   info.features & CHIP_FEATURE_EMB_PSRAM ? "/PSRAM" : "/no PSRAM");
 	printf("\trevision number:%d\r\n", info.revision);
 	return 0;
 	}

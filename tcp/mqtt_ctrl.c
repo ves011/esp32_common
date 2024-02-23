@@ -26,6 +26,7 @@
 #include "freertos/task.h"
 #include "mqtt_client.h"
 #include "esp_spiffs.h"
+#include "esp_timer.h"
 #include "sdkconfig.h"
 #include "common_defines.h"
 #include "external_defs.h"
@@ -441,6 +442,8 @@ void create_topics()
 	sprintf(USER_MQTT, "westa%02d", CTRL_DEV_ID);
 #elif ACTIVE_CONTROLLER == WATER_CONTROLLER
 	sprintf(USER_MQTT, "water%02d", CTRL_DEV_ID);
+#elif ACTIVE_CONTROLLER == WP_CONTROLLER
+	sprintf(USER_MQTT, "wp%02d", CTRL_DEV_ID);
 #endif
 	strcpy(TOPIC_STATE, USER_MQTT);
 	strcat(TOPIC_STATE, "/state");
