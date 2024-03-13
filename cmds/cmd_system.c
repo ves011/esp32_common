@@ -997,7 +997,7 @@ static void register_boot(void)
 	}
 void do_system_cmd(int argc, char **argv)
 	{
-	//ESP_LOGI(TAG, "%d, %s", argc, argv[0]);
+	ESP_LOGI(TAG, "%d, %s", argc, argv[0]);
 	if(!strcmp(argv[0], "console"))
 		set_console(argc, argv);
 	else if(!strcmp(argv[0], "uptime"))

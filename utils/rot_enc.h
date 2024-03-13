@@ -8,6 +8,10 @@
 #ifndef ESP32_COMMON_UTILS_ROT_ENC_H_
 #define ESP32_COMMON_UTILS_ROT_ENC_H_
 
+#define SOURCE_ROT			1
+#define SOURCE_KEY			2
+#define SOURCE_TIMER		3
+
 #define PUSH_TIME_SHORT		100000			//300 msec
 #define PUSH_TIME_LONG		3000000		// 3 sec
 void init_rotenc();

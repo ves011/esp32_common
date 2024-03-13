@@ -70,8 +70,8 @@ void spiadmaster_init()
 		.queue_size = 1,                          	//
 		.pre_cb = spiad_pt_callback,				// pre-transaction callback: toogle CONVST/RFS/TFS
 	    };
-	ESP_ERROR_CHECK(spi_bus_initialize(SPI2_HOST, &buscfg, SPI_DMA_CH_AUTO));
-	ESP_ERROR_CHECK(spi_bus_add_device(SPI2_HOST, &devcfg, &spiad));
+	ESP_ERROR_CHECK(spi_bus_initialize(SPI3_HOST, &buscfg, SPI_DMA_CH_AUTO));
+	ESP_ERROR_CHECK(spi_bus_add_device(SPI3_HOST, &devcfg, &spiad));
 	}
 
 int spiad_rw(uint16_t cmd, int len_tx, uint16_t *data)
