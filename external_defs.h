@@ -10,4 +10,5 @@ extern esp_mqtt_client_handle_t client;
 extern int client_connected;
 extern int restart_in_progress;
 extern char USER_MQTT[32];
+extern QueueHandle_t ui_cmd_q;
 #endif //EXTERNAL_DEFS_H_

@@ -294,7 +294,7 @@ int rw_params(int rw, int param_type, void * param_val)
 				}
 			}
 #endif
-#if ACTIVE_CONTROLLER == PUMP_CONTROLLER
+#if ACTIVE_CONTROLLER == PUMP_CONTROLLER|| ACTIVE_CONTROLLER == WP_CONTROLLER
     	if(param_type == PARAM_V_OFFSET)
     		{
     		FILE *f = fopen(BASE_PATH"/"OFFSET_FILE, "w");

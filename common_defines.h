@@ -50,6 +50,14 @@
 #define PARAM_PROGRAM				(5)
 #define PARAM_CONSOLE				(10)
 
+//sources for UI interface
+#define K_ROT				10
+#define K_ROT_LEFT			11
+#define K_ROT_RIGHT			12
+#define K_PRESS				20
+#define INACT_TIME			30
+#define PUMP_VAL_CHANGE		40
+
 #define DEVICE_TOPIC_Q				"gnetdev/query"
 #define DEVICE_TOPIC_R				"gnetdev/response"
 
@@ -78,6 +86,7 @@ typedef struct
 		{
 		uint32_t source;
 		uint32_t val;
+		int m_val[6];
 		}msg_t;
 
 
