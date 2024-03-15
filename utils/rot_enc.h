@@ -13,7 +13,7 @@
 #define SOURCE_TIMER		3
 
 #define PUSH_TIME_SHORT		100000			//300 msec
-#define PUSH_TIME_LONG		3000000		// 3 sec
+#define PUSH_TIME_LONG		2000000		// 2 sec
 void init_rotenc();
 
 

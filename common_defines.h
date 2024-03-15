@@ -55,8 +55,11 @@
 #define K_ROT_LEFT			11
 #define K_ROT_RIGHT			12
 #define K_PRESS				20
+#define K_DOWN				21
+#define K_UP				22
 #define INACT_TIME			30
 #define PUMP_VAL_CHANGE		40
+#define PUMP_OP_ERROR		50
 
 #define DEVICE_TOPIC_Q				"gnetdev/query"
 #define DEVICE_TOPIC_R				"gnetdev/response"

@@ -43,7 +43,6 @@ void IRAM_ATTR rot_enc_isr_handler(void* arg)
 static bool IRAM_ATTR key_timer_callback(gptimer_handle_t c_timer, const gptimer_alarm_event_data_t *edata, void *args)
 	{
 	msg_t msg;
-	uint64_t value;
     BaseType_t high_task_awoken = pdFALSE;
     //gptimer_get_raw_count(c_timer, &value);
     msg.source = SOURCE_TIMER;
@@ -104,7 +103,6 @@ static void init_gpios()
 static void rot_enc_cmd(void* arg)
 	{
 	msg_t msg;
-    int i;
     uint32_t s1, s2, key;
     while(1)
     	{
@@ -120,7 +118,7 @@ static void rot_enc_cmd(void* arg)
         			ESP_LOGI(TAG, "knob rotate left");
         			msg.source = K_ROT;
         			msg.val = K_ROT_LEFT;
-        			xQueueSend(ui_cmd_q, &msg, NULL);
+        			xQueueSend(ui_cmd_q, &msg, 0);
         			}
         		else if(s1 == 1 && s2 == 1)
         			{
@@ -128,7 +126,7 @@ static void rot_enc_cmd(void* arg)
         			msg.source = K_ROT;
         			msg.val = K_ROT_RIGHT;
         			//ui_cmd_task();
-        			xQueueSend(ui_cmd_q, &msg, NULL);
+        			xQueueSend(ui_cmd_q, &msg, 0);
         			}
         		}
         	else if(msg.source == SOURCE_KEY) // key pressed or released
@@ -144,6 +142,8 @@ static void rot_enc_cmd(void* arg)
         					}
         				ESP_LOGI(TAG, "key released");
         				key_state = key;
+        				msg.source = K_UP;
+        				xQueueSend(ui_cmd_q, &msg, 0);
         				}
         			}
         		else
@@ -163,6 +163,8 @@ static void rot_enc_cmd(void* arg)
         				key_timer_state = 1;
         				ESP_LOGI(TAG, "key pressed");
         				key_state = key;
+        				msg.source = K_DOWN;
+        				xQueueSend(ui_cmd_q, &msg, 0);
         				}
         			}
         		}
@@ -189,7 +191,7 @@ static void rot_enc_cmd(void* arg)
         				msg.source = K_PRESS;
         				press_time = PUSH_TIME_LONG;
         				msg.val = PUSH_TIME_SHORT;
-        				xQueueSend(ui_cmd_q, &msg, NULL);
+        				xQueueSend(ui_cmd_q, &msg, 0);
         				}
         			else if(press_time == PUSH_TIME_LONG)
         				{
@@ -198,7 +200,7 @@ static void rot_enc_cmd(void* arg)
         				//reconfigure timer to count for short press
         				msg.source = K_PRESS;
         				msg.val = PUSH_TIME_LONG;
-        				xQueueSend(ui_cmd_q, &msg, NULL);
+        				xQueueSend(ui_cmd_q, &msg, 0);
         				}
         			}
         		}
