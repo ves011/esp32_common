@@ -60,6 +60,8 @@
 #define INACT_TIME			30
 #define PUMP_VAL_CHANGE		40
 #define PUMP_OP_ERROR		50
+#define WATER_VAL_CHANGE	60
+#define WATER_OP_ERROR		70
 
 #define DEVICE_TOPIC_Q				"gnetdev/query"
 #define DEVICE_TOPIC_R				"gnetdev/response"

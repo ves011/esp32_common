@@ -14,6 +14,10 @@
 
 #define PUSH_TIME_SHORT		100000			//300 msec
 #define PUSH_TIME_LONG		2000000		// 2 sec
+
+#define KEY_PRESS_SHORT		1
+#define KEY_PRESS_LONG		2
+
 void init_rotenc();
 
 

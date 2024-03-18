@@ -41,7 +41,7 @@
 #include "gateop.h"
 #elif ACTIVE_CONTROLLER == WESTA_CONTROLLER
 #include "westaop.h"
-#elif ACTIVE_CONTROLLER == WATER_CONTROLLER
+#elif ACTIVE_CONTROLLER == WATER_CONTROLLER || ACTIVE_CONTROLLER == WP_CONTROLLER
 #include "waterop.h"
 #endif
 
@@ -192,7 +192,7 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
 	#elif ACTIVE_CONTROLLER == WESTA_CONTROLLER
 					strcpy(argv[0], "westa");
 					do_westaop(argc, argv);
-	#elif ACTIVE_CONTROLLER == WATER_CONTROLLER
+	#elif ACTIVE_CONTROLLER == WATER_CONTROLLER || ACTIVE_CONTROLLER == WP_CONTROLLER
 					strcpy(argv[0], "dv");
 					do_dvop(argc, argv);
 	#endif
