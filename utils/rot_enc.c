@@ -17,12 +17,14 @@
 #include "common_defines.h"
 #include "project_specific.h"
 #include "driver/gptimer.h"
+#include "esp_netif.h"
+#include "esp_spiffs.h"
+#include "mqtt_client.h"
+#include "external_defs.h"
 #include "gpios.h"
 #include "lvgl.h"
 #include "lcd.h"
 #include "rot_enc.h"
-
-extern QueueHandle_t ui_cmd_q;
 
 static const char *TAG = "ROT_ENC";
 static QueueHandle_t cmd_q;
@@ -131,9 +133,9 @@ static void rot_enc_cmd(void* arg)
         		}
         	else if(msg.source == SOURCE_KEY) // key pressed or released
         		{
-        		if(key)
+        		if(!key)
         			{
-        			if(!key_state)
+        			if(key_state)
         				{
         				if(key_timer_state)
         					{
@@ -148,7 +150,7 @@ static void rot_enc_cmd(void* arg)
         			}
         		else
         			{
-        			if(key_state)
+        			if(!key_state)
         				{
         				//always start timer with PUSH_TIME_SHORT;
         				gptimer_alarm_config_t al_config = 	{

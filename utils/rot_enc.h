@@ -18,6 +18,20 @@
 #define KEY_PRESS_SHORT		1
 #define KEY_PRESS_LONG		2
 
+/*
+ * handles events from a rotary encoder device
+ * s1, s2 -> sense rotation of knob
+ * -- provides events for
+ * --- left turn
+ * --- right turn
+ * key -> knob press
+ *  -- provides events for
+ *  ---- key down
+ *  ---- key up
+ *  ---- short time pressed
+ *  ---- long time pressed
+ */
+
 void init_rotenc();
 
 

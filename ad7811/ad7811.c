@@ -31,11 +31,11 @@
 static const char* TAG = "AD op:";
 static int vref;
 static gptimer_handle_t adc_timer;
-static int sample_count, nr_samples;
+static volatile int sample_count, nr_samples;
 uint16_t pc_samples[NR_SAMPLES_PC];
 uint16_t ps_samples[NR_SAMPLES_PS];
 uint16_t dv_samples[NR_SAMPLES_DV];
-int16_t *samples;
+volatile int16_t *samples;
 int s_channel;
 static QueueHandle_t adc_evt_queue = NULL;
 static SemaphoreHandle_t adcval_mutex;
@@ -47,6 +47,7 @@ struct
 	{
     struct arg_str *op;
     struct arg_int *arg;
+    struct arg_int *arg1;
     struct arg_end *end;
 	} ad_args;
 
@@ -102,13 +103,17 @@ int adc_get_data(int chn, int16_t *s_vect, int nr_samp)
 	{
 	int dummy, ret = ESP_FAIL;
 	adc_msg_t msg;
-	nr_samples = nr_samp;
-	sample_count = 0;
-	samples = s_vect;
-	s_channel = chn;
-	int q_wait = (SAMPLE_PERIOD * nr_samp) / 1000 + 50;
+	//nr_samples = nr_samp;
+	//sample_count = 0;
+	//samples = s_vect;
+	//s_channel = chn;
+	int q_wait = (SAMPLE_PERIOD * NR_SAMPLES_PC) / 1000 + 50;
 	if(xSemaphoreTake(adcval_mutex,  q_wait / portTICK_PERIOD_MS ) == pdTRUE)
 		{
+		nr_samples = nr_samp;
+		sample_count = 0;
+		samples = s_vect;
+		s_channel = chn;
 		if(read_ADmv(chn, &dummy) == ESP_OK)
 			{
 			gptimer_start(adc_timer);
@@ -116,8 +121,12 @@ int adc_get_data(int chn, int16_t *s_vect, int nr_samp)
 				{
 				if(msg.source == 1)
 					{
+					//ESP_LOGI(TAG, "chn: %d / nrs: %d / ret: %d / %d, %d, %d, %d, %d", chn, nr_samp, nr_samples, s_vect[0], s_vect[1], s_vect[2], s_vect[3], s_vect[4]);
 					if(msg.val == nr_samp)
+						{
+
 						ret = ESP_OK;
+						}
 					else
 						{
 						ret = ESP_FAIL;
@@ -217,7 +226,8 @@ static int read_ADmv(int chnn, int *vmv)
 static int do_ad(int argc, char **argv)
 	{
 	int nerrors = arg_parse(argc, argv, (void **)&ad_args);
-	int chnn, data;
+	int chnn, nrs;
+	int16_t s_data[200];
 	if (nerrors != 0)
 		{
 		arg_print_errors(stderr, ad_args.end, argv[0]);
@@ -229,15 +239,35 @@ static int do_ad(int argc, char **argv)
 			chnn = ad_args.arg->ival[0];
 		else
 			chnn = 0;
-		read_ADmv(chnn, &data);
+		if(ad_args.arg1->count)
+			nrs = ad_args.arg1->ival[0];
+		else
+			nrs = 1;
+		adc_get_data(chnn, s_data, nrs);
+		for(int i = 0; i < nrs; i++)
+			read_ADmv(chnn, (int *)&s_data[i]);
+		ESP_LOGI(TAG, "chn: %d = %d / %d, %d, %d, %d",  chnn, s_data[0], s_data[1], s_data[2], s_data[3], s_data[4]);
+		}
+	else if(strcmp(ad_args.op->sval[0], "mr") == 0)
+		{
+		if(ad_args.arg->count)
+			{
+			chnn = ad_args.arg->ival[0];
+			if(ad_args.arg1->count)
+				{
+				nrs = ad_args.arg1->ival[0];
+				adc_get_data(chnn, s_data, nrs);
+				}
+			}
 		}
 	return ESP_OK;
 	}
 void register_ad()
 	{
 	init_ad7811();
-	ad_args.op = arg_str1(NULL, NULL, "<op>", "op: r | w");
-	ad_args.arg= arg_int0(NULL, NULL, "<arg>", "value to write");
+	ad_args.op = arg_str1(NULL, NULL, "<op>", "op: r | mr");
+	ad_args.arg = arg_int0(NULL, NULL, "<arg>", "value to write");
+	ad_args.arg1 = arg_int0(NULL, NULL, "<nrs>", "no of samples");
 	ad_args.end = arg_end(1);
 	const esp_console_cmd_t ad_cmd =
 		{
