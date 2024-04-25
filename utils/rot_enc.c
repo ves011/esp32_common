@@ -179,7 +179,7 @@ static void rot_enc_cmd(void* arg)
         			if(press_time == PUSH_TIME_SHORT)
         				{
         				//short press
-        				ESP_LOGI(TAG, "short timer expired - key command");
+        				//ESP_LOGI(TAG, "short timer expired - key command");
         				//reconfigure timer to count for long press
         				gptimer_alarm_config_t al_config = 	{
 										.reload_count = 0,
@@ -198,7 +198,7 @@ static void rot_enc_cmd(void* arg)
         			else if(press_time == PUSH_TIME_LONG)
         				{
         				//long press
-        				ESP_LOGI(TAG, "long timer expired - key command");
+        				//ESP_LOGI(TAG, "long timer expired - key command");
         				//reconfigure timer to count for short press
         				msg.source = K_PRESS;
         				msg.val = PUSH_TIME_LONG;
@@ -212,7 +212,7 @@ static void rot_enc_cmd(void* arg)
 void init_rotenc()
 	{
 	TaskHandle_t rot_enc_cmd_handle;
-	key_state = 1;
+	key_state = 0;
 	press_time = PUSH_TIME_SHORT;
 	cmd_q = xQueueCreate(10, sizeof(msg_t));
 	if(!cmd_q)

@@ -10,9 +10,9 @@
 
 #if ACTIVE_CONTROLLER == WP_CONTROLLER //based on esp32 dev kit
 //ADC channels provided by AD7811 channels
-	#define SENSOR_CHN			1		//VIN2
+	#define SENSOR_CHN			2		//VIN3
 	#define CURRENT_CHN			0		//VIN1
-	#define MOTSENSE_CHN		2		//VIN3
+	#define MOTSENSE_CHN		1		//VIN2
 
 	#define PIN_NUM_CONVST		14		//
 	#define PIN_NUM_QMETER		34		//

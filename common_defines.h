@@ -51,17 +51,19 @@
 #define PARAM_CONSOLE				(10)
 
 //sources for UI interface
-#define K_ROT				10
-#define K_ROT_LEFT			11
-#define K_ROT_RIGHT			12
-#define K_PRESS				20
-#define K_DOWN				21
-#define K_UP				22
-#define INACT_TIME			30
-#define PUMP_VAL_CHANGE		40
-#define PUMP_OP_ERROR		50
-#define WATER_VAL_CHANGE	60
-#define WATER_OP_ERROR		70
+#define K_ROT				0x10
+#define K_ROT_LEFT			0x11
+#define K_ROT_RIGHT			0x12
+#define K_KEY				0x20
+#define K_PRESS				0x21
+#define K_DOWN				0x22
+#define K_UP				0x23
+#define INACT_TIME			0x40
+#define PUMP_VAL_CHANGE		0x80
+#define PUMP_OP_ERROR		0x81
+#define WATER_VAL_CHANGE	0x100
+#define WATER_OP_ERROR		0x101
+#define BOOT_MSG			0x200
 
 #define DEVICE_TOPIC_Q				"gnetdev/query"
 #define DEVICE_TOPIC_R				"gnetdev/response"
