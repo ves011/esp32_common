@@ -86,8 +86,8 @@
 #define LOG_SERVER					"proxy.gnet"
 #define LOG_SERVER_PORT				6001
 
-#define FACTORY_PART_NAME			"factory"
-#define OTA_PART_NAME				"ota_0"
+#define FACTORY_PART_NAME			"ota_0"
+#define OTA_PART_NAME				"ota_1"
 
 typedef struct
 		{
