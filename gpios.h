@@ -10,10 +10,18 @@
 
 #if ACTIVE_CONTROLLER == WP_CONTROLLER //based on esp32 dev kit
 //ADC channels provided by AD7811 channels
-	#define SENSOR_CHN			2		//VIN3
-	#define CURRENT_CHN			0		//VIN1
-	#define MOTSENSE_CHN		1		//VIN2
+#ifdef WP_HW_V1
+	#define SENSOR_CHN			2		//VIN3 - pressure sensor
+	#define CURRENT_CHN			0		//VIN1 - pump current ACS712
+	#define MOTSENSE_CHN		1		//VIN2 - DV current sense
+#endif
+#ifdef WP_HW_V2
+	#define SENSOR_CHN			2		//VIN3 - pressure sensor
+	#define CURRENT_CHN			1		//VIN2 - pump current ACS712
+	#define MOTSENSE_CHN		3		//VIN4 - DV current sense
+#endif
 
+#ifdef WP_HW_V1
 	#define PIN_NUM_CONVST		14		//
 	#define PIN_NUM_QMETER		34		//
 
@@ -22,37 +30,59 @@
 	#define PIN_NUM_MOSI		26
 	#define PIN_NUM_CLK			25
 
+
 //rotary encoder
 	#define ROT_ENC_S1			35
 	#define ROT_ENC_S2			32
 	#define ROT_ENC_KEY			33
+#endif
+#ifdef WP_HW_V2
+	#define PIN_NUM_CONVST		26		//
+	#define PIN_NUM_QMETER		36		//
 
+//SPI communication AD7811
+	#define PIN_NUM_MISO		25
+	#define PIN_NUM_MOSI		33
+	#define PIN_NUM_CLK			32
+
+
+//rotary encoder
+	#define ROT_ENC_S1			39
+	#define ROT_ENC_S2			34
+	#define ROT_ENC_KEY			35
+#endif
+//ctrl GPIOs
+/** DV control pin */
+	/* A1 ON 	/ B1 OFF 	--> open
+	 * A1 OFF 	/ B1 ON 	--> close
+	 * A1 OFF 	/ B1 OFF 	--> inactive
+	 */
+#ifdef WP_HW_V1
+	#define PINEN_DV0				(16)	//output - dv open/close cmd goes to dv0
+	#define PINEN_DV1				(4)		//output - dv open/close cmd goes to dv1
+	#define PINMOT_A1				(2)		//output - H bridge cmd
+	#define PINMOT_B1				(15)	//output - H bridge cmd
+#endif
+#ifdef WP_HW_V2
+	#define PINEN_DV0				(16)	//output - dv open/close cmd goes to dv0
+	#define PINEN_DV1				(15)	//output - dv open/close cmd goes to dv1
+	#define PINEN_DV2				(13)	//output - dv open/close cmd goes to dv2
+	#define PINEN_DV3				(14)	//output - dv open/close cmd goes to dv3
+	#define PINMOT_A1				(4)		//output - H bridge cmd
+	#define PINMOT_B1				(2)		//output - H bridge cmd
+#endif
+//pump on/off pin
+	#define PUMP_ONOFF_PIN			(23)	//output - pump on/off relay cmd
 //LEDs
-
 #ifdef LEDS
 	#define PUMP_ONOFF_LED			(16)	//j4/3
-	#define PUMP_ONLINE_LED			(21)//j4/1
-	#define PUMP_FAULT_LED			(4)//j4/2
+	#define PUMP_ONLINE_LED			(21)	//j4/1
+	#define PUMP_FAULT_LED			(4)		//j4/2
 	#define DV0_ON_LED				(2)
 	#define DV1_ON_LED				(15)
 	#define PROG_ON_LED				(8)
 	#define PUMP_ONLINE_CMD			(22)	//input - pump online/ofline push button
 #endif
-
-//ctrl GPIOs
-/** Pump ON/OF control pin */
-	#define PUMP_ONOFF_PIN			(23)	//output - pump on/off relay cmd
-	#define PINEN_DV0				(16)	//output - dv open/close cmd goes to dv0
-	#define PINEN_DV1				(4)	//output - dv open/close cmd goes to dv1
-	/* A1 ON 	/ B1 OFF 	--> open
-	 * A1 OFF 	/ B1 ON 	--> close
-	 * A1 OFF 	/ B1 OFF 	--> inactive
-	 */
-	#define PINMOT_A1				(2)		//output - H bridge cmd
-	#define PINMOT_B1				(15)	//output - H bridge cmd
-	//#define WATER_STOP_CMD			(34)
-	//#define DV0_CMD					(36)	//input - dv0 open/close push button
-	//#define DV1_CMD					(39)	//input - dv1 open/close push button
 #endif
 
 #if ACTIVE_CONTROLLER == PUMP_CONTROLLER

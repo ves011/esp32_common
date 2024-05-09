@@ -35,13 +35,13 @@ static volatile int sample_count, nr_samples;
 uint16_t pc_samples[NR_SAMPLES_PC];
 uint16_t ps_samples[NR_SAMPLES_PS];
 uint16_t dv_samples[NR_SAMPLES_DV];
-volatile int16_t *samples;
+volatile int16_t *samples, *samp_bin;
 int s_channel;
 static QueueHandle_t adc_evt_queue = NULL;
 static SemaphoreHandle_t adcval_mutex;
 
 static int read_AD_simple(int chnn, uint16_t *data);
-static int read_ADmv(int chnn, int *vmv);
+static int read_ADmv(int chnn, int *vmv, int *dbin);
 
 struct
 	{
@@ -54,10 +54,11 @@ struct
 static bool IRAM_ATTR adc_timer_callback(gptimer_handle_t ad_timer, const gptimer_alarm_event_data_t *edata, void *args)
 	{
     BaseType_t high_task_awoken = pdFALSE;
-    int data;
+    int data, d_bin;
     adc_msg_t msg;
-    if(read_ADmv(s_channel, &data) == ESP_OK)
+    if(read_ADmv(s_channel, &data, &d_bin) == ESP_OK)
     	{
+    	samp_bin[sample_count] = d_bin;
     	samples[sample_count++] = data;
 		if(sample_count >= nr_samples)
 			{
@@ -101,8 +102,9 @@ static void config_adc_timer()
 
 int adc_get_data(int chn, int16_t *s_vect, int nr_samp)
 	{
-	int dummy, ret = ESP_FAIL;
+	int dummy, dbin, ret = ESP_FAIL;
 	adc_msg_t msg;
+	int16_t s_bin[200];
 	//nr_samples = nr_samp;
 	//sample_count = 0;
 	//samples = s_vect;
@@ -113,15 +115,16 @@ int adc_get_data(int chn, int16_t *s_vect, int nr_samp)
 		nr_samples = nr_samp;
 		sample_count = 0;
 		samples = s_vect;
+		samp_bin = s_bin;
 		s_channel = chn;
-		if(read_ADmv(chn, &dummy) == ESP_OK)
+		if(read_ADmv(chn, &dummy, &dbin) == ESP_OK)
 			{
 			gptimer_start(adc_timer);
 			if(xQueueReceive(adc_evt_queue, &msg, q_wait / portTICK_PERIOD_MS)) //wait qwait msec ADC conversion to complete
 				{
 				if(msg.source == 1)
 					{
-					//ESP_LOGI(TAG, "chn: %d / nrs: %d / ret: %d / %d, %d, %d, %d, %d", chn, nr_samp, nr_samples, s_vect[0], s_vect[1], s_vect[2], s_vect[3], s_vect[4]);
+					//ESP_LOGI(TAG, "chn: %d / nrs: %d / ret: %d / %d(%d), %d(%d), %d(%d), %d(%d), %d(%d)", chn, nr_samp, nr_samples, s_vect[0], s_bin[0], s_vect[1], s_bin[1], s_vect[2], s_bin[2], s_vect[3], s_bin[3], s_vect[4], s_bin[4]);
 					if(msg.val == nr_samp)
 						{
 
@@ -207,19 +210,22 @@ static int read_AD_simple(int chnn, uint16_t *data)
 #ifdef EXTREF
 	cmd |= 0x0040;
 #endif
-	return spiad_rw(cmd, 13, data);
+	return spiad_rw(cmd, 16, data);
 	}
 
 /*
  * read specific channel (chnn) from AD7811
  * return read value converted to mV or -1 if SPI transaction fails
  */
-static int read_ADmv(int chnn, int *vmv)
+static int read_ADmv(int chnn, int *vmv, int *dbin)
 	{
 	uint16_t data;
 	int ret;
 	if((ret = read_AD_simple(chnn, &data)) == ESP_OK)
+		{
 		*vmv = (vref * data) / 1024;
+		*dbin = data;
+		}
 	return ret;
 	}
 
@@ -228,6 +234,7 @@ static int do_ad(int argc, char **argv)
 	int nerrors = arg_parse(argc, argv, (void **)&ad_args);
 	int chnn, nrs;
 	int16_t s_data[200];
+	int dbin;
 	if (nerrors != 0)
 		{
 		arg_print_errors(stderr, ad_args.end, argv[0]);
@@ -245,7 +252,7 @@ static int do_ad(int argc, char **argv)
 			nrs = 1;
 		adc_get_data(chnn, s_data, nrs);
 		for(int i = 0; i < nrs; i++)
-			read_ADmv(chnn, (int *)&s_data[i]);
+			read_ADmv(chnn, (int *)&s_data[i], &dbin);
 		ESP_LOGI(TAG, "chn: %d = %d / %d, %d, %d, %d",  chnn, s_data[0], s_data[1], s_data[2], s_data[3], s_data[4]);
 		}
 	else if(strcmp(ad_args.op->sval[0], "mr") == 0)

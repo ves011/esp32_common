@@ -15,6 +15,8 @@
 #define WESTA_CONTROLLER				4 // weather station controller
 #define WATER_CONTROLLER				5 // irrigation and water actuators control
 #define WP_CONTROLLER					6 //combined pump & water controller
+#define WP_HW_V1
+//#define WP_HW_V2
 
 #include "project_specific.h"
 

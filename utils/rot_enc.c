@@ -117,14 +117,14 @@ static void rot_enc_cmd(void* arg)
         		{
         		if(s1 == 1 && s2 == 0)
         			{
-        			ESP_LOGI(TAG, "knob rotate left");
+        			//ESP_LOGI(TAG, "knob rotate left");
         			msg.source = K_ROT;
         			msg.val = K_ROT_LEFT;
         			xQueueSend(ui_cmd_q, &msg, 0);
         			}
         		else if(s1 == 1 && s2 == 1)
         			{
-        			ESP_LOGI(TAG, "knob rotate right");
+        			//ESP_LOGI(TAG, "knob rotate right");
         			msg.source = K_ROT;
         			msg.val = K_ROT_RIGHT;
         			//ui_cmd_task();
@@ -142,7 +142,7 @@ static void rot_enc_cmd(void* arg)
         					gptimer_stop(key_timer);
         					key_timer_state = 0;
         					}
-        				ESP_LOGI(TAG, "key released");
+        				//ESP_LOGI(TAG, "key released");
         				key_state = key;
         				msg.source = K_UP;
         				xQueueSend(ui_cmd_q, &msg, 0);
@@ -163,7 +163,7 @@ static void rot_enc_cmd(void* arg)
         				gptimer_start(key_timer);
         				press_time = PUSH_TIME_SHORT;
         				key_timer_state = 1;
-        				ESP_LOGI(TAG, "key pressed");
+        				//ESP_LOGI(TAG, "key pressed");
         				key_state = key;
         				msg.source = K_DOWN;
         				xQueueSend(ui_cmd_q, &msg, 0);
