@@ -87,6 +87,7 @@ static void register_cat(void);
 static void register_rm(void);
 static int ota_start(int argc, char **argv);
 static void register_ota(void);
+static void register_echo(void);
 #if WITH_TASKS_INFO
 static void register_tasks(void);
 #endif
@@ -104,6 +105,7 @@ void register_system_common(void)
     register_cat();
     register_rm();
     register_ota();
+    register_echo();
 #if WITH_TASKS_INFO
     register_tasks();
 #endif
@@ -568,6 +570,67 @@ static void register_rm(void)
 		};
 	ESP_ERROR_CHECK( esp_console_cmd_register(&cmd) );
 	}
+struct
+	{
+    struct arg_str *str;
+    struct arg_str *ot;
+    struct arg_str *fname;
+    struct arg_end *end;
+	} echo_args;
+
+static int echo(int argc, char **argv)
+	{
+	char path[64];
+	FILE *f = NULL;
+	int nerrors = arg_parse(argc, argv, (void **)&echo_args);
+	if (nerrors != 0)
+    	{
+        //arg_print_errors(stderr, ls_args.end, argv[0]);
+        my_printf("%s arguments error", argv[0]);
+        return 1;
+    	}
+	if(echo_args.str->count && echo_args.ot->count && echo_args.fname->count)
+		{
+		strcpy(path, "/var/");
+		strcat(path, echo_args.fname->sval[0]);
+		if(!strcmp(echo_args.ot->sval[0], ">"))
+			f = fopen(path, "w");
+		else if(!strcmp(echo_args.ot->sval[0], ">>"))
+			f = fopen(path, "a");
+		if(f)
+			{
+			char buf[100];
+			strcpy(buf, echo_args.str->sval[0]);
+			strcat(buf, "\n");
+			fputs(buf,f);
+			fclose(f);
+			}
+		else
+			my_printf("Error opening %s file %d", path, errno);
+		}
+	else
+		{
+		my_printf("arguments missing \n -- echo \"str to write\" > [| >>] filename");
+		}
+	return 0;
+	}
+static void register_echo(void)
+	{
+	echo_args.str = arg_str0(NULL, NULL, "str", "<string to be written>");
+	echo_args.ot = arg_str0(NULL, NULL, "> | >>", "write(>) or append(>>)");
+	echo_args.fname = arg_str0(NULL, NULL, "<file_name>", "file name");
+	echo_args.end = arg_end(1);
+	const esp_console_cmd_t cmd =
+		{
+		.command = "echo",
+		.help = "output a string to a file",
+		.hint = NULL,
+		.func = &echo,
+		.argtable = &echo_args,
+		};
+	ESP_ERROR_CHECK( esp_console_cmd_register(&cmd) );
+	}
+
 /* 'heap' command prints minumum heap size */
 static int heap_size(int argc, char **argv)
 {
