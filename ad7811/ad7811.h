@@ -42,5 +42,6 @@ typedef struct
 void config_gpios();
 void register_ad();
 int adc_get_data(int chn, int16_t *s_vect, int nr_samp);
+int do_ad(int argc, char **argv);
 
 #endif /* MAIN_AD7811_H_ */

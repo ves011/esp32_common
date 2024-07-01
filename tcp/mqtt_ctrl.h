@@ -12,6 +12,8 @@ int mqtt_start(void);
 void register_mqtt(void);
 void publish_state(char *msg, int qos, int retain);
 void publish_monitor(char *msg, int qos, int retain);
+void publish_state_a(char *msg, int qos, int retain);
+void publish_monitor_a(char *msg, int qos, int retain);
 void publish_MQTT_client_status();
 void subscribe(char *topic);
 void publish_reqID();

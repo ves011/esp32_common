@@ -1087,4 +1087,6 @@ void do_system_cmd(int argc, char **argv)
 		rm_file(argc, argv);
 	else if(!strcmp(argv[0], "ota"))
 		ota_start(argc, argv);
+	else if(!strcmp(argv[0], "echo"))
+		echo(argc, argv);
 	}

@@ -160,7 +160,6 @@ int rw_params(int rw, int param_type, void * param_val)
 			((pump_limits_t *)param_val)->min_val = DEFAULT_PRES_MIN_LIMIT;
 			((pump_limits_t *)param_val)->max_val = DEFAULT_PRES_MAX_LIMIT;
 			((pump_limits_t *)param_val)->faultc = DEFAULT_PUMP_CURRENT_LIMIT;
-			((pump_limits_t *)param_val)->stdev = DEFAULT_STDEV;
 			((pump_limits_t *)param_val)->overp_lim = DEFAULT_OVERP_TIME_LIMIT;
 			((pump_limits_t *)param_val)->void_run_count = DEFAULT_VOID_RUN_COUNT;
 			if (stat(BASE_PATH"/"LIMITS_FILE, &st) != 0)
@@ -173,7 +172,7 @@ int rw_params(int rw, int param_type, void * param_val)
 				FILE *f = fopen(BASE_PATH"/"LIMITS_FILE, "r");
 				if (f != NULL)
 					{
-					((pump_limits_t *)param_val)->min_val = ((pump_limits_t *)param_val)->max_val = ((pump_limits_t *)param_val)->faultc = ((pump_limits_t *)param_val)->stdev = 0xffffff;
+					((pump_limits_t *)param_val)->min_val = ((pump_limits_t *)param_val)->max_val = ((pump_limits_t *)param_val)->faultc = 0xffffff;
 					if(fgets(buf, 64, f))
 						{
 						((pump_limits_t *)param_val)->min_val = atoi(buf);
@@ -185,15 +184,11 @@ int rw_params(int rw, int param_type, void * param_val)
 								((pump_limits_t *)param_val)->faultc = atoi(buf);
 								if(fgets(buf, 64, f))
 									{
-									((pump_limits_t *)param_val)->stdev = atoi(buf);
+									((pump_limits_t *)param_val)->overp_lim = atoi(buf);
 									if(fgets(buf, 64, f))
 										{
-										((pump_limits_t *)param_val)->overp_lim = atoi(buf);
-										if(fgets(buf, 64, f))
-											{
-											((pump_limits_t *)param_val)->void_run_count = atoi(buf);
-											ret = ESP_OK;
-											}
+										((pump_limits_t *)param_val)->void_run_count = atoi(buf);
+										ret = ESP_OK;
 										}
 									}
 								}
@@ -319,9 +314,9 @@ int rw_params(int rw, int param_type, void * param_val)
 				}
 			else
 				{
-				sprintf(buf, "%lu\n%lu\n%lu\n%lu\n%lu\n%lu\n",
+				sprintf(buf, "%lu\n%lu\n%lu\n%lu\n%lu\n",
 						((pump_limits_t *)param_val)->min_val, ((pump_limits_t *)param_val)->max_val, ((pump_limits_t *)param_val)->faultc,
-						((pump_limits_t *)param_val)->stdev, ((pump_limits_t *)param_val)->overp_lim, ((pump_limits_t *)param_val)->void_run_count);
+						((pump_limits_t *)param_val)->overp_lim, ((pump_limits_t *)param_val)->void_run_count);
 				if(fputs(buf, f) >= 0)
 					ret = ESP_OK;
 				fclose(f);

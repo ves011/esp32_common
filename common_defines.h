@@ -15,8 +15,8 @@
 #define WESTA_CONTROLLER				4 // weather station controller
 #define WATER_CONTROLLER				5 // irrigation and water actuators control
 #define WP_CONTROLLER					6 //combined pump & water controller
-#define WP_HW_V1
-//#define WP_HW_V2
+//#define WP_HW_V1
+#define WP_HW_V2
 
 #include "project_specific.h"
 
@@ -63,8 +63,15 @@
 #define INACT_TIME			0x40
 #define PUMP_VAL_CHANGE		0x80
 #define PUMP_OP_ERROR		0x81
+
 #define WATER_VAL_CHANGE	0x100
 #define WATER_OP_ERROR		0x101
+#define WATER_DV_OP			0x102
+#define WATER_DV_CHANGE		0x103
+
+
+
+
 #define BOOT_MSG			0x200
 
 #define DEVICE_TOPIC_Q				"gnetdev/query"
@@ -82,7 +89,7 @@
 #elif ACTIVE_CONTROLLER == WATER_CONTROLLER
 	#define DEV_NAME				"Controler irigatie"
 #elif ACTIVE_CONTROLLER == WP_CONTROLLER
-	#define DEV_NAME				"Controler irigatie&pompa"
+	#define DEV_NAME				"Pompa & Irigatie"
 #endif
 
 #define LOG_SERVER					"proxy.gnet"

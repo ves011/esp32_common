@@ -66,8 +66,8 @@
 #ifdef WP_HW_V2
 	#define PINEN_DV0				(16)	//output - dv open/close cmd goes to dv0
 	#define PINEN_DV1				(15)	//output - dv open/close cmd goes to dv1
-	#define PINEN_DV2				(13)	//output - dv open/close cmd goes to dv2
-	#define PINEN_DV3				(14)	//output - dv open/close cmd goes to dv3
+	#define PINEN_DV2				(14)	//output - dv open/close cmd goes to dv2
+	#define PINEN_DV3				(13)	//output - dv open/close cmd goes to dv3
 	#define PINMOT_A1				(4)		//output - H bridge cmd
 	#define PINMOT_B1				(2)		//output - H bridge cmd
 #endif

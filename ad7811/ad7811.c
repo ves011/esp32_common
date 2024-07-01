@@ -229,7 +229,7 @@ static int read_ADmv(int chnn, int *vmv, int *dbin)
 	return ret;
 	}
 
-static int do_ad(int argc, char **argv)
+int do_ad(int argc, char **argv)
 	{
 	int nerrors = arg_parse(argc, argv, (void **)&ad_args);
 	int chnn, nrs;
