@@ -121,11 +121,11 @@ void register_system(void)
 {
     register_system_common();
     register_system_sleep();
-    register_ping();
+    //register_ping();
 
 }
 
-
+/*
 static void cmd_ping_on_ping_success(esp_ping_handle_t hdl, void *args)
 	{
     uint8_t ttl;
@@ -168,8 +168,8 @@ static void cmd_ping_on_ping_end(esp_ping_handle_t hdl, void *args)
     // delete the ping sessions, so that we clean up all resources and can create a new ping session
     // we don't have to call delete function in the callback, instead we can call delete function from other tasks
     esp_ping_delete_session(hdl);
-	}
-
+	}*/
+/*
 static int do_ping_cmd(int argc, char **argv)
 	{
     esp_ping_config_t config = ESP_PING_DEFAULT_CONFIG();
@@ -208,7 +208,7 @@ static int do_ping_cmd(int argc, char **argv)
     struct addrinfo hint;
     struct addrinfo *res = NULL;
     memset(&hint, 0, sizeof(hint));
-    /* convert ip4 string or hostname to ip4 or ip6 address */
+    // convert ip4 string or hostname to ip4 or ip6 address
     if (getaddrinfo(ping_args.host->sval[0], NULL, &hint, &res) != 0)
     	{
         my_printf("ping: unknown host %s\n", ping_args.host->sval[0]);
@@ -220,7 +220,7 @@ static int do_ping_cmd(int argc, char **argv)
     config.target_addr = target_addr;
     config.task_stack_size = 3072;
 
-    /* set callback functions */
+    // set callback functions
     esp_ping_callbacks_t cbs =
     	{
         .on_ping_success = cmd_ping_on_ping_success,
@@ -233,8 +233,8 @@ static int do_ping_cmd(int argc, char **argv)
     esp_ping_start(ping);
 
     return 0;
-	}
-
+	}*/
+/*
 void register_ping(void)
 	{
     ping_args.timeout = arg_dbl0("W", "timeout", "<t>", "Time to wait for a response, in seconds");
@@ -253,7 +253,7 @@ void register_ping(void)
         .argtable = &ping_args
     	};
     ESP_ERROR_CHECK(esp_console_cmd_register(&ping_cmd));
-	}
+	}*/
 /* 'version' command */
 static int get_version(int argc, char **argv)
 	{
@@ -500,13 +500,15 @@ static int cat_file(int argc, char **argv)
 			i = 0;
 			while(!feof(f))
 				{
-				fgets(outputm, 298, f);
-				if(feof(f))
-					break;
-				if(outputm[strlen(outputm) - 1] == '\n')
-					outputm[strlen(outputm) - 1] = 0;
-				my_printf("%s", outputm);
-				i++;
+				if(fgets(outputm, 298, f))
+					{
+					//if(feof(f))
+					//	break;
+					if(outputm[strlen(outputm) - 1] == '\n')
+						outputm[strlen(outputm) - 1] = 0;
+					my_printf("%s", outputm);
+					i++;
+					}
 				}
 			fclose(f);
 			my_printf("\nEOF %d lines\n", i);
@@ -1077,8 +1079,8 @@ void do_system_cmd(int argc, char **argv)
 		restart(argc, argv);
 	else if(!strcmp(argv[0], "version"))
 		get_version(argc, argv);
-	else if(!strcmp(argv[0], "ping"))
-		do_ping_cmd(argc, argv);
+	//else if(!strcmp(argv[0], "ping"))
+	//	do_ping_cmd(argc, argv);
 	else if(!strcmp(argv[0], "boot"))
 		boot_from(argc, argv);
 	else if(!strcmp(argv[0], "cat"))
