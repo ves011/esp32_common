@@ -473,6 +473,19 @@ void publish_MQTT_client_status()
 			USER_MQTT, DEV_NAME, IP2STR(&dev_ipinfo.ip), CTRL_DEV_ID, strtime, tmsec);
 	esp_mqtt_client_publish(client, DEVICE_TOPIC_R, msg, strlen(msg), 0, 0);
 	}
+void publish_MQTT_client_log(char *message)
+	{
+	char *msg = calloc(strlen(message) + strlen(USER_MQTT) + 5, 1);
+	if(msg)
+		{
+		strcpy(msg, USER_MQTT);
+		strcat(msg, ":: ");
+		strcat(msg, message);
+		//printf("\nMQTT log strlen(msg) - %d - %d", client_connected, strlen(msg));
+		esp_mqtt_client_publish(client, DEVICE_TOPIC_L, msg, strlen(msg), 0, 0);
+		free(msg);
+		}
+	}
 
 void create_topics()
 	{

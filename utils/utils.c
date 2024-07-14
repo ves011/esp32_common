@@ -43,10 +43,11 @@ int my_log_vprintf(const char *fmt, va_list arguments)
 	{
 	if(console_state == CONSOLE_ON)
 		return vprintf(fmt, arguments);
-	else if(console_state == CONSOLE_TCP)
+	else if(console_state >= CONSOLE_TCP)
 		{
 		char buf[1024];
 		vsnprintf(buf, sizeof(buf) - 1, fmt, arguments);
+		//strip special characters
 		return tcp_log_message(buf);
 		}
 	return 0;
@@ -63,7 +64,7 @@ void my_printf(char *format, ...)
 		{
 		puts(buf);
 		}
-	else if(console_state == CONSOLE_TCP)
+	else if(console_state >= CONSOLE_TCP)
 		{
 		//puts(buf);
 		tcp_log_message(buf);
@@ -75,7 +76,7 @@ void my_fputs(char *buf, FILE *f)
 		{
 		puts(buf);
 		}
-	else if(console_state == CONSOLE_TCP)
+	else if(console_state >= CONSOLE_TCP)
 		{
 		//puts(buf);
 		tcp_log_message(buf);
@@ -130,6 +131,7 @@ int rw_params(int rw, int param_type, void * param_val)
 				{
 				// file does no exists
 				((psensor_offset_t *)param_val)->v_offset = 0;
+				printf("\nno file: %s", BASE_PATH"/"OFFSET_FILE);
 				ret = ESP_OK;
 				}
 			else
@@ -165,6 +167,7 @@ int rw_params(int rw, int param_type, void * param_val)
 			if (stat(BASE_PATH"/"LIMITS_FILE, &st) != 0)
 				{
 				// file does no exists
+				printf("\nno file: %s", BASE_PATH"/"LIMITS_FILE);
 				ret = ESP_OK;
 				}
 			else
@@ -240,10 +243,13 @@ int rw_params(int rw, int param_type, void * param_val)
 
 		if(param_type == PARAM_CONSOLE)
     		{
+			//stat(BASE_PATH"/"LIMITS_FILE, &st)
+			//if (stat(BASE_PATH"/"OPERATIONAL_FILE, &st) != 0)
 			if (stat(BASE_PATH"/"CONSOLE_FILE, &st) != 0)
 				{
 				// file does no exists
 				console_state = CONSOLE_ON;
+				printf("\nno file: --%s--", BASE_PATH"/"CONSOLE_FILE);
 				ret = ESP_OK;
 				}
 			else
@@ -257,6 +263,7 @@ int rw_params(int rw, int param_type, void * param_val)
 						}
 					else
 						console_state = CONSOLE_ON;
+
 					fclose(f);
 					ret = ESP_OK;
 					}

@@ -54,6 +54,7 @@
 	#include "ota.h"
 #include "cmd_system.h"
 #include "cmd_wifi.h"
+#include "tcp_log.h"
 
 
 
@@ -910,7 +911,7 @@ static struct
 	} console_args;
 int set_console(int argc, char **argv)
 	{
-	int cs;
+	console_state_t cs;
 	int nerrors = arg_parse(argc, argv, (void **)&console_args);
     if (nerrors != 0)
     	{
@@ -926,6 +927,8 @@ int set_console(int argc, char **argv)
 			cs = CONSOLE_OFF;
 		else if(strcmp(console_args.op->sval[0], "tcp") == 0)
 			cs = CONSOLE_TCP;
+		else if(strcmp(console_args.op->sval[0], "mqtt") == 0)
+			cs = CONSOLE_MQTT;
 		else
 			{
 			my_printf("console: unknown option [%s]", console_args.op->sval[0]);
@@ -934,6 +937,7 @@ int set_console(int argc, char **argv)
 		if(console_state != cs)
 			rw_params(PARAM_WRITE, PARAM_CONSOLE, &cs);
 		console_state = cs;
+		tcp_log_init();
 		}
 	else
 		my_printf("Console state: %d\n", console_state);

@@ -223,7 +223,7 @@ void init_rotenc()
 	init_gpios();
 	config_key_timer();
 	key_timer_state = 0;
-	xTaskCreatePinnedToCore(rot_enc_cmd, "rot_enc_cmd", 4196, NULL, 5, &rot_enc_cmd_handle, 1);
+	xTaskCreatePinnedToCore(rot_enc_cmd, "rot_enc_cmd", 4096, NULL, 5, &rot_enc_cmd_handle, 1);
 	if(!rot_enc_cmd_handle)
 		{
 		ESP_LOGE(TAG, "Unable to start rotary encoder cmd task");

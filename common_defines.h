@@ -21,11 +21,19 @@
 #include "project_specific.h"
 
 #define USER_TASK_PRIORITY			5
-
+typedef enum
+	{
+	CONSOLE_OFF,
+	CONSOLE_ON,
+	CONSOLE_TCP,
+	CONSOLE_MQTT,
+	} console_state_t;
+	/*
+#define CONSOLE_MQTT				3
 #define CONSOLE_TCP					2
 #define CONSOLE_ON					1
 #define CONSOLE_OFF					0
-
+*/
 
 #define PIN_ON						(1)
 #define PIN_OFF						(0)
@@ -76,6 +84,7 @@
 
 #define DEVICE_TOPIC_Q				"gnetdev/query"
 #define DEVICE_TOPIC_R				"gnetdev/response"
+#define DEVICE_TOPIC_L				"gnetdev/log"
 
 
 #if ACTIVE_CONTROLLER  == OTA_CONTROLLER
