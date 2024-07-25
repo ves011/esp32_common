@@ -50,7 +50,8 @@ int my_log_vprintf(const char *fmt, va_list arguments)
 		//strip special characters
 		return tcp_log_message(buf);
 		}
-	return 0;
+	else
+		return 1;
 	}
 
 void my_printf(char *format, ...)

@@ -36,11 +36,12 @@ TaskHandle_t tcp_log_task_handle = NULL;
 QueueHandle_t tcp_log_evt_queue = NULL;
 static void tcp_log_task(void *pvParameters);
 #define MSG_QUEUE_SIZE		5
+#define MAX_LOG_LINE_SIZE	1024
 
 int tcp_log_init()
 	{
 	int ret = ESP_FAIL;
-	printf("\ntcp_log_init %d", console_state);
+	//printf("\ntcp_log_init %d", console_state);
 	if(console_state == CONSOLE_TCP)
 		{
 		struct hostent *hent = NULL;
@@ -85,7 +86,7 @@ int tcp_log_init()
 		else
 			{
 			if(!tcp_log_evt_queue)
-				tcp_log_evt_queue = xQueueCreate(MSG_QUEUE_SIZE, 1024);
+				tcp_log_evt_queue = xQueueCreate(MSG_QUEUE_SIZE, MAX_LOG_LINE_SIZE);
 			if(tcp_log_evt_queue)
 				{
 				if(!tcp_log_task_handle)
@@ -97,7 +98,11 @@ int tcp_log_init()
 						tcp_log_enable = 1;
 						}
 					else
+						{
+						vQueueDelete(tcp_log_evt_queue);
+						tcp_log_evt_queue = NULL;
 						tcp_log_enable = 0;
+						}
 					}
 				else
 					tcp_log_enable = 1;
@@ -106,7 +111,7 @@ int tcp_log_init()
 				tcp_log_enable = 0;
 			}
 		}
-	printf("\ntcp_log_enable: %d, tcp_log_evt_queue: %p, tcp_log_task_handle: %p\n", tcp_log_enable, tcp_log_evt_queue, tcp_log_task_handle);
+	//printf("\ntcp_log_enable: %d, tcp_log_evt_queue: %p, tcp_log_task_handle: %p\n", tcp_log_enable, tcp_log_evt_queue, tcp_log_task_handle);
 	return ret;
 	}
 
@@ -128,17 +133,26 @@ int tcp_log_message(char *message)
 				{
 				strcpy(buf, USER_MQTT);
 				strcat(buf, ":: ");
-				strncat(buf, message, 1023 - 2 - strlen(USER_MQTT) );
+				strncat(buf, message, MAX_LOG_LINE_SIZE - 3 - strlen(USER_MQTT) );
 				xQueueSend(tcp_log_evt_queue, buf, ( TickType_t ) 10);
 				}
 			}
 		}
-	return 0;
+	return 1;
 	}
 
 static void tcp_log_task(void *pvParameters)
 	{
 	char buf[1024];
+	int sendsock = socket(AF_INET, SOCK_STREAM, 0);
+	/*
+	if(connect(sendsock, (struct sockaddr *)&srv_addr, sizeof(srv_addr)) == -1)
+		{
+		tcp_log_task_handle = NULL;
+		tcp_log_enable = 0;
+		vTaskDelete(NULL);
+		}
+		*/
 	while(1)
 		{
 		xQueueReceive(tcp_log_evt_queue, buf, portMAX_DELAY);
@@ -149,31 +163,39 @@ static void tcp_log_task(void *pvParameters)
 			vTaskDelete(NULL);
 			}
 		if(console_state == CONSOLE_MQTT)
+			{
 			publish_MQTT_client_log(buf);
+			}
 		else
 			{
-			int sendsock = socket(AF_INET, SOCK_STREAM, 0);
 			if(buf[strlen(buf) - 1] != '\n')
 			strcat(buf, "\n");
 			int written = 0;
+			int sent = 0;
+			int retry = 0;
 			if (sendsock >= 0)
 				{
-				if(connect(sendsock, (struct sockaddr *)&srv_addr, sizeof(srv_addr)) >= 0)
+				while(written < strlen(buf) && retry < 3)
 					{
-					while(written < strlen(buf))
+					sent = send(sendsock, buf + written, strlen(buf), 0);
+					if (sent < 0)
 						{
-						int sent = send(sendsock, buf + written, strlen(buf), 0);
-						if (sent < 0)
-							break;
-						else
-							written += sent;
+						close(sendsock);
+						sendsock = socket(AF_INET, SOCK_STREAM, 0);
+						if(sendsock < 0)
+							{
+							retry++;
+							continue;
+							}
+						if(connect(sendsock, (struct sockaddr *)&srv_addr, sizeof(srv_addr)) == -1)
+							{
+							retry++;
+							continue;
+							}
 						}
+					else
+						written += sent;
 					}
-				struct linger sl;
-				sl.l_onoff = 1;		// non-zero value enables linger option in kernel
-				sl.l_linger = 0;	// timeout interval in seconds
-				setsockopt(sendsock, SOL_SOCKET, SO_LINGER, &sl, sizeof(sl));
-				close(sendsock);
 				}
 			}
 		}

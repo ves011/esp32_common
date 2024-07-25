@@ -15,6 +15,7 @@
 #define WESTA_CONTROLLER				4 // weather station controller
 #define WATER_CONTROLLER				5 // irrigation and water actuators control
 #define WP_CONTROLLER					6 //combined pump & water controller
+#define ESP32_TEST						7
 //#define WP_HW_V1
 #define WP_HW_V2
 
@@ -99,6 +100,8 @@ typedef enum
 	#define DEV_NAME				"Controler irigatie"
 #elif ACTIVE_CONTROLLER == WP_CONTROLLER
 	#define DEV_NAME				"Pompa & Irigatie"
+#elif ACTIVE_CONTROLLER == ESP32_TEST
+	#define DEV_NAME				"esp32 test"
 #endif
 
 #define LOG_SERVER					"proxy.gnet"

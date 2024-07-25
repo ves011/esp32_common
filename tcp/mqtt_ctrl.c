@@ -52,9 +52,9 @@ esp_mqtt_client_handle_t client;
 int client_connected = 0;
 static const char *TAG = "MQTTClient";
 
-static char TOPIC_STATE[32], TOPIC_MONITOR[32], TOPIC_CTRL[32], TOPIC_CMD[32];
+char TOPIC_STATE[32], TOPIC_MONITOR[32], TOPIC_CTRL[32], TOPIC_CMD[32], TOPIC_LOG[32];
 #if ACTIVE_CONTROLLER == WP_CONTROLLER
-	static char TOPIC_STATE_A[32], TOPIC_MONITOR_A[32];
+	char TOPIC_STATE_A[32], TOPIC_MONITOR_A[32];
 #endif
 char USER_MQTT[32];
 
@@ -66,21 +66,6 @@ extern const uint8_t server_cert_pem_start[] asm("_binary_ca_crt_start");
 extern const uint8_t server_cert_pem_end[] asm("_binary_ca_crt_end");
 
 static void create_topics(void);
-
-static struct
-	{
-    struct arg_str *topic;
-    struct arg_str *msg;
-    struct arg_int *qos;
-    struct arg_int *retain;
-    struct arg_end *end;
-	} mqtt_pargs;
-
-static struct
-	{
-    struct arg_str *topic;
-    struct arg_end *end;
-	} mqtt_sargs;
 
 static void log_error_if_nonzero(const char *message, int error_code)
 	{
@@ -196,7 +181,7 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
 					}
 				if(ac)
 					argv[argc][ac] = 0;
-				//ESP_LOGI(TAG, "argc, %d, %s, %s, %s, %s", argc, argv[0], argv[1], argv[2], argv[3]);
+				ESP_LOGI(TAG, "argc, %d, %s, %s, %s, %s", argc, argv[0], argv[1], argv[2], argv[3]);
 				argc++;
 
 				if(strcmp(topic, TOPIC_CMD) == 0)
@@ -228,7 +213,9 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
 					argc--;
 					do_system_cmd(argc, argv);
 					do_wifi_cmd(argc, argv);
+#if ACTIVE_CONTROLLER != ESP32_TEST
 					do_ad(argc, argv);
+#endif
 					}
 				else if(strcmp(topic, DEVICE_TOPIC_Q) == 0)
 					{
@@ -266,87 +253,6 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
     	}
 	}
 
-static int mqtt_send(int argc, char **argv)
-	{
-	char topic[100], msg[100];
-	int qos = 0, retain = 0;
-	int nerrors = arg_parse(argc, argv, (void **) &mqtt_pargs);
-	if (nerrors != 0)
-    	{
-        //arg_print_errors(stderr, mqtt_pargs.end, argv[0]);
-        my_printf("%s arguments error\n", argv[0]);
-        return 1;
-    	}
-	if(mqtt_pargs.topic->count == 0)
-		{
-		my_printf("No topic provided\n");
-		return 1;
-		}
-	else
-		strcpy(topic, mqtt_pargs.topic->sval[0]);
-	if(mqtt_pargs.msg->count)
-		strcpy(msg, mqtt_pargs.msg->sval[0]);
-	else
-		msg[0] = 0;
-	if(mqtt_pargs.qos->count)
-		qos = mqtt_pargs.qos->ival[0];
-	if(mqtt_pargs.retain->count)
-		retain = mqtt_pargs.retain->ival[0];
-
-	esp_mqtt_client_publish(client, topic, msg, 0, qos, retain);
-	return 0;
-	}
-static int mqtt_subscribe(int argc, char **argv)
-	{
-	char topic[100];
-	int nerrors = arg_parse(argc, argv, (void **) &mqtt_sargs);
-	if (nerrors != 0)
-    	{
-        //arg_print_errors(stderr, mqtt_sargs.end, argv[0]);
-        my_printf("%s arguments error\n", argv[0]);
-        return 1;
-    	}
-    if(mqtt_sargs.topic->count == 0)
-		{
-		my_printf("No topic provided\n");
-		return 1;
-		}
-	else
-		strcpy(topic, mqtt_sargs.topic->sval[0]);
-	esp_mqtt_client_subscribe(client, topic, 0);
-	return 0;
-	}
-
-void register_mqtt()
-	{
-	mqtt_pargs.topic = arg_str1(NULL, "t", "topic", "topic");
-    mqtt_pargs.msg = arg_str0(NULL, "m", "message", "message");
-    mqtt_pargs.qos = arg_int0(NULL, "q", "<qos>", "qos");
-    mqtt_pargs.retain = arg_int0(NULL, "r", "<1|0>", "retain");
-    mqtt_pargs.end = arg_end(2);
-    const esp_console_cmd_t mqtt_cmd =
-    	{
-        .command = "send",
-        .help = "send mqtt message",
-        .hint = NULL,
-        .func = &mqtt_send,
-        .argtable = &mqtt_pargs
-    	};
- 	ESP_ERROR_CHECK( esp_console_cmd_register(&mqtt_cmd) );
-
- 	mqtt_sargs.topic = arg_str1(NULL, NULL, "topic", "topic");
-    mqtt_sargs.end = arg_end(2);
-    const esp_console_cmd_t mqtt_subs =
-    	{
-        .command = "subscribe",
-        .help = "subscribe to topic",
-        .hint = NULL,
-        .func = &mqtt_subscribe,
-        .argtable = &mqtt_sargs
-    	};
- 	ESP_ERROR_CHECK( esp_console_cmd_register(&mqtt_subs) );
-	}
-
 int mqtt_start(void)
 	{
 	esp_err_t ret = ESP_FAIL;
@@ -354,12 +260,17 @@ int mqtt_start(void)
 		    .broker.address.uri = CONFIG_BROKER_URL,
 		    .broker.verification.certificate = (const char *)server_cert_pem_start,
 		    .credentials = {
+		      .client_id = USER_MQTT,
 		      .authentication = {
 		        .certificate = (const char *)client_cert_pem_start,
 		        .key = (const char *)client_key_pem_start,
-		      },
-		    }
-		  };
+		      	  },
+		    	},
+			.network.disable_auto_reconnect = false,
+			.network.reconnect_timeout_ms = 2000,
+			.session.message_retransmit_timeout = 500,
+			.session.keepalive = 30,
+			};
     create_topics();
     client = esp_mqtt_client_init(&mqtt_cfg);
     if(client)
@@ -370,7 +281,7 @@ int mqtt_start(void)
     	}
     return ret;
     }
-
+/*
 void publish_state(char *msg, int qos, int retain)
 	{
 	time_t now;
@@ -409,6 +320,7 @@ void publish_state_a(char *msg, int qos, int retain)
 		esp_mqtt_client_publish(client, TOPIC_STATE_A, strtime, strlen(strtime), qos, retain);
 		}
 	}
+	*/
 void publish_reqID()
 	{
 	char msg[20];
@@ -417,48 +329,66 @@ void publish_reqID()
 	}
 void publish_topic(char * topic, char * msg, int qos, int retain)
 	{
-	esp_mqtt_client_publish(client, topic, msg, strlen(msg), qos, retain);
+	char strtime[1024];
+	if(!client)
+		ESP_LOGE(TAG, "Client not connected");
+	else
+		{
+		uint64_t tmsec = esp_timer_get_time() / 1000;
+		sprintf(strtime, "%llu\1", tmsec);
+		/*
+		time(&now);
+		localtime_r(&now, &timeinfo);
+		strftime(strtime, sizeof(strtime), "%Y-%m-%d/%H:%M:%S", &timeinfo);
+		*/
+		strcat(strtime, USER_MQTT);
+		strcat(strtime, "\1");
+		int len = strlen(strtime);
+		strncat(strtime, msg, sizeof(strtime) - len -1);
+		esp_mqtt_client_publish(client, topic, strtime, strlen(strtime), qos, retain);
+		}
 	}
-
+/*
 void publish_monitor(char *msg, int qos, int retain)
 	{
-	time_t now;
-    struct tm timeinfo;
     char strtime[1024];
 	if(!client)
 		ESP_LOGE(TAG, "Client not connected");
 	else
 		{
-		time(&now);
-		localtime_r(&now, &timeinfo);
-		strftime(strtime, sizeof(strtime), "%Y-%m-%d/%H:%M:%S\1", &timeinfo);
+		uint64_t tmsec = esp_timer_get_time() / 1000;
+		sprintf(strtime, "%llu\1", tmsec);
 		strcat(strtime, USER_MQTT);
 		strcat(strtime, "\1");
-		strcat(strtime, msg);
-
+		int len = strlen(strtime);
+		strncat(strtime, msg, sizeof(strtime) - len -1);
 		esp_mqtt_client_publish(client, TOPIC_MONITOR, strtime, strlen(strtime), qos, retain);
 		}
 	}
 void publish_monitor_a(char *msg, int qos, int retain)
 	{
-	time_t now;
-    struct tm timeinfo;
+	//time_t now;
+    //struct tm timeinfo;
     char strtime[1024];
 	if(!client)
 		ESP_LOGE(TAG, "Client not connected");
 	else
 		{
-		time(&now);
-		localtime_r(&now, &timeinfo);
-		strftime(strtime, sizeof(strtime), "%Y-%m-%d/%H:%M:%S\1", &timeinfo);
+		uint64_t tmsec = esp_timer_get_time() / 1000;
+		sprintf(strtime, "%llu\1", tmsec);
+
+		//time(&now);
+		//localtime_r(&now, &timeinfo);
+		//strftime(strtime, sizeof(strtime), "%Y-%m-%d/%H:%M:%S", &timeinfo);
+
 		strcat(strtime, USER_MQTT);
 		strcat(strtime, "\1");
-		strcat(strtime, msg);
-
+		int len = strlen(strtime);
+		strncat(strtime, msg, sizeof(strtime) - len -1);
 		esp_mqtt_client_publish(client, TOPIC_MONITOR_A, strtime, strlen(strtime), qos, retain);
 		}
 	}
-
+*/
 void publish_MQTT_client_status()
 	{
 	time_t now;
@@ -475,16 +405,7 @@ void publish_MQTT_client_status()
 	}
 void publish_MQTT_client_log(char *message)
 	{
-	char *msg = calloc(strlen(message) + strlen(USER_MQTT) + 5, 1);
-	if(msg)
-		{
-		strcpy(msg, USER_MQTT);
-		strcat(msg, ":: ");
-		strcat(msg, message);
-		//printf("\nMQTT log strlen(msg) - %d - %d", client_connected, strlen(msg));
-		esp_mqtt_client_publish(client, DEVICE_TOPIC_L, msg, strlen(msg), 0, 0);
-		free(msg);
-		}
+	esp_mqtt_client_publish(client, TOPIC_LOG, message, strlen(message), 0, 0);
 	}
 
 void create_topics()
@@ -501,6 +422,8 @@ void create_topics()
 	sprintf(USER_MQTT, "water%02d", CTRL_DEV_ID);
 #elif ACTIVE_CONTROLLER == WP_CONTROLLER
 	sprintf(USER_MQTT, "wp%02d", CTRL_DEV_ID);
+#elif ACTIVE_CONTROLLER == ESP32_TEST
+	sprintf(USER_MQTT, "esp32%02d", CTRL_DEV_ID);
 #endif
 	strcpy(TOPIC_STATE, USER_MQTT);
 	strcat(TOPIC_STATE, "/state");
@@ -510,6 +433,8 @@ void create_topics()
 	strcat(TOPIC_CMD, "/cmd");
 	strcpy(TOPIC_CTRL, USER_MQTT);
 	strcat(TOPIC_CTRL, "/ctrl");
+	strcpy(TOPIC_LOG, USER_MQTT);
+	strcat(TOPIC_LOG, "/log");
 #if ACTIVE_CONTROLLER == WP_CONTROLLER
 	strcpy(TOPIC_STATE_A, TOPIC_STATE);
 	strcat(TOPIC_STATE_A, "/w");

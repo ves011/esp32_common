@@ -1,6 +1,11 @@
 #ifndef EXTERNAL_DEFS_H_
 #define EXTERNAL_DEFS_H_
 
+extern char TOPIC_STATE[32], TOPIC_MONITOR[32], TOPIC_CTRL[32], TOPIC_CMD[32], TOPIC_LOG[32];
+#if ACTIVE_CONTROLLER == WP_CONTROLLER
+	extern char TOPIC_STATE_A[32], TOPIC_MONITOR_A[32];
+#endif
+
 extern int tsync, client_connect_sync;
 extern int controller_op_registered;
 extern esp_netif_ip_info_t dev_ipinfo;

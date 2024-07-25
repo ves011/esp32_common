@@ -341,7 +341,7 @@ static int wifi_scan(int argc, char **argv)
 	uint16_t sta_number = 0;
     uint8_t i;
     wifi_ap_record_t *ap_list_buffer;
-    char logbuf[256];
+    char logbuf[256], mac[20];;
 	err  = esp_wifi_get_mode(&mode);
 	if(err != ESP_OK && err != ESP_ERR_WIFI_NOT_INIT) //error case return 1
 		{
@@ -398,12 +398,15 @@ static int wifi_scan(int argc, char **argv)
 
 		if (esp_wifi_scan_get_ap_records(&sta_number,(wifi_ap_record_t *)ap_list_buffer) == ESP_OK)
 			{
-			ESP_LOGI(WIFITAG, "           SSID             RSSI  Channel                 Auth mode");
-			ESP_LOGI(WIFITAG, "-----------------------------------------------------------------------------------");
+			ESP_LOGI(WIFITAG, "           SSID                        RSSI  Channel                 Auth mode");
+			ESP_LOGI(WIFITAG, "---------------------------------------------------------------------------------------");
 			for(i=0; i<sta_number; i++)
 				{
 				print_auth_mode(ap_list_buffer[i].authmode, logbuf);
-				ESP_LOGI(WIFITAG, "%-25s%5d%8d               %-s", ap_list_buffer[i].ssid, ap_list_buffer[i].rssi, ap_list_buffer[i].primary, logbuf);
+				sprintf(mac, "(%02x:%02x:%02x:%02x:%02x:%02x)", ap_list_buffer[i].bssid[0], ap_list_buffer[i].bssid[1], ap_list_buffer[i].bssid[2],
+						ap_list_buffer[i].bssid[3], ap_list_buffer[i].bssid[3], ap_list_buffer[i].bssid[5]);
+
+				ESP_LOGI(WIFITAG, "%-18s%18s%5d%8d               %-s", ap_list_buffer[i].ssid, mac, ap_list_buffer[i].rssi, ap_list_buffer[i].primary, logbuf);
 				}
 			}
 
