@@ -10,10 +10,8 @@
 
 /** @brief control devices type */
 #define AGATE_CONTROLLER				1 //auto gate
-#define PUMP_CONTROLLER					2 //pump controller
 #define OTA_CONTROLLER					3 // OTA factory app
 #define WESTA_CONTROLLER				4 // weather station controller
-#define WATER_CONTROLLER				5 // irrigation and water actuators control
 #define WP_CONTROLLER					6 //combined pump & water controller
 #define ESP32_TEST						7
 //#define WP_HW_V1

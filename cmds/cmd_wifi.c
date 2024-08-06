@@ -182,7 +182,8 @@ bool wifi_join(const char *ssid, const char *pass, int timeout_ms)
     strlcpy((char *) wifi_config.sta.ssid, ssid, sizeof(wifi_config.sta.ssid));
     if (pass)
         strlcpy((char *) wifi_config.sta.password, pass, sizeof(wifi_config.sta.password));
-
+    wifi_config.sta.scan_method = WIFI_ALL_CHANNEL_SCAN;
+    wifi_config.sta.sort_method = WIFI_CONNECT_AP_BY_SIGNAL;
     ESP_ERROR_CHECK( esp_wifi_set_mode(WIFI_MODE_STA) );
     ESP_ERROR_CHECK( esp_wifi_set_config(WIFI_IF_STA, &wifi_config) );
 

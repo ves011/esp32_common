@@ -213,7 +213,7 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
 					argc--;
 					do_system_cmd(argc, argv);
 					do_wifi_cmd(argc, argv);
-#if ACTIVE_CONTROLLER != ESP32_TEST
+#if ACTIVE_CONTROLLER != ESP32_TEST && ACTIVE_CONTROLLER == WP_CONROLLER
 					do_ad(argc, argv);
 #endif
 					}
