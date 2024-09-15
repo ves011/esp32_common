@@ -18,6 +18,7 @@
 #include "esp_netif.h"
 #include "driver/gpio.h"
 #include "esp_log.h"
+#include "errno.h"
 #include "esp_spiffs.h"
 #include "mqtt_client.h"
 #include "sys/stat.h"
@@ -38,6 +39,14 @@
 #endif
 
 static const char *TAG = "SPIFFS_RW";
+
+esp_vfs_spiffs_conf_t conf_spiffs =
+	{
+	.base_path = BASE_PATH,
+	.partition_label = PARTITION_LABEL,
+	.max_files = 5,
+	.format_if_mount_failed = true
+	};
 
 int my_log_vprintf(const char *fmt, va_list arguments)
 	{
@@ -368,6 +377,7 @@ int rw_params(int rw, int param_type, void * param_val)
     //esp_vfs_spiffs_unregister(conf.partition_label);
 	return ret;
 	}
+/*
 #if ACTIVE_CONTROLLER == WESTA_CONTROLLER
 int write_tpdata(int rw, char *bufdata)
 	{
@@ -405,7 +415,7 @@ int write_tpdata(int rw, char *bufdata)
 	return ret;
 	}
 #endif
-
+*/
 int spiffs_storage_check()
 	{
 	esp_err_t ret;

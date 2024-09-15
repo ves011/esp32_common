@@ -56,6 +56,7 @@ static bool IRAM_ATTR adc_timer_callback(gptimer_handle_t ad_timer, const gptime
     BaseType_t high_task_awoken = pdFALSE;
     int data, d_bin;
     adc_msg_t msg;
+    samp_bin[sample_count] = samples[sample_count] = 0;
     if(read_ADmv(s_channel, &data, &d_bin) == ESP_OK)
     	{
     	samp_bin[sample_count] = d_bin;
@@ -102,7 +103,7 @@ static void config_adc_timer()
 
 int adc_get_data(int chn, int16_t *s_vect, int nr_samp)
 	{
-	int dummy, dbin, ret = ESP_FAIL;
+	int dummy = 0, dbin = 0, ret = ESP_FAIL;
 	adc_msg_t msg;
 	int16_t s_bin[200];
 	//nr_samples = nr_samp;

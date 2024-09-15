@@ -334,7 +334,7 @@ void publish_topic(char * topic, char * msg, int qos, int retain)
 		ESP_LOGE(TAG, "Client not connected");
 	else
 		{
-		uint64_t tmsec = esp_timer_get_time() / 1000;
+		uint64_t tmsec = esp_timer_get_time();
 		sprintf(strtime, "%llu\1", tmsec);
 		/*
 		time(&now);
@@ -395,7 +395,7 @@ void publish_MQTT_client_status()
 	struct tm timeinfo;
     char msg[150];
     char strtime[50];
-    uint64_t tmsec = esp_timer_get_time() /1000000;
+    uint64_t tmsec = esp_timer_get_time();
 	time(&now);
 	localtime_r(&now, &timeinfo);
 	strftime(strtime, sizeof(strtime), "%Y-%m-%d/%H:%M:%S\1", &timeinfo);
@@ -425,6 +425,7 @@ void create_topics()
 #elif ACTIVE_CONTROLLER == ESP32_TEST
 	sprintf(USER_MQTT, "esp32%02d", CTRL_DEV_ID);
 #endif
+
 	strcpy(TOPIC_STATE, USER_MQTT);
 	strcat(TOPIC_STATE, "/state");
 	strcpy(TOPIC_MONITOR, USER_MQTT);

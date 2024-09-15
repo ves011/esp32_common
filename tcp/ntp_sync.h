@@ -8,9 +8,7 @@
 #ifndef MAIN_NTP_SYNC_H_
 #define MAIN_NTP_SYNC_H_
 
-
-extern TaskHandle_t ntp_sync_task_handle;
-void ntp_sync();
+void sync_NTP_time(void);
 
 
 #endif /* MAIN_NTP_SYNC_H_ */
