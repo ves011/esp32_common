@@ -133,6 +133,38 @@ int rw_params(int rw, int param_type, void * param_val)
 					}
 				}
 			}
+		else if(param_type == PARAM_RGCAL)
+			{
+			((pgcal_t *)param_val)->mlb = DEFAULT_RGCAL;
+			((pgcal_t *)param_val)->sqcmp = DEFAULT_SQCMP;
+			if (stat(BASE_PATH"/"RGCAL_FILE, &st) != 0)
+				{
+				// file does no exists
+				ret = ESP_OK;
+				}
+			else
+				{
+				FILE *f = fopen(BASE_PATH"/"RGCAL_FILE, "r");
+				if (f != NULL)
+					{
+					double c = 0;
+					int s = 0;
+					if(fgets(buf, 64, f))
+						{
+						sscanf(buf, "%lf %d", &c, &s);
+						((pgcal_t *)param_val)->mlb = c;
+						((pgcal_t *)param_val)->sqcmp = s;
+						}
+					fclose(f);
+					ret = ESP_OK;
+					}
+				else
+					{
+					ESP_LOGE(TAG, "Failed to open rgcal file for reading");
+					return ret;
+					}
+				}
+			}
 #endif
 #if ACTIVE_CONTROLLER == PUMP_CONTROLLER || ACTIVE_CONTROLLER == WP_CONTROLLER
     	if(param_type == PARAM_V_OFFSET)
@@ -300,6 +332,21 @@ int rw_params(int rw, int param_type, void * param_val)
 			else
 				{
 				sprintf(buf, "%.3lf %.3lf\n", ((pnorm_param_t *)param_val)->psl, ((pnorm_param_t *)param_val)->hmp);
+				if(fputs(buf, f) >= 0)
+					ret = ESP_OK;
+				fclose(f);
+				}
+			}
+		if(param_type == PARAM_RGCAL)
+    		{
+    		FILE *f = fopen(BASE_PATH"/"RGCAL_FILE, "w");
+			if (f == NULL)
+				{
+				ESP_LOGE(TAG, "Failed to create rgcal file");
+				}
+			else
+				{
+				sprintf(buf, "%.1lf %d\n", ((pgcal_t *)param_val)->mlb, ((pgcal_t *)param_val)->sqcmp);
 				if(fputs(buf, f) >= 0)
 					ret = ESP_OK;
 				fclose(f);

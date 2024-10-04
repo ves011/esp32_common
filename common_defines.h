@@ -49,6 +49,7 @@ typedef enum
 #define PARTITION_LABEL				"user"
 #define CONSOLE_FILE				"conoff.txt"
 #define HISTORY_FILE				"/sys/history.txt"
+#define RGCAL_FILE					"rgcal.txt"
 #define MAX_NO_FILES				(5)
 #define PARAM_READ					(1)
 #define PARAM_WRITE					(2)
@@ -57,7 +58,9 @@ typedef enum
 #define PARAM_OPERATIONAL			(3)
 #define PARAM_PNORM					(4)
 #define PARAM_PROGRAM				(5)
+#define PARAM_RGCAL					(6)
 #define PARAM_CONSOLE				(10)
+
 
 //sources for UI interface
 #define K_ROT				0x10
@@ -112,7 +115,11 @@ typedef struct
 		{
 		uint32_t source;
 		uint32_t val;
-		int m_val[6];
+		union
+			{
+			int m_val[6];
+			uint64_t ts;
+			}vts;
 		}msg_t;
 
 
