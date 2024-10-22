@@ -12,11 +12,19 @@
 #define SCAN_LIST_SIZE 30
 #define JOIN_TIMEOUT_MS (10000)
 
+#if WIFI_AP_ON
+	extern esp_netif_t *esp_netif_ap;
+#endif
+#if WIFI_STA_ON
+	extern esp_netif_t *esp_netif_sta;
+#endif
+
 // Register WiFi functions
 void register_wifi(void);
 bool isConnected(void);
 int wifi_connect(int argc, char **argv);
 bool wifi_join(const char *ssid, const char *pass, int timeout_ms);
 void do_wifi_cmd(int argc, char **argv);
+void initialise_wifi(void);
 
 #endif

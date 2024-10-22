@@ -10,6 +10,7 @@
 
 /** @brief control devices type */
 #define AGATE_CONTROLLER				1 //auto gate
+#define PUMP_CONTROLLER					2 //
 #define OTA_CONTROLLER					3 // OTA factory app
 #define WESTA_CONTROLLER				4 // weather station controller
 #define WP_CONTROLLER					6 //combined pump & water controller
@@ -20,6 +21,11 @@
 #include "project_specific.h"
 
 #define USER_TASK_PRIORITY			5
+
+#define	MQTT_PROTO 		1
+#define	TCPSOCK_PROTO	2
+
+	
 typedef enum
 	{
 	CONSOLE_OFF,

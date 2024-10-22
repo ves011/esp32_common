@@ -86,8 +86,8 @@ static void register_console(void);
 static void register_boot(void);
 static void register_cat(void);
 static void register_rm(void);
-static int ota_start(int argc, char **argv);
-static void register_ota(void);
+//static int ota_start(int argc, char **argv);
+//static void register_ota(void);
 static void register_echo(void);
 #if WITH_TASKS_INFO
 static void register_tasks(void);
@@ -105,7 +105,7 @@ void register_system_common(void)
     register_boot();
     register_cat();
     register_rm();
-    register_ota();
+//    register_ota();
     register_echo();
 #if WITH_TASKS_INFO
     register_tasks();
@@ -957,7 +957,7 @@ static void register_console(void)
     	};
     ESP_ERROR_CHECK( esp_console_cmd_register(&cmd) );
 	}
-
+/*
 static struct
 	{
     struct arg_str *url;
@@ -991,7 +991,7 @@ static void register_ota(void)
     	};
     ESP_ERROR_CHECK( esp_console_cmd_register(&cmd) );
 	}
-
+*/
 static struct
 	{
     struct arg_str *pname;
@@ -1091,8 +1091,10 @@ void do_system_cmd(int argc, char **argv)
 		cat_file(argc, argv);
 	else if(!strcmp(argv[0], "rm"))
 		rm_file(argc, argv);
+/*
 	else if(!strcmp(argv[0], "ota"))
 		ota_start(argc, argv);
+*/
 	else if(!strcmp(argv[0], "echo"))
 		echo(argc, argv);
 	}

@@ -5,7 +5,7 @@
  *      Author: viorel_serbu
  */
 
-
+#ifdef ADC_AD7811
 #include <stdio.h>
 #include <string.h>
 #include "driver/gpio.h"
@@ -287,3 +287,6 @@ void register_ad()
 		};
 	ESP_ERROR_CHECK(esp_console_cmd_register(&ad_cmd));
 	}
+	
+#endif
+	

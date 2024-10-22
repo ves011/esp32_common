@@ -27,7 +27,7 @@
 #include "external_defs.h"
 #include "tcp_log.h"
 #if ACTIVE_CONTROLLER == PUMP_CONTROLLER || ACTIVE_CONTROLLER == WP_CONTROLLER
-//#include "adc_op.h"
+#include "adc_op.h"
 #include "pumpop.h"
 #endif
 #if ACTIVE_CONTROLLER == WESTA_CONTROLLER

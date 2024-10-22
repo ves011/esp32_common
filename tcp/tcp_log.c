@@ -23,15 +23,19 @@
 #include "esp_spiffs.h"
 #include "esp_vfs_dev.h"
 #include "esp_vfs_fat.h"
-#include "mqtt_client.h"
 #include "lwip/sockets.h"
-#include "mqtt_ctrl.h"
+#include "project_specific.h"
 #include "common_defines.h"
+#if COMM_PROTO == MQTT_PROTO
+	#include "mqtt_client.h"
+	#include "mqtt_ctrl.h"
+#endif
 #include "external_defs.h"
 #include "tcp_log.h"
 
 static int tcp_log_enable = 0;
 static 	struct sockaddr_in srv_addr;
+static char log_user[32];
 TaskHandle_t tcp_log_task_handle = NULL;
 QueueHandle_t tcp_log_evt_queue = NULL;
 static void tcp_log_task(void *pvParameters);
@@ -41,6 +45,11 @@ static void tcp_log_task(void *pvParameters);
 int tcp_log_init()
 	{
 	int ret = ESP_FAIL;
+#if COMM_PROTO == MQTT_PROTO
+	strcpy(log_user, USER_MQTT)
+#else
+	strcpy(log_user, DEV_NAME);
+#endif
 	//printf("\ntcp_log_init %d", console_state);
 	if(console_state == CONSOLE_TCP)
 		{
@@ -131,9 +140,9 @@ int tcp_log_message(char *message)
 				tcp_log_init(TRANSPORT_TCP);
 			if(tcp_log_enable)
 				{
-				strcpy(buf, USER_MQTT);
+				strcpy(buf, log_user);
 				strcat(buf, ":: ");
-				strncat(buf, message, MAX_LOG_LINE_SIZE - 3 - strlen(USER_MQTT) );
+				strncat(buf, message, MAX_LOG_LINE_SIZE - 3 - strlen(log_user) );
 				xQueueSend(tcp_log_evt_queue, buf, ( TickType_t ) 10);
 				}
 			}
@@ -162,11 +171,13 @@ static void tcp_log_task(void *pvParameters)
 			tcp_log_enable = 0;
 			vTaskDelete(NULL);
 			}
+#if COMM_PROTO == MQTT_PROTO
 		if(console_state == CONSOLE_MQTT)
 			{
 			publish_MQTT_client_log(buf);
 			}
 		else
+#endif
 			{
 			if(buf[strlen(buf) - 1] != '\n')
 			strcat(buf, "\n");
