@@ -54,7 +54,7 @@ static const char *TAG = "MQTTClient";
 
 char TOPIC_STATE[32], TOPIC_MONITOR[32], TOPIC_CTRL[32], TOPIC_CMD[32], TOPIC_LOG[32];
 #if ACTIVE_CONTROLLER == WP_CONTROLLER
-	char TOPIC_STATE_A[32], TOPIC_MONITOR_A[32];
+	//char TOPIC_STATE_A[32], TOPIC_MONITOR_A[32];
 #endif
 char USER_MQTT[32];
 
@@ -281,46 +281,7 @@ int mqtt_start(void)
     	}
     return ret;
     }
-/*
-void publish_state(char *msg, int qos, int retain)
-	{
-	time_t now;
-    struct tm timeinfo;
-    char strtime[1024];
-	if(!client)
-		ESP_LOGE(TAG, "Client not connected");
-	else
-		{
-		time(&now);
-		localtime_r(&now, &timeinfo);
-		strftime(strtime, sizeof(strtime), "%Y-%m-%d/%H:%M:%S\1", &timeinfo);
-		strcat(strtime, USER_MQTT);
-		strcat(strtime, "\1");
-		strcat(strtime, msg);
 
-		esp_mqtt_client_publish(client, TOPIC_STATE, strtime, strlen(strtime), qos, retain);
-		}
-	}
-void publish_state_a(char *msg, int qos, int retain)
-	{
-	time_t now;
-    struct tm timeinfo;
-    char strtime[1024];
-	if(!client)
-		ESP_LOGE(TAG, "Client not connected");
-	else
-		{
-		time(&now);
-		localtime_r(&now, &timeinfo);
-		strftime(strtime, sizeof(strtime), "%Y-%m-%d/%H:%M:%S\1", &timeinfo);
-		strcat(strtime, USER_MQTT);
-		strcat(strtime, "\1");
-		strcat(strtime, msg);
-
-		esp_mqtt_client_publish(client, TOPIC_STATE_A, strtime, strlen(strtime), qos, retain);
-		}
-	}
-	*/
 void publish_reqID()
 	{
 	char msg[20];
@@ -330,17 +291,15 @@ void publish_reqID()
 void publish_topic(char * topic, char * msg, int qos, int retain)
 	{
 	char strtime[1024];
+#if MQTT_PUBLISH == 0
+	return;
+#endif
 	if(!client)
 		ESP_LOGE(TAG, "Client not connected");
 	else
 		{
 		uint64_t tmsec = esp_timer_get_time();
 		sprintf(strtime, "%llu\1", tmsec);
-		/*
-		time(&now);
-		localtime_r(&now, &timeinfo);
-		strftime(strtime, sizeof(strtime), "%Y-%m-%d/%H:%M:%S", &timeinfo);
-		*/
 		strcat(strtime, USER_MQTT);
 		strcat(strtime, "\1");
 		int len = strlen(strtime);
@@ -348,47 +307,7 @@ void publish_topic(char * topic, char * msg, int qos, int retain)
 		esp_mqtt_client_publish(client, topic, strtime, strlen(strtime), qos, retain);
 		}
 	}
-/*
-void publish_monitor(char *msg, int qos, int retain)
-	{
-    char strtime[1024];
-	if(!client)
-		ESP_LOGE(TAG, "Client not connected");
-	else
-		{
-		uint64_t tmsec = esp_timer_get_time() / 1000;
-		sprintf(strtime, "%llu\1", tmsec);
-		strcat(strtime, USER_MQTT);
-		strcat(strtime, "\1");
-		int len = strlen(strtime);
-		strncat(strtime, msg, sizeof(strtime) - len -1);
-		esp_mqtt_client_publish(client, TOPIC_MONITOR, strtime, strlen(strtime), qos, retain);
-		}
-	}
-void publish_monitor_a(char *msg, int qos, int retain)
-	{
-	//time_t now;
-    //struct tm timeinfo;
-    char strtime[1024];
-	if(!client)
-		ESP_LOGE(TAG, "Client not connected");
-	else
-		{
-		uint64_t tmsec = esp_timer_get_time() / 1000;
-		sprintf(strtime, "%llu\1", tmsec);
 
-		//time(&now);
-		//localtime_r(&now, &timeinfo);
-		//strftime(strtime, sizeof(strtime), "%Y-%m-%d/%H:%M:%S", &timeinfo);
-
-		strcat(strtime, USER_MQTT);
-		strcat(strtime, "\1");
-		int len = strlen(strtime);
-		strncat(strtime, msg, sizeof(strtime) - len -1);
-		esp_mqtt_client_publish(client, TOPIC_MONITOR_A, strtime, strlen(strtime), qos, retain);
-		}
-	}
-*/
 void publish_MQTT_client_status()
 	{
 	time_t now;
@@ -436,10 +355,4 @@ void create_topics()
 	strcat(TOPIC_CTRL, "/ctrl");
 	strcpy(TOPIC_LOG, USER_MQTT);
 	strcat(TOPIC_LOG, "/log");
-#if ACTIVE_CONTROLLER == WP_CONTROLLER
-	strcpy(TOPIC_STATE_A, TOPIC_STATE);
-	strcat(TOPIC_STATE_A, "/w");
-	strcpy(TOPIC_MONITOR_A, TOPIC_MONITOR);
-	strcat(TOPIC_MONITOR_A, "/w");
-#endif
 	}

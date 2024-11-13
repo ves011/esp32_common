@@ -70,9 +70,10 @@
 	#define PINEN_DV3				(13)	//output - dv open/close cmd goes to dv3
 	#define PINMOT_A1				(4)		//output - H bridge cmd
 	#define PINMOT_B1				(2)		//output - H bridge cmd
-#endif
+
 //pump on/off pin
 	#define PUMP_ONOFF_PIN			(23)	//output - pump on/off relay cmd
+#endif
 //LEDs
 #ifdef LEDS
 	#define PUMP_ONOFF_LED			(16)	//j4/3
@@ -111,6 +112,14 @@
 	#define PINMOT_B1				(3)
 	/** current sense pin for actuators */
 	#define PINSENSE_MOT			(4)
+#endif
+
+#if ACTIVE_CONTROLLER == WESTA_CONTROLLER
+	#define DHT_DATA_PIN 			5
+	#define I2C_MASTER_SCL_IO       4      					/*!< GPIO number used for I2C master clock */
+	#define I2C_MASTER_SDA_IO       1      					/*!< GPIO number used for I2C master data  */
+	#define RG_GPIO					7
+	#define DS18B20_PIN 			6
 #endif
 
 

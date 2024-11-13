@@ -36,7 +36,7 @@ static EventGroupHandle_t wifi_event_group;
 const int CONNECTED_BIT = BIT0;
 const int DISCONNECTED_BIT = BIT1;
 //static int scan_done;
-//esp_netif_ip_info_t dev_ipinfo;
+esp_netif_ip_info_t dev_ipinfo;
 
 #if WIFI_AP_ON
 static bool ap_init = false;
@@ -157,7 +157,7 @@ static void event_handler(void* arg, esp_event_base_t event_base,
     	{
         xEventGroupSetBits(wifi_event_group, CONNECTED_BIT);
         ip_event_got_ip_t *ipevt = event_data;
-        //memcpy(&dev_ipinfo, &ipevt->ip_info, sizeof(dev_ipinfo));
+        memcpy(&dev_ipinfo, &ipevt->ip_info, sizeof(dev_ipinfo));
 
     	}
     else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_LOST_IP)
