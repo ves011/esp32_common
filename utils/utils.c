@@ -26,10 +26,17 @@
 #include "mqtt_ctrl.h"
 #include "external_defs.h"
 #include "tcp_log.h"
-#if ACTIVE_CONTROLLER == PUMP_CONTROLLER || ACTIVE_CONTROLLER == WP_CONTROLLER
-#include "adc_op.h"
-#include "pumpop.h"
+#include "project_specific.h"
+#ifdef ADC_7811
+	#include "adc7811.h"
+#elif defined ADC_ESP32
+	#include "adc_op.h"
 #endif
+#if ACTIVE_CONTROLLER == PUMP_CONTROLLER || ACTIVE_CONTROLLER == WP_CONTROLLER
+	//#include "adc_op.h"
+	#include "pumpop.h"
+#endif
+
 #if ACTIVE_CONTROLLER == WESTA_CONTROLLER
 #include "westaop.h"
 #endif
@@ -92,338 +99,55 @@ void my_fputs(char *buf, FILE *f)
 		tcp_log_message(buf);
 		}
 	}
-int rw_params(int rw, int param_type, void * param_val)
+int rw_console_state(int rw, console_state_t *cs)
 	{
-	char buf[64];
-	esp_err_t ret;
-    struct stat st;
-    ret = ESP_FAIL;
-    if(rw == PARAM_READ)
-    	{
-#if ACTIVE_CONTROLLER == WESTA_CONTROLLER
-		if(param_type == PARAM_PNORM)
+	struct stat st;
+	int ret = ESP_FAIL;
+	char buf[10];
+	if(rw == PARAM_READ)
+		{
+		if (stat(BASE_PATH"/"CONSOLE_FILE, &st) != 0)
 			{
-			if (stat(BASE_PATH"/"PNORM_FILE, &st) != 0)
-				{
-				// file does no exists
-				((pnorm_param_t *)param_val)->hmp = DEFAULT_ELEVATION;
-				((pnorm_param_t *)param_val)->psl = DEFAULT_PSL;
-				ret = ESP_OK;
-				}
-			else
-				{
-				FILE *f = fopen(BASE_PATH"/"PNORM_FILE, "r");
-				if (f != NULL)
-					{
-					double p = 0, h = 0;
-					if(fgets(buf, 64, f))
-						{
-						sscanf(buf, "%lf %lf", &p, &h);
-						}
-					((pnorm_param_t *)param_val)->hmp = h;
-					((pnorm_param_t *)param_val)->psl = p;
-					fclose(f);
-					ret = ESP_OK;
-					}
-				else
-					{
-					ESP_LOGE(TAG, "Failed to open pnorm file for reading");
-						//esp_vfs_spiffs_unregister(conf.partition_label);
-					return ret;
-					}
-				}
+			// file does no exists
+			ESP_LOGI(TAG, "file does no exist: --%s--", BASE_PATH"/"CONSOLE_FILE);
+			ret = ESP_OK;
 			}
-		else if(param_type == PARAM_RGCAL)
+		else
 			{
-			((pgcal_t *)param_val)->mlb = DEFAULT_RGCAL;
-			((pgcal_t *)param_val)->sqcmp = DEFAULT_SQCMP;
-			if (stat(BASE_PATH"/"RGCAL_FILE, &st) != 0)
+			FILE *f = fopen(BASE_PATH"/"CONSOLE_FILE, "r");
+			if (f != NULL)
 				{
-				// file does no exists
+				if(fgets(buf, 64, f))
+					console_state = atoi(buf);
+				else
+					console_state = CONSOLE_ON;
+				fclose(f);
 				ret = ESP_OK;
 				}
 			else
 				{
-				FILE *f = fopen(BASE_PATH"/"RGCAL_FILE, "r");
-				if (f != NULL)
-					{
-					double c = 0;
-					int s = 0;
-					if(fgets(buf, 64, f))
-						{
-						sscanf(buf, "%lf %d", &c, &s);
-						((pgcal_t *)param_val)->mlb = c;
-						((pgcal_t *)param_val)->sqcmp = s;
-						}
-					fclose(f);
-					ret = ESP_OK;
-					}
-				else
-					{
-					ESP_LOGE(TAG, "Failed to open rgcal file for reading");
-					return ret;
-					}
+				ESP_LOGE(TAG, "Failed to open console file for reading");
+				//esp_vfs_spiffs_unregister(conf.partition_label);
+				return ret;
 				}
 			}
-#endif
-#if ACTIVE_CONTROLLER == PUMP_CONTROLLER || ACTIVE_CONTROLLER == WP_CONTROLLER
-    	if(param_type == PARAM_V_OFFSET)
-    		{
-			if (stat(BASE_PATH"/"OFFSET_FILE, &st) != 0)
-				{
-				// file does no exists
-				((psensor_offset_t *)param_val)->v_offset = 0;
-				printf("\nno file: %s", BASE_PATH"/"OFFSET_FILE);
-				ret = ESP_OK;
-				}
-			else
-				{
-				FILE *f = fopen(BASE_PATH"/"OFFSET_FILE, "r");
-				if (f != NULL)
-					{
-					((psensor_offset_t *)param_val)->v_offset = 0xffffff;
-					if(fgets(buf, 64, f))
-						{
-						((psensor_offset_t *)param_val)->v_offset = atoi(buf);
-						}
-					else
-						((psensor_offset_t *)param_val)->v_offset = 0;
-					fclose(f);
-					ret = ESP_OK;
-					}
-				else
-					{
-					ESP_LOGE(TAG, "Failed to open offset file for reading");
-					//esp_vfs_spiffs_unregister(conf.partition_label);
-					return ret;
-					}
-				}
-			}
-		if(param_type == PARAM_LIMITS)
-			{
-			((pump_limits_t *)param_val)->min_val = DEFAULT_PRES_MIN_LIMIT;
-			((pump_limits_t *)param_val)->max_val = DEFAULT_PRES_MAX_LIMIT;
-			((pump_limits_t *)param_val)->faultc = DEFAULT_PUMP_CURRENT_LIMIT;
-			((pump_limits_t *)param_val)->overp_lim = DEFAULT_OVERP_TIME_LIMIT;
-			((pump_limits_t *)param_val)->void_run_count = DEFAULT_VOID_RUN_COUNT;
-			if (stat(BASE_PATH"/"LIMITS_FILE, &st) != 0)
-				{
-				// file does no exists
-				printf("\nno file: %s", BASE_PATH"/"LIMITS_FILE);
-				ret = ESP_OK;
-				}
-			else
-				{
-				FILE *f = fopen(BASE_PATH"/"LIMITS_FILE, "r");
-				if (f != NULL)
-					{
-					((pump_limits_t *)param_val)->min_val = ((pump_limits_t *)param_val)->max_val = ((pump_limits_t *)param_val)->faultc = 0xffffff;
-					if(fgets(buf, 64, f))
-						{
-						((pump_limits_t *)param_val)->min_val = atoi(buf);
-						if(fgets(buf, 64, f))
-							{
-							((pump_limits_t *)param_val)->max_val = atoi(buf);
-							if(fgets(buf, 64, f))
-								{
-								((pump_limits_t *)param_val)->faultc = atoi(buf);
-								if(fgets(buf, 64, f))
-									{
-									((pump_limits_t *)param_val)->overp_lim = atoi(buf);
-									if(fgets(buf, 64, f))
-										{
-										((pump_limits_t *)param_val)->void_run_count = atoi(buf);
-										ret = ESP_OK;
-										}
-									}
-								}
-							}
-						}
-					else
-						ESP_LOGI(TAG, "Limits file exists but its empty");
-					fclose(f);
-					}
-				else
-					{
-					ESP_LOGE(TAG, "Failed to open limits file for reading");
-					//esp_vfs_spiffs_unregister(conf.partition_label);
-					return ret;
-					}
-				}
-			}
-		if(param_type == PARAM_OPERATIONAL)
-			{
-			*(int *)param_val = PUMP_OFFLINE;
-			if (stat(BASE_PATH"/"OPERATIONAL_FILE, &st) != 0)
-				{
-				// file does no exists
-				ret = ESP_OK;
-				}
-			else
-				{
-				FILE *f = fopen(BASE_PATH"/"OPERATIONAL_FILE, "r");
-				if (f != NULL)
-					{
-					if(fgets(buf, 64, f))
-						{
-						*(int *)param_val = atoi(buf);
-						ret = ESP_OK;
-						}
-					else
-						ESP_LOGI(TAG, "Operational file exists but its empty");
-					fclose(f);
-					}
-				else
-					{
-					ESP_LOGE(TAG, "Failed to open operational file for reading");
-					//esp_vfs_spiffs_unregister(conf.partition_label);
-					return ret;
-					}
-				}
-			}
-#endif
-
-		if(param_type == PARAM_CONSOLE)
-    		{
-			//stat(BASE_PATH"/"LIMITS_FILE, &st)
-			//if (stat(BASE_PATH"/"OPERATIONAL_FILE, &st) != 0)
-			if (stat(BASE_PATH"/"CONSOLE_FILE, &st) != 0)
-				{
-				// file does no exists
-				console_state = CONSOLE_ON;
-				printf("\nno file: --%s--", BASE_PATH"/"CONSOLE_FILE);
-				ret = ESP_OK;
-				}
-			else
-				{
-				FILE *f = fopen(BASE_PATH"/"CONSOLE_FILE, "r");
-				if (f != NULL)
-					{
-					if(fgets(buf, 64, f))
-						{
-						console_state = atoi(buf);
-						}
-					else
-						console_state = CONSOLE_ON;
-
-					fclose(f);
-					ret = ESP_OK;
-					}
-				else
-					{
-					ESP_LOGE(TAG, "Failed to open console file for reading");
-					//esp_vfs_spiffs_unregister(conf.partition_label);
-					return ret;
-					}
-				}
-			}
-
 		}
-    else if(rw == PARAM_WRITE)
-    	{
-#if ACTIVE_CONTROLLER == WESTA_CONTROLLER
-    	if(param_type == PARAM_PNORM)
-    		{
-    		FILE *f = fopen(BASE_PATH"/"PNORM_FILE, "w");
-			if (f == NULL)
-				{
-				ESP_LOGE(TAG, "Failed to create pnorm param file");
-				}
-			else
-				{
-				sprintf(buf, "%.3lf %.3lf\n", ((pnorm_param_t *)param_val)->psl, ((pnorm_param_t *)param_val)->hmp);
-				if(fputs(buf, f) >= 0)
-					ret = ESP_OK;
-				fclose(f);
-				}
-			}
-		if(param_type == PARAM_RGCAL)
-    		{
-    		FILE *f = fopen(BASE_PATH"/"RGCAL_FILE, "w");
-			if (f == NULL)
-				{
-				ESP_LOGE(TAG, "Failed to create rgcal file");
-				}
-			else
-				{
-				sprintf(buf, "%.1lf %d\n", ((pgcal_t *)param_val)->mlb, ((pgcal_t *)param_val)->sqcmp);
-				if(fputs(buf, f) >= 0)
-					ret = ESP_OK;
-				fclose(f);
-				}
-			}
-#endif
-#if ACTIVE_CONTROLLER == PUMP_CONTROLLER|| ACTIVE_CONTROLLER == WP_CONTROLLER
-    	if(param_type == PARAM_V_OFFSET)
-    		{
-    		FILE *f = fopen(BASE_PATH"/"OFFSET_FILE, "w");
-			if (f == NULL)
-				{
-				ESP_LOGE(TAG, "Failed to create offset param file");
-				}
-			else
-				{
-				sprintf(buf, "%d\n", ((psensor_offset_t *)param_val)->v_offset);
-				if(fputs(buf, f) >= 0)
-					ret = ESP_OK;
-				fclose(f);
-				}
-			}
-		if(param_type == PARAM_LIMITS)
+	else if(rw == PARAM_WRITE)
+		{
+		FILE *f = fopen(BASE_PATH"/"CONSOLE_FILE, "w");
+		if (f == NULL)
+			ESP_LOGE(TAG, "Failed to create console param file");
+		else
 			{
-			FILE *f = fopen(BASE_PATH"/"LIMITS_FILE, "w");
-			if (f == NULL)
-				{
-				ESP_LOGE(TAG, "Failed to create limits param file");
-				}
-			else
-				{
-				sprintf(buf, "%lu\n%lu\n%lu\n%lu\n%lu\n",
-						((pump_limits_t *)param_val)->min_val, ((pump_limits_t *)param_val)->max_val, ((pump_limits_t *)param_val)->faultc,
-						((pump_limits_t *)param_val)->overp_lim, ((pump_limits_t *)param_val)->void_run_count);
-				if(fputs(buf, f) >= 0)
-					ret = ESP_OK;
-				fclose(f);
-				}
-
+			sprintf(buf, "%d\n", *(int *)cs);
+			if(fputs(buf, f) >= 0)
+				ret = ESP_OK;
+			fclose(f);
 			}
-		if(param_type == PARAM_OPERATIONAL)
-			{
-			FILE *f = fopen(BASE_PATH"/"OPERATIONAL_FILE, "w");
-			if (f == NULL)
-				{
-				ESP_LOGE(TAG, "Failed to create operational file");
-				}
-			else
-				{
-				sprintf(buf, "%d\n", *(int *)param_val);
-				if(fputs(buf, f) >= 0)
-					ret = ESP_OK;
-				fclose(f);
-				}
-			}
-#endif
-
-		if(param_type == PARAM_CONSOLE)
-    		{
-    		FILE *f = fopen(BASE_PATH"/"CONSOLE_FILE, "w");
-			if (f == NULL)
-				{
-				ESP_LOGE(TAG, "Failed to create console param file");
-				}
-			else
-				{
-				sprintf(buf, "%d\n", *(int *)param_val);
-				if(fputs(buf, f) >= 0)
-					ret = ESP_OK;
-				fclose(f);
-				}
-			}
-
-    	}
-    //esp_vfs_spiffs_unregister(conf.partition_label);
+		}
 	return ret;
 	}
+
 /*
 #if ACTIVE_CONTROLLER == WESTA_CONTROLLER
 int write_tpdata(int rw, char *bufdata)

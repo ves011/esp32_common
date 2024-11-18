@@ -28,6 +28,7 @@
 #include "esp_spiffs.h"
 #include "esp_timer.h"
 #include "sdkconfig.h"
+#include "project_specific.h"
 #include "common_defines.h"
 #include "external_defs.h"
 #include "utils.h"
@@ -54,7 +55,7 @@ static const char *TAG = "MQTTClient";
 
 char TOPIC_STATE[32], TOPIC_MONITOR[32], TOPIC_CTRL[32], TOPIC_CMD[32], TOPIC_LOG[32];
 #if ACTIVE_CONTROLLER == WP_CONTROLLER
-	//char TOPIC_STATE_A[32], TOPIC_MONITOR_A[32];
+	char TOPIC_STATE_A[32], TOPIC_MONITOR_A[32];
 #endif
 char USER_MQTT[32];
 

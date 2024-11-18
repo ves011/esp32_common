@@ -9,21 +9,20 @@
 #define COMMON_COMMON_DEFINES_H_
 
 /** @brief control devices type */
-#define AGATE_CONTROLLER				1 //auto gate
-#define PUMP_CONTROLLER					2 //
-#define OTA_CONTROLLER					3 // OTA factory app
-#define WESTA_CONTROLLER				4 // weather station controller
-#define WP_CONTROLLER					6 //combined pump & water controller
-#define ESP32_TEST						7
-//#define WP_HW_V1
-#define WP_HW_V2
+#define AGATE_CONTROLLER				(1) //auto gate
+#define PUMP_CONTROLLER					(2) //
+#define OTA_CONTROLLER					(3) // OTA factory app
+#define WESTA_CONTROLLER				(4) // weather station controller
+#define WP_CONTROLLER					(6) //combined pump & water controller
+#define ESP32_TEST						(7)
 
-#include "project_specific.h"
 
-#define USER_TASK_PRIORITY			5
+//#include "project_specific.h"
 
-#define	MQTT_PROTO 		1
-#define	TCPSOCK_PROTO	2
+#define USER_TASK_PRIORITY			(5)
+
+#define	MQTT_PROTO 					(1)
+#define	TCPSOCK_PROTO				(2)
 
 	
 typedef enum
@@ -33,23 +32,17 @@ typedef enum
 	CONSOLE_TCP,
 	CONSOLE_MQTT,
 	} console_state_t;
-	/*
-#define CONSOLE_MQTT				3
-#define CONSOLE_TCP					2
-#define CONSOLE_ON					1
-#define CONSOLE_OFF					0
-*/
 
 #define PIN_ON						(1)
 #define PIN_OFF						(0)
 #define PIN_DONT_TOUCH				(2)
 
 #define TIMER_DIVIDER         		(80)  //  Hardware timer clock divider -> 1us resolution
-#define TIMER_BASE_CLK				APB_CLK_FREQ
+#define TIMER_BASE_CLK				(APB_CLK_FREQ)
 #define TIMER_SCALE           		(TIMER_BASE_CLK / TIMER_DIVIDER /1000)  // convert counter value to mseconds
 
-#define CLIENT_CONNECT_WDOG_G		TIMER_GROUP_0
-#define CLIENT_CONNECT_WDOG_I		TIMER_0
+#define CLIENT_CONNECT_WDOG_G		(TIMER_GROUP_0)
+#define CLIENT_CONNECT_WDOG_I		(TIMER_0)
 
 #define BASE_PATH					"/var"
 #define PARTITION_LABEL				"user"
@@ -69,26 +62,26 @@ typedef enum
 
 
 //sources for UI interface
-#define K_ROT				0x10
-#define K_ROT_LEFT			0x11
-#define K_ROT_RIGHT			0x12
-#define K_KEY				0x20
-#define K_PRESS				0x21
-#define K_DOWN				0x22
-#define K_UP				0x23
-#define INACT_TIME			0x40
-#define PUMP_VAL_CHANGE		0x80
-#define PUMP_OP_ERROR		0x81
+#define K_ROT				(0x10)
+#define K_ROT_LEFT			(0x11)
+#define K_ROT_RIGHT			(0x12)
+#define K_KEY				(0x20)
+#define K_PRESS				(0x21)
+#define K_DOWN				(0x22)
+#define K_UP				(0x23)
+#define INACT_TIME			(0x40)
+#define PUMP_VAL_CHANGE		(0x80)
+#define PUMP_OP_ERROR		(0x81)
 
-#define WATER_VAL_CHANGE	0x100
-#define WATER_OP_ERROR		0x101
-#define WATER_DV_OP			0x102
-#define WATER_DV_CHANGE		0x103
-
-
+#define WATER_VAL_CHANGE	(0x100)
+#define WATER_OP_ERROR		(0x101)
+#define WATER_DV_OP			(0x102)
+#define WATER_DV_CHANGE		(0x103)
 
 
-#define BOOT_MSG			0x200
+
+
+#define BOOT_MSG			(0x200)
 
 #define DEVICE_TOPIC_Q				"gnetdev/query"
 #define DEVICE_TOPIC_R				"gnetdev/response"
@@ -110,6 +103,7 @@ typedef enum
 #elif ACTIVE_CONTROLLER == ESP32_TEST
 	#define DEV_NAME				"esp32 test"
 #endif
+
 
 #define LOG_SERVER					"proxy.gnet"
 #define LOG_SERVER_PORT				6001

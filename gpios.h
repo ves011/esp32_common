@@ -8,72 +8,64 @@
 #ifndef ESP32_COMMON_GPIOS_H_
 #define ESP32_COMMON_GPIOS_H_
 
+#include "common_defines.h"
+#include "project_specific.h"
+
 #if ACTIVE_CONTROLLER == WP_CONTROLLER //based on esp32 dev kit
-//ADC channels provided by AD7811 channels
-#ifdef WP_HW_V1
-	#define SENSOR_CHN			2		//VIN3 - pressure sensor
-	#define CURRENT_CHN			0		//VIN1 - pump current ACS712
-	#define MOTSENSE_CHN		1		//VIN2 - DV current sense
-#endif
-#ifdef WP_HW_V2
-	#define SENSOR_CHN			2		//VIN3 - pressure sensor
-	#define CURRENT_CHN			1		//VIN2 - pump current ACS712
-	#define MOTSENSE_CHN		3		//VIN4 - DV current sense
-#endif
-
-#ifdef WP_HW_V1
-	#define PIN_NUM_CONVST		14		//
-	#define PIN_NUM_QMETER		34		//
-
-//SPI communication AD7811
-	#define PIN_NUM_MISO		27
-	#define PIN_NUM_MOSI		26
-	#define PIN_NUM_CLK			25
-
-
-//rotary encoder
-	#define ROT_ENC_S1			35
-	#define ROT_ENC_S2			32
-	#define ROT_ENC_KEY			33
-#endif
-#ifdef WP_HW_V2
-	#define PIN_NUM_CONVST		26		//
-	#define PIN_NUM_QMETER		36		//
-
-//SPI communication AD7811
-	#define PIN_NUM_MISO		25
-	#define PIN_NUM_MOSI		33
-	#define PIN_NUM_CLK			32
-
-
-//rotary encoder
-	#define ROT_ENC_S1			39
-	#define ROT_ENC_S2			34
-	#define ROT_ENC_KEY			35
-#endif
 //ctrl GPIOs
 /** DV control pin */
 	/* A1 ON 	/ B1 OFF 	--> open
 	 * A1 OFF 	/ B1 ON 	--> close
 	 * A1 OFF 	/ B1 OFF 	--> inactive
 	 */
+//ADC channels provided by AD7811 channels
+	#define PUMP_ONOFF_PIN			(23)	//output - pump on/off relay cmd
 #ifdef WP_HW_V1
+	
+	#define SENSOR_CHN				(2)		//VIN3 - pressure sensor
+	#define CURRENT_CHN				(0)		//VIN1 - pump current ACS712
+	#define MOTSENSE_CHN			(1)		//VIN2 - DV current sense
 	#define PINEN_DV0				(16)	//output - dv open/close cmd goes to dv0
 	#define PINEN_DV1				(4)		//output - dv open/close cmd goes to dv1
 	#define PINMOT_A1				(2)		//output - H bridge cmd
 	#define PINMOT_B1				(15)	//output - H bridge cmd
-#endif
-#ifdef WP_HW_V2
+	#define PIN_NUM_CONVST			(14)		//
+	#define PIN_NUM_QMETER			(34)		//
+
+//SPI communication AD7811
+	#define PIN_NUM_MISO			(27)
+	#define PIN_NUM_MOSI			(26)
+	#define PIN_NUM_CLK				(25)
+
+
+//rotary encoder
+	#define ROT_ENC_S1				(35)
+	#define ROT_ENC_S2				(32)
+	#define ROT_ENC_KEY				(33)
+	
+#elifdef WP_HW_V2
+	#define SENSOR_CHN				(2)		//VIN3 - pressure sensor
+	#define CURRENT_CHN				(1)		//VIN2 - pump current ACS712
+	#define MOTSENSE_CHN			(3)		//VIN4 - DV current sense
 	#define PINEN_DV0				(16)	//output - dv open/close cmd goes to dv0
 	#define PINEN_DV1				(15)	//output - dv open/close cmd goes to dv1
 	#define PINEN_DV2				(14)	//output - dv open/close cmd goes to dv2
 	#define PINEN_DV3				(13)	//output - dv open/close cmd goes to dv3
 	#define PINMOT_A1				(4)		//output - H bridge cmd
 	#define PINMOT_B1				(2)		//output - H bridge cmd
+	#define PIN_NUM_CONVST			(26)	//
+	#define PIN_NUM_QMETER			(36)	//
 
-//pump on/off pin
-	#define PUMP_ONOFF_PIN			(23)	//output - pump on/off relay cmd
+//SPI communication AD7811
+	#define PIN_NUM_MISO			(25)
+	#define PIN_NUM_MOSI			(33)
+	#define PIN_NUM_CLK				(32)
+//rotary encoder
+	#define ROT_ENC_S1				(39)
+	#define ROT_ENC_S2				(34)
+	#define ROT_ENC_KEY				(35)
 #endif
+
 //LEDs
 #ifdef LEDS
 	#define PUMP_ONOFF_LED			(16)	//j4/3
@@ -122,5 +114,15 @@
 	#define DS18B20_PIN 			6
 #endif
 
+#ifdef ADC_AD7811
+	#if ACTIVE_CONTROLLER != WP_CONTROLLER
+		#define PIN_NUM_CONVST		26		//
+	
+	//SPI communication AD7811
+		#define PIN_NUM_MISO		25
+		#define PIN_NUM_MOSI		33
+		#define PIN_NUM_CLK			32
+	#endif
+#endif
 
 #endif /* ESP32_COMMON_GPIOS_H_ */

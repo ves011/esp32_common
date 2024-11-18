@@ -4,7 +4,7 @@
  *  Created on: Nov 30, 2023
  *      Author: viorel_serbu
  */
-
+#include "project_specific.h"
 #ifdef ADC_AD7811
 #include <stdio.h>
 #include <string.h>

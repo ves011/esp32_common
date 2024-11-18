@@ -935,7 +935,7 @@ int set_console(int argc, char **argv)
 			return 0;
 			}
 		if(console_state != cs)
-			rw_params(PARAM_WRITE, PARAM_CONSOLE, &cs);
+			rw_console_state(PARAM_WRITE, &cs);
 		console_state = cs;
 		tcp_log_init();
 		}
