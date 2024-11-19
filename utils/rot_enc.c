@@ -10,7 +10,7 @@
 #include "esp_console.h"
 #include "driver/gpio.h"
 #include "hal/gpio_types.h"
-#include "freertos/freertos.h"
+#include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
 #include "esp_attr.h"
 #include "esp_log.h"
