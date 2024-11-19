@@ -8,6 +8,8 @@
 
 #include <stdio.h>
 #include <string.h>
+
+#ifdef ADC_7811
 #include "soc/gpio_reg.h"
 #include "soc/dport_access.h"
 #include "driver/spi_master.h"
@@ -135,3 +137,4 @@ void register_spi()
 		};
 	ESP_ERROR_CHECK(esp_console_cmd_register(&spi_cmd));
 	}
+#endif

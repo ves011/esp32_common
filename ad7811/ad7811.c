@@ -4,6 +4,7 @@
  *  Created on: Nov 30, 2023
  *      Author: viorel_serbu
  */
+#include "freertos/projdefs.h"
 #include "project_specific.h"
 #ifdef ADC_AD7811
 #include <stdio.h>
@@ -26,7 +27,6 @@
 #include "gpios.h"
 #include "spicom.h"
 #include "ad7811.h"
-
 
 static const char* TAG = "AD op:";
 static int vref;
@@ -235,6 +235,7 @@ int do_ad(int argc, char **argv)
 	int nerrors = arg_parse(argc, argv, (void **)&ad_args);
 	int chnn, nrs;
 	int16_t s_data[200];
+	int data;
 	int dbin;
 	if (nerrors != 0)
 		{
@@ -251,10 +252,14 @@ int do_ad(int argc, char **argv)
 			nrs = ad_args.arg1->ival[0];
 		else
 			nrs = 1;
-		adc_get_data(chnn, s_data, nrs);
+		//adc_get_data(chnn, s_data, nrs);
 		for(int i = 0; i < nrs; i++)
-			read_ADmv(chnn, (int *)&s_data[i], &dbin);
-		ESP_LOGI(TAG, "chn: %d = %d / %d, %d, %d, %d",  chnn, s_data[0], s_data[1], s_data[2], s_data[3], s_data[4]);
+			{
+			read_ADmv(chnn, &data, &dbin);
+			ESP_LOGI(TAG, "chn: %d = %d",  chnn, data);
+			vTaskDelay(pdMS_TO_TICKS(50));
+			}
+		//ESP_LOGI(TAG, "chn: %d = %d / %d, %d, %d, %d",  chnn, s_data[0], s_data[1], s_data[2], s_data[3], s_data[4]);
 		}
 	else if(strcmp(ad_args.op->sval[0], "mr") == 0)
 		{

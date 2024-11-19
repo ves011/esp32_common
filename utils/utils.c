@@ -27,15 +27,7 @@
 #include "external_defs.h"
 #include "tcp_log.h"
 #include "project_specific.h"
-#ifdef ADC_7811
-	#include "adc7811.h"
-#elif defined ADC_ESP32
-	#include "adc_op.h"
-#endif
-#if ACTIVE_CONTROLLER == PUMP_CONTROLLER || ACTIVE_CONTROLLER == WP_CONTROLLER
-	//#include "adc_op.h"
-	#include "pumpop.h"
-#endif
+
 
 #if ACTIVE_CONTROLLER == WESTA_CONTROLLER
 #include "westaop.h"
@@ -230,9 +222,8 @@ int spiffs_storage_check()
 				//esp_vfs_spiffs_unregister(conf.partition_label);
 				return ret;
 				}
-			else
-				ESP_LOGI(TAG, "SPIFFS_check() successful");
 			}
     	}
+	ESP_LOGI(TAG, "SPIFFS_check() successful");
     return ESP_OK;
     }
