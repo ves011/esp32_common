@@ -89,12 +89,12 @@ void comm_client(void *pvParams)
 		}
 	if(sockfd > 0)
 		{
-		message->ts = esp_timer_get_time();
-		message->cmd_id = CONACK;
-		written = send(sockfd, &message,  sizeof(socket_message_t), 0);
+		qmsg.ts = esp_timer_get_time();
+		qmsg.cmd_id = CONACK;
+		written = send(sockfd, &qmsg,  sizeof(socket_message_t), 0);
 		close(sockfd);
 		}
-	ESP_LOGI(TAG, "Client connection written: %d", written);
+	ESP_LOGI(TAG, "Client connection written: ts - %llu / cmd-id - %lu / %d", qmsg.ts, qmsg.cmd_id, written);
 	if(!msg2remote_queue)
 		{
 		msg2remote_queue = xQueueCreate(5, sizeof(socket_message_t));
@@ -143,6 +143,7 @@ void tcp_server()
     int ip_protocol = 0;
     int keepAlive = 0;
     struct sockaddr_storage dest_addr;
+    struct sockaddr_in localbind;
     int written, len, ret;
     socket_message_t message;
     struct sockaddr_in *dest_addr_ip4 = (struct sockaddr_in *)&dest_addr;
@@ -181,6 +182,9 @@ void tcp_server()
 						tv.tv_sec = 3;
 						tv.tv_usec = 0;
 						setsockopt(server_sock, SOL_SOCKET, SO_RCVTIMEO, (const char*)&tv, sizeof tv);
+						getsockname(server_sock, (struct sockaddr *)&localbind, &len);
+						inet_ntoa_r(localbind.sin_addr.s_addr, addr_str, sizeof(addr_str) - 1);
+						ESP_LOGI(TAG, "local bind %s:%d", addr_str, ntohs(localbind.sin_port));
 						// Convert ip address to string
 						if (source_addr.ss_family == PF_INET)
 							{
@@ -243,19 +247,6 @@ void tcp_server()
 												}
 											else if (len == 0)
 												{
-												ESP_LOGW(TAG, "Connection closed");
-												//if(abort_st == 0)
-												//	abort_st = 1;
-												message.cmd_id = STSTEP;
-												message.params[0] = 50;
-												//ret = xQueueSend(steering_cmd_queue, &message, portMAX_DELAY);
-
-												message.cmd_id = PTDC;
-												message.params[0] = 0;
-												//if(abort_pt == 0)
-												//	abort_pt = 1;
-												//ret = xQueueSend(pt_cmd_queue, &message, portMAX_DELAY);
-
 												close(server_sock);
 												break;
 												}
