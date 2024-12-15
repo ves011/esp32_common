@@ -4,7 +4,7 @@
  *  Created on: Mar 3, 2024
  *      Author: viorel_serbu
  */
-
+#ifdef ROT_ENCODER
 #include <stdio.h>
 #include <string.h>
 #include "esp_console.h"
@@ -230,4 +230,4 @@ void init_rotenc()
 		esp_restart();
 		}
 	}
-
+#endif

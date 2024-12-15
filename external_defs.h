@@ -1,7 +1,7 @@
 #ifndef EXTERNAL_DEFS_H_
 #define EXTERNAL_DEFS_H_
 
-#include "project_specific.h"
+//#include "project_specific.h"
 
 extern char TOPIC_STATE[32], TOPIC_MONITOR[32], TOPIC_CTRL[32], TOPIC_CMD[32], TOPIC_LOG[32];
 #if ACTIVE_CONTROLLER == WP_CONTROLLER
@@ -17,5 +17,10 @@ extern console_state_t console_state;
 extern int restart_in_progress;
 extern char USER_MQTT[32];
 extern QueueHandle_t tcp_log_evt_queue;
+
+#ifdef TCP_CLIENT_SERVER
+	extern QueueHandle_t tcp_send_queue, tcp_receive_queue;
+	extern int commstate;
+#endif
 
 #endif //EXTERNAL_DEFS_H_

@@ -15,6 +15,8 @@
 #define WESTA_CONTROLLER				(4) // weather station controller
 #define WP_CONTROLLER					(6) //combined pump & water controller
 #define ESP32_TEST						(7)
+#define REMOTE_CTRL						(8)
+#define NAVIGATOR						(9)
 
 
 //#include "project_specific.h"
@@ -24,7 +26,8 @@
 #define	MQTT_PROTO 					(1)
 #define	TCPSOCK_PROTO				(2)
 
-	
+#define TCP_QUEUE_SIZE				50
+
 typedef enum
 	{
 	CONSOLE_OFF,
@@ -87,7 +90,8 @@ typedef enum
 #define DEVICE_TOPIC_R				"gnetdev/response"
 #define DEVICE_TOPIC_L				"gnetdev/log"
 
-
+/*
+//definitions moved to project_specific.h
 #if ACTIVE_CONTROLLER  == OTA_CONTROLLER
 	#define DEV_NAME				"OTA"
 #elif ACTIVE_CONTROLLER == AGATE_CONTROLLER
@@ -103,7 +107,7 @@ typedef enum
 #elif ACTIVE_CONTROLLER == ESP32_TEST
 	#define DEV_NAME				"esp32 test"
 #endif
-
+*/
 
 #define LOG_SERVER					"proxy.gnet"
 #define LOG_SERVER_PORT				6001
@@ -122,5 +126,16 @@ typedef struct
 			}vts;
 		}msg_t;
 
-
+typedef struct
+	{
+	uint64_t ts;
+	uint32_t cmd_id;
+	union
+		{
+		char payload[192];
+		uint8_t u8params[192];
+		uint32_t u32params[48];
+		}p;
+	} socket_message_t;
+	
 #endif /* COMMON_COMMON_DEFINES_H_ */

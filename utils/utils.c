@@ -23,7 +23,7 @@
 #include "mqtt_client.h"
 #include "sys/stat.h"
 #include "common_defines.h"
-#include "mqtt_ctrl.h"
+//#include "mqtt_ctrl.h"
 #include "external_defs.h"
 #include "tcp_log.h"
 #include "project_specific.h"

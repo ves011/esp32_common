@@ -1071,8 +1071,10 @@ void do_system_cmd(int argc, char **argv)
 		set_console(argc, argv);
 	else if(!strcmp(argv[0], "uptime"))
 		uptime();
+#ifdef CONFIG_FREERTOS_USE_STATS_FORMATTING_FUNCTIONS
 	else if(!strcmp(argv[0], "tasks"))
 		tasks_info(argc, argv);
+#endif
 	else if(!strcmp(argv[0], "heap"))
 		heap_size(argc, argv);
 	else if(!strcmp(argv[0], "ls"))

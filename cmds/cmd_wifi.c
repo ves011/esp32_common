@@ -25,6 +25,9 @@
 #include "mqtt_client.h"
 #include "esp_vfs.h"
 #include "esp_spiffs.h"
+#if ACTIVE_CONTROLLER != ESP32_TEST
+	#include "mdns.h"
+#endif
 #include "mdns.h"
 #include "lwip/apps/netbiosns.h"
 #include "common_defines.h"
@@ -93,7 +96,7 @@ static void print_auth_mode(int authmode, char *logbuf)
         break;
     }
 }
-
+#ifdef MDNS
 static void initialise_mdns(void)
 	{
 	char ctrldevID[20];
@@ -113,7 +116,7 @@ static void initialise_mdns(void)
     ESP_ERROR_CHECK(mdns_service_add(MDNSINSTANCENAME, "_esp32", "_tcp", TCPCOMMPORT, serviceTxtData, 2));
     
 	}
-
+#endif
 static int wifi_disconnect(int argc, char **argv)
 	{
 	esp_err_t err;
@@ -278,13 +281,14 @@ void initialise_wifi(void)
 	wifi_init_sta();
 #endif
 	ESP_ERROR_CHECK(esp_wifi_start());
+#ifdef MDNS
 	initialise_mdns();
 	//netbiosns_init();
     //netbiosns_set_name(HOSTNAME);
     char localhname[40];
     mdns_hostname_get(localhname);
     ESP_LOGI(WIFITAG, "mDNS hostname: %s.local", localhname);
-
+#endif
 	initialized = true;
 	}
 

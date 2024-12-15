@@ -8,8 +8,9 @@
 #ifndef ESP32_COMMON_GPIOS_H_
 #define ESP32_COMMON_GPIOS_H_
 
-#include "common_defines.h"
 #include "project_specific.h"
+#include "common_defines.h"
+
 
 #if ACTIVE_CONTROLLER == WP_CONTROLLER //based on esp32 dev kit
 //ctrl GPIOs
@@ -112,6 +113,12 @@
 	#define I2C_MASTER_SDA_IO       1      					/*!< GPIO number used for I2C master data  */
 	#define RG_GPIO					7
 	#define DS18B20_PIN 			6
+#endif
+
+#if ACTIVE_CONTROLLER == ESP32_TEST
+	#define I2C_MASTER_SCL_IO       4      					/*!< GPIO number used for I2C master clock */
+	#define I2C_MASTER_SDA_IO       5      					/*!< GPIO number used for I2C master data  */
+	#define HMC_DRDY_PIN			6
 #endif
 
 #ifdef ADC_AD7811
