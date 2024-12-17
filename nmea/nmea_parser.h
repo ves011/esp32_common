@@ -237,6 +237,12 @@ esp_err_t nmea_parser_remove_handler(nmea_parser_handle_t nmea_hdl, esp_event_ha
 
 void register_nmea();
 
+// the distance between curent position and point defined by latitude and longitude (deg)
+float get_dist(float latitude, float longitude);
+
+//the azimuth between current point and remote point (deg)  
+float get_az(float latitude, float longitude);
+
 #ifdef __cplusplus
 }
 #endif

@@ -128,6 +128,15 @@ typedef struct
 
 typedef struct
 	{
+	uint32_t fix;
+	uint32_t fix_mode;
+	float latitude;
+	float longitude;
+	float altitude;
+	} position_t;
+	
+typedef struct
+	{
 	uint64_t ts;
 	uint32_t cmd_id;
 	union
@@ -135,6 +144,7 @@ typedef struct
 		char payload[192];
 		uint8_t u8params[192];
 		uint32_t u32params[48];
+		position_t position;
 		}p;
 	} socket_message_t;
 	

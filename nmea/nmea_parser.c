@@ -47,11 +47,11 @@ ESP_EVENT_DEFINE_BASE(ESP_NMEA_EVENT);
 static const char *GPS_TAG = "nmea_parser";
 static int print_messages, print_fix;
 
-//current gps location and last gps_location
-static gps_t c_gps_location, l_gps_location;
+//current gps location, last gps_location
+gps_t c_gps_location, l_gps_location;
 
-static float get_dist(float latitude, float longitude);
-static float get_az(float latitude1, float longitude1, float latitude2, float longitude2);
+//remote device gps_location
+gps_t r_gps_location;
 
 
 /**
@@ -94,7 +94,7 @@ static void gps_event_handler(void *event_handler_arg, esp_event_base_t event_ba
 				{
 				c_gps_location.latr = c_gps_location.latitude * pi / 180;
 				c_gps_location.longr = c_gps_location.longitude * pi / 180;
-				float dist = get_dist(l_gps_location.latitude, l_gps_location.longitude);
+				//float dist = get_dist(l_gps_location.latitude, l_gps_location.longitude);
 		        if(print_fix)
 		        	{
 			        /* print information parsed from GPS statements */
@@ -107,7 +107,7 @@ static void gps_event_handler(void *event_handler_arg, esp_event_base_t event_ba
 			                 gps->date.year + YEAR_BASE, gps->date.month, gps->date.day,
 			                 gps->tim.hour + TIME_ZONE, gps->tim.minute, gps->tim.second,
 			                 gps->latitude, gps->longitude, gps->altitude, gps->speed);
-			         ESP_LOGI(TAG, "Distance from last known location: %.5f", dist);
+			         //ESP_LOGI(TAG, "Distance from last known location: %.5f", dist);
 			         }
 				}
 	        break;
@@ -508,12 +508,17 @@ static esp_err_t gps_decode(esp_gps_t *esp_gps, size_t len)
 	socket_message_t msg;
 	int nmsg;
     const uint8_t *d = esp_gps->buffer;
- #if 0
+ #if 1
     if(esp_gps->tcp_queue)
     	{
 		msg.ts = esp_timer_get_time();
-		msg.cmd_id = NMEA_MESSAGE;
-		memcpy(msg.p.payload, esp_gps->buffer, len);
+		msg.cmd_id = GPS_FIX;
+		msg.p.position.fix_mode = c_gps_location.fix_mode;
+		msg.p.position.fix = c_gps_location.fix;
+		msg.p.position.latitude =  c_gps_location.latitude;
+		msg.p.position.longitude =  c_gps_location.longitude;
+		msg.p.position.altitude =  c_gps_location.altitude;
+		//memcpy(msg.p.payload, esp_gps->buffer, len);
 		nmsg = uxQueueMessagesWaiting(esp_gps->tcp_queue);
 		if(nmsg >= TCP_QUEUE_SIZE)
 			{
@@ -947,7 +952,7 @@ void register_nmea()
     nmea_parser_add_handler(nmea_hdl, gps_event_handler, NULL);
    	
 	}
-static float get_dist(float latitude, float longitude)
+float get_dist(float latitude, float longitude)
 	{
 	float pi = 3.141592653590;
 	//WGS84 ellipsoid
@@ -961,21 +966,19 @@ static float get_dist(float latitude, float longitude)
 	a = a + cos(c_gps_location.latr) * cos(latr) * sin(dlong/2) * sin(dlong / 2);
 	float c = 2 * asin(sqrt(a));
 	float d = r45 * c;
-	//float az = get_az(c_gps_location.latitude, c_gps_location.longitude, latitude, longitude);
-	//printf("clat: %.10f  clong: %.10f, \nllat: %.10f, llong: %.10f  dist: %.10f az: %.2f\n",
-	//	c_gps_location.latitude, c_gps_location.longitude, latitude, longitude, d, az);
+	//float az = get_az(latitude, longitude);
+	printf("clat: %.12f  clong: %.12f, \nllat: %.12f, llong: %.12f  dist: %.12f\n",
+		c_gps_location.latitude, c_gps_location.longitude, latitude, longitude, d);
 	return d;
 	}
-static float get_az(float latitude1, float longitude1, float latitude2, float longitude2)
+float get_az(float latitude, float longitude)
 	{
 	float pi = 3.141592653590;
-	float latr1 = latitude1 * pi / 180;
-	float longr1 = longitude1 * pi / 180;
-	float latr2 = latitude2 * pi / 180;
-	float longr2 = longitude2 * pi / 180;
-	float dlong = longr2 - longr1;
-	float y = sin(dlong) * cos(latr2);
-	float x = cos(latr1) * sin(latr2) - sin(latr1) * cos(latr2) * cos(dlong);
+	float latr = latitude * pi / 180;
+	float longr = longitude * pi / 180;
+	float dlong = longr - c_gps_location.longr;
+	float y = sin(dlong) * cos(c_gps_location.latr);
+	float x = cos(c_gps_location.latr) * sin(latr) - sin(c_gps_location.latr) * cos(latr) * cos(dlong);
 	float a = atan(y/x);
 	return a * 180 / pi;
 	}

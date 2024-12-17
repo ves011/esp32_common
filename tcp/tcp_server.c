@@ -28,9 +28,8 @@
 
 #include "common_defines.h"
 #include "cmd_wifi.h"
+#include "process_message.h"
 #include "tcp_server.h"
-
-static void process_message(socket_message_t msg);
 
 static const char *TAG ="tcp_server";
 static int commstate = IDLE;
@@ -46,8 +45,8 @@ static void process_message_task(void *pvParameters)
 		{
 		if(xQueueReceive(tcp_receive_queue, &msg, portMAX_DELAY))
 			{
-			//process_message(msg);
-			ESP_LOGI(TAG, "Message received cmd_id %lu / %lu", msg.cmd_id, msg.p.u32params[0]);
+			process_message(msg);
+			//ESP_LOGI(TAG, "Message received cmd_id %lu / %lu", msg.cmd_id, msg.p.u32params[0]);
 			}
 		}
 	}
@@ -282,22 +281,6 @@ void tcp_server(void *pvParameters)
 	vTaskDelete(NULL);
 	}
 
-static void process_message(socket_message_t msg)
-	{
-	switch(msg.cmd_id)
-		{
-		case SEND_TO_SERIAL:
-			printf("%s", msg.p.payload);
-//			sprintf(buf, "%02x %02x %02x %02x %02x\n%02x %02x %02x %02x", 
-//			msg.p.payload[0], msg.p.payload[1], msg.p.payload[2], msg.p.payload[3], msg.p.payload[4],
-//			msg.p.payload[strlen(msg.p.payload) -4], msg.p.payload[strlen(msg.p.payload) - 3], 
-//			msg.p.payload[strlen(msg.p.payload) -2], msg.p.payload[strlen(msg.p.payload) - 1]);
-			//ESP_LOGI(TAG, "print count %d", count);
-			break;
-		default:
-			break;
-		}
-	}
 void register_tcp_server()
 	{
 	tcp_receive_queue = xQueueCreate(TCP_QUEUE_SIZE, sizeof(socket_message_t));

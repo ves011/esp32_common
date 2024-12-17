@@ -21,6 +21,7 @@
 #define COMMACK					2
 #define COMMNACK				3
 #define NMEA_MESSAGE			4
+#define GPS_FIX					5
 
 #define SEND_TO_SERIAL			4
 

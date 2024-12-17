@@ -21,6 +21,7 @@
 #include "project_specific.h"
 #include "common_defines.h"
 #include "external_defs.h"
+#include "process_message.h"
 #include "tcp_server.h"
 #include "tcp_client.h"
 
@@ -29,7 +30,6 @@ extern QueueHandle_t msg_queue;
 QueueHandle_t tcp_receive_queue = NULL, tcp_send_queue = NULL;
 TaskHandle_t process_message_task_handle = NULL, send_task_handle = NULL;
 int commstate;
-static void process_message(socket_message_t msg);
 
 static void process_message_task(void *pvParameters)
 	{
@@ -39,7 +39,7 @@ static void process_message_task(void *pvParameters)
 		{
 		if(xQueueReceive(tcp_receive_queue, &msg, portMAX_DELAY))
 			{
-			//process_message(msg);
+			process_message(msg);
 			if(msg.cmd_id == CLOSE_CONNECTION)
 				{
 				ESP_LOGI(TAG, "Closing connection");
@@ -244,22 +244,6 @@ static void tcp_client_task(void *pvParameters)
     vTaskDelete(NULL);
 	}
 
-static void process_message(socket_message_t msg)
-	{
-	switch(msg.cmd_id)
-		{
-		case NMEA_MESSAGE:
-			printf("%s", msg.p.payload);
-//			sprintf(buf, "%02x %02x %02x %02x %02x\n%02x %02x %02x %02x", 
-//			msg.p.payload[0], msg.p.payload[1], msg.p.payload[2], msg.p.payload[3], msg.p.payload[4],
-//			msg.p.payload[strlen(msg.p.payload) -4], msg.p.payload[strlen(msg.p.payload) - 3], 
-//			msg.p.payload[strlen(msg.p.payload) -2], msg.p.payload[strlen(msg.p.payload) - 1]);
-			//ESP_LOGI(TAG, "print count %d", count);
-			break;
-		default:
-			break;
-		}
-	}
 static struct {
     struct arg_str *op;
     struct arg_str *arg1;
