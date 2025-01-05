@@ -67,7 +67,7 @@ static void send_task(void *pvParameters)
 			written = 0, ret = 0;
 			while(written < sizeof(socket_message_t))
 				{
-	        	ret = send(sock, (uint8_t *)(&msg + written), sizeof(socket_message_t) - written, 0);
+	        	ret = send(sock, (uint8_t *)&msg + written, sizeof(socket_message_t) - written, 0);
 				if (ret < 0) 
 	            	{
 					send_error = 1;

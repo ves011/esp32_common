@@ -68,6 +68,8 @@ static void send_task(void *pvParameters)
 				if (ret < 0) 
 	            	{
 	                ESP_LOGE(TAG, "Error occurred during sending message: errno %d", errno);
+	                send_task_handle = NULL;
+	                vTaskDelete(NULL);
 	                break;
 	            	}
 				else
@@ -80,6 +82,7 @@ static void send_task(void *pvParameters)
 				}
 			}
 		}
+	vTaskDelete(NULL);
 	}
 
 static void tcp_client_task(void *pvParameters)
@@ -88,7 +91,7 @@ static void tcp_client_task(void *pvParameters)
     struct addrinfo *result;
     //struct sockaddr_storage  peer_addr;
     //char host_ip[] = HOST_IP_ADDR;
-    char host_ip[32];
+    char host_ip[32] = "NULL";
     int addr_family = 0;
     int ip_protocol = 0;
     int err, len;
@@ -113,7 +116,7 @@ static void tcp_client_task(void *pvParameters)
     addr_family = AF_INET;
     ip_protocol = IPPROTO_IP;
     socket_message_t msg;
-	
+
     while (1) 
     	{
         int sock =  socket(addr_family, SOCK_STREAM, ip_protocol);
@@ -122,7 +125,7 @@ static void tcp_client_task(void *pvParameters)
             ESP_LOGE(TAG, "Unable to create socket: errno %d", errno);
             break;
         	}
-        ESP_LOGI(TAG, "Socket created, connecting to %s:%d", host_ip, PORT);
+        //ESP_LOGI(TAG, "Socket created, connecting to %s:%d", host_ip, PORT);
         int no_delay = 1;
 		setsockopt(sock, IPPROTO_TCP, TCP_NODELAY, &no_delay, sizeof(int));
 
@@ -138,7 +141,7 @@ static void tcp_client_task(void *pvParameters)
         err = connect(sock, (struct sockaddr *)&dest_addr, sizeof(dest_addr));
         if (err != 0) 
         	{
-            ESP_LOGI(TAG, "Socket unable to connect: errno %d", errno);
+            //ESP_LOGI(TAG, "Socket unable to connect: errno %d", errno);
             close(sock);
             continue;
         	}
@@ -149,7 +152,7 @@ static void tcp_client_task(void *pvParameters)
         len = 0;
         while(len < sizeof(socket_message_t))
 			{
-        	err = send(sock, (uint8_t *)(&msg + len), sizeof(socket_message_t) - len, 0);
+        	err = send(sock, (uint8_t *)&msg + len, sizeof(socket_message_t) - len, 0);
 			if (err < 0) 
             	{
                 ESP_LOGE(TAG, "Error occurred during sending COMMINIT: errno %d", errno);
@@ -205,7 +208,7 @@ static void tcp_client_task(void *pvParameters)
 			}
 		else 
 			{
-			ESP_LOGI(TAG, "Cannot process_message_task");
+			ESP_LOGI(TAG, "Cannot create process_message_task");
 			esp_restart();
 			}
 		while(1)

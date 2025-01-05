@@ -42,6 +42,8 @@
 #include "gateop.h"
 #elif ACTIVE_CONTROLLER == WESTA_CONTROLLER
 #include "westaop.h"
+#elif ACTIVE_CONTROLLER == NAVIGATOR
+#include "nmea_parser.h"
 #elif ACTIVE_CONTROLLER == WATER_CONTROLLER || ACTIVE_CONTROLLER == WP_CONTROLLER
 #include "waterop.h"
 #include "pumpop.h"
@@ -216,6 +218,8 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
 					do_wifi_cmd(argc, argv);
 #if ACTIVE_CONTROLLER != ESP32_TEST && ACTIVE_CONTROLLER == WP_CONROLLER
 					do_ad(argc, argv);
+#elif ACTIVE_CONTROLLER == NAVIGATOR
+					do_nmea(argc, argv);
 #endif
 					}
 				else if(strcmp(topic, DEVICE_TOPIC_Q) == 0)
@@ -344,6 +348,8 @@ void create_topics()
 	sprintf(USER_MQTT, "wp%02d", CTRL_DEV_ID);
 #elif ACTIVE_CONTROLLER == ESP32_TEST
 	sprintf(USER_MQTT, "esp32%02d", CTRL_DEV_ID);
+#elif ACTIVE_CONTROLLER == NAVIGATOR
+	sprintf(USER_MQTT, "navi%02d", CTRL_DEV_ID);
 #endif
 
 	strcpy(TOPIC_STATE, USER_MQTT);

@@ -21,6 +21,7 @@
 #include "driver/gpio.h"
 #include "project_specific.h"
 #include "common_defines.h"
+#include "utils.h"
 #include "external_defs.h"
 //#include "tcp_client.h"
 #include "nmea_parser.h"
@@ -530,7 +531,7 @@ static esp_err_t gps_decode(esp_gps_t *esp_gps, size_t len)
 #endif
     //this is the string which needs to be sent over socket
     if(print_messages)
-    	printf("%s\n", d);
+    	my_printf("%s\n", d);
     //------------------------------------------------------
     while (*d) 
     	{
@@ -967,7 +968,7 @@ float get_dist(float latitude, float longitude)
 	float c = 2 * asin(sqrt(a));
 	float d = r45 * c;
 	//float az = get_az(latitude, longitude);
-	printf("clat: %.12f  clong: %.12f, \nllat: %.12f, llong: %.12f  dist: %.12f\n",
+	my_printf("clat: %.12f  clong: %.12f, \nllat: %.12f, llong: %.12f  dist: %.12f\n",
 		c_gps_location.latitude, c_gps_location.longitude, latitude, longitude, d);
 	return d;
 	}

@@ -26,11 +26,17 @@ void sync_NTP_time(void)
     esp_sntp_config_t config = ESP_NETIF_SNTP_DEFAULT_CONFIG("pool.ntp.org");
     config.sync_cb = time_sync_notification_cb;
     config.ip_event_to_renew = IP_EVENT_STA_GOT_IP;
+    config.start = false;
+    
     esp_netif_sntp_init(&config);
+    sntp_set_sync_interval(3600000);
+    esp_netif_sntp_start();
+    /*
     if (esp_netif_sntp_sync_wait(pdMS_TO_TICKS(10000)) != ESP_OK)
     	{
     	ESP_LOGI("NTP sync", "Failed to update system time within 10s timeout. Restart...");
-    	esp_restart();
+    	//esp_restart();
     	}
+    */
 	}
 

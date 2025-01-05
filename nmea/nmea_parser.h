@@ -235,6 +235,7 @@ esp_err_t nmea_parser_add_handler(nmea_parser_handle_t nmea_hdl, esp_event_handl
  */
 esp_err_t nmea_parser_remove_handler(nmea_parser_handle_t nmea_hdl, esp_event_handler_t event_handler);
 
+int do_nmea(int argc, char **argv);
 void register_nmea();
 
 // the distance between curent position and point defined by latitude and longitude (deg)
