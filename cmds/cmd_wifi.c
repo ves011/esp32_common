@@ -25,6 +25,7 @@
 #include "mqtt_client.h"
 #include "esp_vfs.h"
 #include "esp_spiffs.h"
+#include "driver/i2c_master.h"
 #if ACTIVE_CONTROLLER != ESP32_TEST
 	#include "mdns.h"
 #endif

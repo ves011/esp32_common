@@ -7,6 +7,7 @@
 
 #include <string.h>
 #include <stdio.h>
+#include "project_specific.h"
 #include "sdkconfig.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
@@ -38,14 +39,14 @@ int sample_count, nr_samples;
 int **adc_raw;
 
 gptimer_handle_t adc_timer;
-QueueHandle_t adc_evt_queue = NULL;
+QueueHandle_t adc_evt_queue = NULL, bat_val_queue = NULL;
 int cbt_user_data;     // user data top let adc timer cb to pass this value in adc_message_t.source
 
 static adc_cali_handle_t adc1_cal_handle[10];
 static adc_oneshot_unit_handle_t adc1_handle;
 static SemaphoreHandle_t adcval_mutex;
 static int *adc_ch_vect, adc_no_chn;
-static int chn_to_use[5] = {0, 1, 3, 4, 5};
+static int chn_to_use[3] = {0, 1, 3};
 
 static struct
 	{
@@ -120,12 +121,24 @@ int adc_get_data(int *chn, int n_chn, int **s_vect, int nr_samp)
 		gptimer_start(adc_timer);
 		if(xQueueReceive(adc_evt_queue, &msg, q_wait / portTICK_PERIOD_MS) == pdPASS)
 			{
+			int bat_v = 0;
 			for(int n = 0; n < n_chn; n++)
 				{
 				//ESP_LOGI(TAG, "chn calh: %d, %x", n, (unsigned int)adc1_cal_handle[n]);
 				for(int j = 0; j < nr_samp; j++)
+					{
 					adc_cali_raw_to_voltage(/*adc1_cal_handle[chn[n]]*/adc1_cal_handle[n], *(adc_raw[n] + j), (adc_raw[n] + j));
+					if(chn[n] == BAT_ADC_CHANNEL)
+						{
+						bat_v += *(adc_raw[n] + j);
+						}
+					}
 				}
+			if(bat_v)
+				{
+				bat_v /= nr_samp;
+				}
+
 			ret = ESP_OK;
 			}
 		else
@@ -190,6 +203,7 @@ void adc_init5(int nr_chn, int *chn_no)
 	
 	adc1_handle = NULL;
 	adc_evt_queue = xQueueCreate(5, sizeof(adc_msg_t));
+	bat_val_queue = xQueueCreate(5, sizeof(adc_msg_t));
 	adcval_mutex = xSemaphoreCreateMutex();
 	if(!adcval_mutex)
 		{
@@ -226,33 +240,27 @@ int do_ad(int argc, char **argv)
 		}
 	if(strcmp(ad_args.op->sval[0], "r") == 0)
 		{
-		int s_data[10];
+		int *s_data[1];
+		int s1_data[100];
 		if(ad_args.arg->count)
 			ch_vect[0] = ad_args.arg->ival[0];
 		else
 			ch_vect[0] = 0;
+		
 		if(ad_args.arg1->count)
 			nrs = ad_args.arg1->ival[0];
 		else
 			nrs = 1;
-		//s_data = calloc(1, sizeof(int *));
-		//if(s_data)
+		
+		s_data[0] = s1_data;
+		adc_get_data(ch_vect, 1, (int **)&s_data, nrs);
+		for(i = 0; i < nrs; i++)
 			{
-			//s_data[0] = calloc(nrs, sizeof(int));
-			//if(s_data[0])
-				{
-				adc_get_data(ch_vect, 1, (int **)&s_data, nrs);
-				for(i = 0; i < nrs; i++)
-					{
-					//adc_cali_raw_to_voltage(adc1_cal_handle[ch_vect[0]], s_data[0][i], &voltage);
-					//ESP_LOGI(TAG, "%d chn: %d = %d %d",  i, ch_vect[0], s_data[0][i], voltage);
-					//adc_cali_raw_to_voltage(adc1_cal_handle[ch_vect[0]], s_data[i], &voltage);
-					ESP_LOGI(TAG, "%d chn: %d = %d",  i, ch_vect[0], s_data[i]);
-					vTaskDelay(pdMS_TO_TICKS(50));
-					}
-				//free(s_data[0]);
-				}
-			//free(s_data);
+			//adc_cali_raw_to_voltage(adc1_cal_handle[ch_vect[0]], s_data[0][i], &voltage);
+			//ESP_LOGI(TAG, "%d chn: %d = %d %d",  i, ch_vect[0], s_data[0][i], voltage);
+			//adc_cali_raw_to_voltage(adc1_cal_handle[ch_vect[0]], s_data[i], &voltage);
+			ESP_LOGI(TAG, "%d chn: %d = %d",  i, ch_vect[0], s1_data[i]);
+			vTaskDelay(pdMS_TO_TICKS(50));
 			}
 		}
 	else if(strcmp(ad_args.op->sval[0], "rm") == 0)
@@ -296,7 +304,7 @@ int do_ad(int argc, char **argv)
 	}
 void register_ad()
 	{
-	adc_init5(5, chn_to_use);
+	adc_init5(3, chn_to_use);
 	ad_args.op = arg_str1(NULL, NULL, "<op>", "op: r | mr");
 	ad_args.arg = arg_int0(NULL, NULL, "<chn#>", "channel to read");
 	ad_args.arg1 = arg_int0(NULL, NULL, "<nrs>", "no of samples");

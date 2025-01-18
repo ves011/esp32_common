@@ -24,6 +24,7 @@
 #include "esp_vfs_dev.h"
 #include "esp_vfs_fat.h"
 #include "lwip/sockets.h"
+#include "driver/i2c_master.h"
 #include "project_specific.h"
 #include "common_defines.h"
 #if COMM_PROTO == MQTT_PROTO
@@ -45,6 +46,14 @@ static void tcp_log_task(void *pvParameters);
 int tcp_log_init()
 	{
 	int ret = ESP_FAIL;
+	int log_port;
+	char *log_server;
+#ifdef TEST_BUILD
+	log_port = LOG_PORT_DEV;
+	log_server = LOG_SERVER_DEV;
+#else
+	log_port = LOG_PORT;
+#endif
 #if COMM_PROTO == MQTT_PROTO
 	strcpy(log_user, USER_MQTT)
 #else
@@ -55,10 +64,10 @@ int tcp_log_init()
 		{
 		struct hostent *hent = NULL;
 		bzero((char *) &srv_addr, sizeof(srv_addr));
-		hent = gethostbyname(LOG_SERVER);
+		hent = gethostbyname(log_server);
 		if(hent)
 			{
-			srv_addr.sin_port = htons(LOG_PORT);
+			srv_addr.sin_port = htons(log_port);
 			srv_addr.sin_family = AF_INET;
 			srv_addr.sin_addr.s_addr = *(u_long *) hent->h_addr_list[0];
 			}

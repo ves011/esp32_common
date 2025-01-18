@@ -52,6 +52,7 @@ typedef enum
 #define CONSOLE_FILE				"conoff.txt"
 #define HISTORY_FILE				"/sys/history.txt"
 #define RGCAL_FILE					"rgcal.txt"
+#define PTST_FILE					"ptst.txt"
 #define MAX_NO_FILES				(5)
 #define PARAM_READ					(1)
 #define PARAM_WRITE					(2)

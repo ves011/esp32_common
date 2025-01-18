@@ -19,6 +19,7 @@
 #include "argtable3/argtable3.h"
 #include "portmacro.h"
 #include "driver/gpio.h"
+#include "driver/i2c_master.h"
 #include "project_specific.h"
 #include "common_defines.h"
 #include "utils.h"
@@ -524,7 +525,7 @@ static esp_err_t gps_decode(esp_gps_t *esp_gps, size_t len)
 		if(nmsg >= TCP_QUEUE_SIZE)
 			{
 			xQueueReset(esp_gps->tcp_queue);
-			ESP_LOGI(TAG, "queue reset %d", nmsg);
+			//ESP_LOGI(TAG, "queue reset %d", nmsg);
 			}
 		xQueueSend(esp_gps->tcp_queue, &msg, 0);
 		}

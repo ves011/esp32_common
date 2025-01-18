@@ -28,6 +28,7 @@
 #include "esp_netif.h"
 #include "driver/rtc_io.h"
 #include "driver/uart.h"
+#include "driver/i2c_master.h"
 #include "argtable3/argtable3.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -122,11 +123,11 @@ void register_system(void)
 {
     register_system_common();
     register_system_sleep();
-    //register_ping();
+    register_ping();
 
 }
 
-/*
+
 static void cmd_ping_on_ping_success(esp_ping_handle_t hdl, void *args)
 	{
     uint8_t ttl;
@@ -169,8 +170,8 @@ static void cmd_ping_on_ping_end(esp_ping_handle_t hdl, void *args)
     // delete the ping sessions, so that we clean up all resources and can create a new ping session
     // we don't have to call delete function in the callback, instead we can call delete function from other tasks
     esp_ping_delete_session(hdl);
-	}*/
-/*
+	}
+
 static int do_ping_cmd(int argc, char **argv)
 	{
     esp_ping_config_t config = ESP_PING_DEFAULT_CONFIG();
@@ -234,8 +235,8 @@ static int do_ping_cmd(int argc, char **argv)
     esp_ping_start(ping);
 
     return 0;
-	}*/
-/*
+	}
+
 void register_ping(void)
 	{
     ping_args.timeout = arg_dbl0("W", "timeout", "<t>", "Time to wait for a response, in seconds");
@@ -254,7 +255,7 @@ void register_ping(void)
         .argtable = &ping_args
     	};
     ESP_ERROR_CHECK(esp_console_cmd_register(&ping_cmd));
-	}*/
+	}
 /* 'version' command */
 static int get_version(int argc, char **argv)
 	{
@@ -1066,7 +1067,7 @@ static void register_boot(void)
 	}
 void do_system_cmd(int argc, char **argv)
 	{
-	ESP_LOGI(TAG, "%d, %s", argc, argv[0]);
+	//ESP_LOGI(TAG, "%d, %s", argc, argv[0]);
 	if(!strcmp(argv[0], "console"))
 		set_console(argc, argv);
 	else if(!strcmp(argv[0], "uptime"))

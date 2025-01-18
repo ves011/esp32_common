@@ -17,6 +17,7 @@
 #include "spi_flash_mmap.h"
 #include "driver/rtc_io.h"
 #include "driver/uart.h"
+#include "driver/i2c_master.h"
 #include "argtable3/argtable3.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -44,6 +45,9 @@
 #include "westaop.h"
 #elif ACTIVE_CONTROLLER == NAVIGATOR
 #include "nmea_parser.h"
+#include "mpu6050.h"
+#include "ptst.h"
+#include "hmc5883.h"
 #elif ACTIVE_CONTROLLER == WATER_CONTROLLER || ACTIVE_CONTROLLER == WP_CONTROLLER
 #include "waterop.h"
 #include "pumpop.h"
@@ -220,6 +224,9 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
 					do_ad(argc, argv);
 #elif ACTIVE_CONTROLLER == NAVIGATOR
 					do_nmea(argc, argv);
+					do_mpu(argc, argv);
+					do_ptst(argc, argv);
+					do_hmc(argc, argv);
 #endif
 					}
 				else if(strcmp(topic, DEVICE_TOPIC_Q) == 0)

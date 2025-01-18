@@ -17,6 +17,7 @@ extern console_state_t console_state;
 extern int restart_in_progress;
 extern char USER_MQTT[32];
 extern QueueHandle_t tcp_log_evt_queue;
+extern i2c_master_bus_handle_t i2c_bus_handle_0, i2c_bus_handle_1;
 
 #ifdef TCP_CLIENT_SERVER
 	extern QueueHandle_t tcp_send_queue, tcp_receive_queue;

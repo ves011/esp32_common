@@ -21,6 +21,7 @@
 #include "wear_levelling.h"
 #include "esp_console.h"
 #include "driver/gpio.h"
+#include "driver/i2c_master.h"
 #include "errno.h"
 #include "spi_flash_mmap.h"
 #include "esp_netif.h"

@@ -12,6 +12,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/projdefs.h"
 #include "freertos/task.h"
+#include "driver/i2c_master.h"
 #include "esp_system.h"
 #include "esp_wifi.h"
 #include "esp_event.h"

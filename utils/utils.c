@@ -17,6 +17,7 @@
 #include "freertos/queue.h"
 #include "esp_netif.h"
 #include "driver/gpio.h"
+#include "driver/i2c_master.h"
 #include "esp_log.h"
 #include "errno.h"
 #include "esp_spiffs.h"
@@ -95,7 +96,7 @@ int rw_console_state(int rw, console_state_t *cs)
 	{
 	struct stat st;
 	int ret = ESP_FAIL;
-	char buf[10];
+	char buf[80];
 	if(rw == PARAM_READ)
 		{
 		if (stat(BASE_PATH"/"CONSOLE_FILE, &st) != 0)

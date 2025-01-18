@@ -121,6 +121,17 @@
 	#define HMC_DRDY_PIN			6
 #endif
 
+#if ACTIVE_CONTROLLER == NAVIGATOR
+	#define I2C_MASTER_SCL_IO_0     16      					/*!< GPIO number used for I2C master clock */
+	#define I2C_MASTER_SDA_IO_0     15      					/*!< GPIO number used for I2C master data  */
+	#define HMC_DRDY_PIN			17
+	#define MPU_DRDY_PIN			18
+	#define NW_CONNECT_ON			9
+	#define NW_CONNECT_OFF			11
+	#define REMOTE_CONNECT_ON		46
+	#define REMOTE_CONNECT_OFF		10
+#endif
+
 #ifdef ADC_AD7811
 	#if ACTIVE_CONTROLLER != WP_CONTROLLER
 		#define PIN_NUM_CONVST		26		//
