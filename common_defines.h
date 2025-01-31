@@ -82,6 +82,16 @@ typedef enum
 #define WATER_DV_OP			(0x102)
 #define WATER_DV_CHANGE		(0x103)
 
+/*
+Message definitions for device montiro queue
+*/
+#define MSG_WIFI			1	// wifi connect (.val = 1)/disconnect (.val = 0) event 
+#define MSG_BAT				2	// battery level .val = ADC battery measurement * 1000
+#define MSG_LED_FLASH		3	// nw state and remote state flashing
+#define NW_STATE_CHANGE		4	// nw connected (.val = 1) / disconnected (.val = 0)
+#define REMOTE_STATE_CHANGE	5	// remote connected (.val = 1) / disconnected (.val = 0)
+
+
 
 
 

@@ -22,9 +22,10 @@
 // Register WiFi functions
 void register_wifi(void);
 bool isConnected(void);
-int wifi_connect(int argc, char **argv);
+//int wifi_connect(int argc, char **argv);
 bool wifi_join(const char *ssid, const char *pass, int timeout_ms);
 void do_wifi_cmd(int argc, char **argv);
+int do_wifi(int argc, char **argv);
 void initialise_wifi(void);
 
 #endif

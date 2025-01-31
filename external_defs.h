@@ -16,7 +16,7 @@ extern esp_netif_ip_info_t dev_ipinfo;
 extern console_state_t console_state;
 extern int restart_in_progress;
 extern char USER_MQTT[32];
-extern QueueHandle_t tcp_log_evt_queue;
+extern QueueHandle_t tcp_log_evt_queue, dev_mon_queue;
 extern i2c_master_bus_handle_t i2c_bus_handle_0, i2c_bus_handle_1;
 
 #ifdef TCP_CLIENT_SERVER

@@ -15,6 +15,7 @@
 #include "esp_wifi_types_generic.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/event_groups.h"
+#include "freertos/projdefs.h"
 #include "lwip/netif.h"
 #include "esp_mac.h"
 #include "esp_wifi.h"
@@ -55,6 +56,15 @@ static bool sta_init = false;
 #endif
 
 #define WIFITAG "wifi op"
+static char *command = "wifi";
+static struct
+	{
+    struct arg_str *op;
+    struct arg_str *ssid;
+    struct arg_str *pwd;
+    struct arg_int *timeout;
+    struct arg_end *end;
+	} wifi_args;
 
 static void print_auth_mode(int authmode, char *logbuf)
 	{
@@ -118,7 +128,7 @@ static void initialise_mdns(void)
     
 	}
 #endif
-static int wifi_disconnect(int argc, char **argv)
+static int wifi_disconnect()
 	{
 	esp_err_t err;
 	wifi_mode_t mode;
@@ -152,9 +162,16 @@ static int wifi_disconnect(int argc, char **argv)
 static void event_handler(void* arg, esp_event_base_t event_base,
                                 int32_t event_id, void* event_data)
 	{
+	msg_t msg;
 	if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED) 
     	{
 		ESP_LOGE(WIFITAG, "WiFi connection lost");
+		if(dev_mon_queue)
+			{
+			msg.source = MSG_WIFI;
+			msg.val = 0;
+			xQueueSend(dev_mon_queue, &msg, pdMS_TO_TICKS(10));
+			}
         if(!restart_in_progress)
     		{
 			ESP_ERROR_CHECK(esp_wifi_disconnect());
@@ -162,17 +179,17 @@ static void event_handler(void* arg, esp_event_base_t event_base,
 			}
 		xEventGroupClearBits(wifi_event_group, CONNECTED_BIT);
     	}
-    else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_AP_STACONNECTED) 
+	else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_AP_STACONNECTED) 
     	{
         wifi_event_ap_staconnected_t *event = (wifi_event_ap_staconnected_t *) event_data;
         ESP_LOGI(WIFITAG, "Station "MACSTR" joined, AID=%d", MAC2STR(event->mac), event->aid);
     	} 
-    else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_AP_STADISCONNECTED) 
+	else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_AP_STADISCONNECTED) 
     	{
         wifi_event_ap_stadisconnected_t *event = (wifi_event_ap_stadisconnected_t *) event_data;
         ESP_LOGI(WIFITAG, "Station "MACSTR" left, AID=%d, reason:%d", MAC2STR(event->mac), event->aid, event->reason);
         }
-    else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_AP_START) 
+	else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_AP_START) 
     	{
 		ESP_LOGI(WIFITAG, "AP start");
 		}
@@ -180,14 +197,19 @@ static void event_handler(void* arg, esp_event_base_t event_base,
     	{
 		ESP_LOGI(WIFITAG, "AP stop");
 		}
-    else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP)
+	else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP)
     	{
         xEventGroupSetBits(wifi_event_group, CONNECTED_BIT);
         ip_event_got_ip_t *ipevt = event_data;
         memcpy(&dev_ipinfo, &ipevt->ip_info, sizeof(dev_ipinfo));
-
+		if(dev_mon_queue)
+			{
+			msg.source = MSG_WIFI;
+			msg.val = 1;
+			xQueueSend(dev_mon_queue, &msg, pdMS_TO_TICKS(10));
+			}
     	}
-    else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_LOST_IP)
+	else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_LOST_IP)
     	{
     	ESP_LOGE(WIFITAG, "IP lost / WIFI STA disconnected");
     	}
@@ -317,6 +339,7 @@ bool wifi_join(const char *ssid, const char *pass, int timeout_ms)
 	}
 
 /** Arguments used by 'join' function */
+/*
 static struct
 	{
     struct arg_int *timeout;
@@ -324,7 +347,7 @@ static struct
     struct arg_str *password;
     struct arg_end *end;
 	} join_args;
-
+*/
 bool isConnected()
 	{
 	esp_err_t err;
@@ -340,14 +363,14 @@ bool isConnected()
 		return false;
 	return true;
 	}
-int wifi_connect(int argc, char **argv)
+static int wifi_connect(const char *ssid, const char *pwd, int timeout)
 	{
 	esp_err_t err;
 	wifi_mode_t mode;
 	wifi_ap_record_t ap_info;
 	esp_netif_t *netif;
 	esp_netif_ip_info_t ip_info;
-	if(argc == 1) //no parameters just display connection information
+	if(!ssid) //no parameters just display connection information
 		{
 		err = esp_wifi_get_mode(&mode);
 		if(err == ESP_ERR_WIFI_NOT_INIT)
@@ -403,24 +426,11 @@ int wifi_connect(int argc, char **argv)
 			return 1;
 		return 0;
 		}
-    int nerrors = arg_parse(argc, argv, (void **) &join_args);
-    if (nerrors != 0)
-    	{
-        //arg_print_errors(stderr, join_args.end, argv[0]);
-        my_printf("%s arguments error\n", argv[0]);
-        return 1;
-    	}
-    ESP_LOGI(__func__, "Connecting to '%s'", join_args.ssid->sval[0]);
+    ESP_LOGI(__func__, "Connecting to '%s'", ssid);
 
-    /* set default value*/
-    if (join_args.timeout->count == 0)
-    	{
-        join_args.timeout->ival[0] = JOIN_TIMEOUT_MS;
-    	}
-
-    bool connected = wifi_join(join_args.ssid->sval[0],
-                               join_args.password->sval[0],
-                               join_args.timeout->ival[0]);
+    bool connected = wifi_join(wifi_args.ssid->sval[0],
+                               wifi_args.pwd->sval[0],
+                               wifi_args.timeout->ival[0]);
     if (!connected)
     	{
         ESP_LOGW(__func__, "Connection timed out");
@@ -430,7 +440,7 @@ int wifi_connect(int argc, char **argv)
     return 0;
 	}
 
-static int wifi_scan(int argc, char **argv)
+static int wifi_scan()
 	{
 	esp_err_t err;
 	wifi_mode_t mode;
@@ -515,13 +525,23 @@ static int wifi_scan(int argc, char **argv)
     return 0;
 	}
 
+	
 void register_wifi(void)
 	{
-    join_args.timeout = arg_int0(NULL, "timeout", "<t>", "Connection timeout, ms");
-    join_args.ssid = arg_str1(NULL, NULL, "<ssid>", "SSID of AP");
-    join_args.password = arg_str0(NULL, NULL, "<pass>", "PSK of AP");
-    join_args.end = arg_end(2);
-
+	wifi_args.op = arg_str1(NULL, NULL, "<op>", "WIFI cmd: connect | disconnect | scan");
+    wifi_args.ssid = arg_str0(NULL, NULL, "<ssid>", "SSID of AP");
+    wifi_args.pwd = arg_str0(NULL, NULL, "<pass>", "PSK of AP");
+    wifi_args.timeout = arg_int0(NULL, "timeout", "<t>", "Connection timeout, ms");
+    wifi_args.end = arg_end(2);
+	const esp_console_cmd_t wifi_cmd =
+    	{
+        .command = command,
+        .help = "wifi cmds",
+        .hint = NULL,
+        .func = &do_wifi,
+        .argtable = &wifi_args
+    	};
+/*    	
     const esp_console_cmd_t join_cmd =
     	{
         .command = "connect",
@@ -551,9 +571,45 @@ void register_wifi(void)
 
     ESP_ERROR_CHECK( esp_console_cmd_register(&join_cmd) );
     ESP_ERROR_CHECK( esp_console_cmd_register(&wifi_scan_cmd));
-    ESP_ERROR_CHECK( esp_console_cmd_register(&wifi_disconnect_cmd));
+*/    
+    ESP_ERROR_CHECK( esp_console_cmd_register(&wifi_cmd));
 	}
 
+int do_wifi(int argc, char **argv)
+	{
+	if(strcmp(argv[0], command))
+		return 1;
+	int nerrors = arg_parse(argc, argv, (void **)&wifi_args);
+	if (nerrors != 0)
+		{
+		arg_print_errors(stderr, wifi_args.end, argv[0]);
+		return ESP_FAIL;
+		}
+	if(strcmp(wifi_args.op->sval[0], "connect") == 0)
+		{
+		if(wifi_args.ssid->count != 0 && wifi_args.pwd->count != 0)
+			{
+			int to;
+			if(wifi_args.timeout->count == 0)
+				to = JOIN_TIMEOUT_MS;
+			else
+ 				to = wifi_args.timeout->ival[0];
+ 			wifi_connect(wifi_args.ssid->sval[0], wifi_args.pwd->sval[0], to);
+			}
+		else
+			wifi_connect(NULL, NULL, 0);
+		}
+	else if(strcmp(wifi_args.op->sval[0], "disconnect") == 0)
+		{
+		wifi_disconnect();
+		}
+	else if(strcmp(wifi_args.op->sval[0], "scan") == 0)
+		{
+		wifi_scan();
+		}
+	return ESP_OK;
+	}
+/*
 void do_wifi_cmd(int argc, char **argv)
 	{
 	if(!strcmp(argv[0], "wifiscan"))
@@ -563,3 +619,4 @@ void do_wifi_cmd(int argc, char **argv)
 	else if(!strcmp(argv[0], "connect"))
 		wifi_connect(argc, argv);
 	}
+*/

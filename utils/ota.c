@@ -38,7 +38,7 @@
 
 #define OTA_URL_SIZE 256
 //#define FW_UPGRADE_URL "http://proxy.gnet:444/fw_upgrade.bin"
-TaskHandle_t ota_task_handle;
+//TaskHandle_t ota_task_handle;
 
 #define TAG "OTA_TASK"
 

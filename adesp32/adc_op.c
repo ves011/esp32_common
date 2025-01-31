@@ -39,7 +39,7 @@ int sample_count, nr_samples;
 int **adc_raw;
 
 gptimer_handle_t adc_timer;
-QueueHandle_t adc_evt_queue = NULL, bat_val_queue = NULL;
+QueueHandle_t adc_evt_queue = NULL;
 int cbt_user_data;     // user data top let adc timer cb to pass this value in adc_message_t.source
 
 static adc_cali_handle_t adc1_cal_handle[10];
@@ -47,6 +47,7 @@ static adc_oneshot_unit_handle_t adc1_handle;
 static SemaphoreHandle_t adcval_mutex;
 static int *adc_ch_vect, adc_no_chn;
 static int chn_to_use[3] = {0, 1, 3};
+static int adc_init = 0;
 
 static struct
 	{
@@ -109,6 +110,11 @@ int adc_get_data(int *chn, int n_chn, int **s_vect, int nr_samp)
      * take adcval mutex in 1.2 sec wait
      * worst case for 10 loops it takes 1.05 sec
      */
+    
+    if(!adc_init)
+    	{
+    	return ret;
+    	}
 	if(xSemaphoreTake(adcval_mutex, ( TickType_t ) 120 ) == pdTRUE)
     	{
 		adc_raw = s_vect;
@@ -203,7 +209,6 @@ void adc_init5(int nr_chn, int *chn_no)
 	
 	adc1_handle = NULL;
 	adc_evt_queue = xQueueCreate(5, sizeof(adc_msg_t));
-	bat_val_queue = xQueueCreate(5, sizeof(adc_msg_t));
 	adcval_mutex = xSemaphoreCreateMutex();
 	if(!adcval_mutex)
 		{
@@ -224,6 +229,7 @@ void adc_init5(int nr_chn, int *chn_no)
 		adc_calibration_init5(ADC_UNIT_1, chn_no[i], ADC_ATTEN_DB_12, &adc1_cal_handle[i]);//adc1_cal_handle[chn_no[i]]);
 		}
 	config_adc_timer();
+	adc_init = 1;
 	}
 int do_ad(int argc, char **argv)
 	{
@@ -232,7 +238,6 @@ int do_ad(int argc, char **argv)
 	int chnn, chns, nrs;
 	int ch_vect[10];
 	//int **s_data;
-	int voltage;
 	if (nerrors != 0)
 		{
 		arg_print_errors(stderr, ad_args.end, argv[0]);

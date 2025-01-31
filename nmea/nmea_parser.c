@@ -17,7 +17,7 @@
 #include "esp_netif.h"
 #include "esp_console.h"
 #include "argtable3/argtable3.h"
-#include "portmacro.h"
+//#include "portmacro.h"
 #include "driver/gpio.h"
 #include "driver/i2c_master.h"
 #include "project_specific.h"
@@ -30,6 +30,7 @@
 
 
 #define TAG "nmea_ctrl"
+static char *command = "nmea";
 
 /**
  * @brief NMEA Parser runtime buffer size
@@ -822,7 +823,7 @@ nmea_parser_handle_t nmea_parser_init(const nmea_parser_config_t *config)
     	};
     if (esp_event_loop_create(&loop_args, &esp_gps->event_loop_hdl) != ESP_OK) 
     	{
-        ESP_LOGE(GPS_TAG, "create event loop faild");
+        ESP_LOGE(GPS_TAG, "create event loop failed");
         goto err_eloop;
     	}
     /* Create NMEA Parser task */
@@ -913,6 +914,8 @@ static struct
 	} nmea_args;
 int do_nmea(int argc, char **argv)
 	{
+	if(strcmp(argv[0], command))
+		return 1;
 	int nerrors = arg_parse(argc, argv, (void **)&nmea_args);
     if (nerrors != 0)
     	{
@@ -938,7 +941,7 @@ void register_nmea()
 	nmea_args.end = arg_end(1);
     const esp_console_cmd_t nmea_cmd =
     	{
-        .command = "nmea",
+        .command = command,
         .help = "pump start|stop|online|offline|set0|set_limits <min_pressure kPa> <max_pressure (kPa)> <fault_current (mA) <max stdev> <over pressure time limit> <void run count>",
         .hint = NULL,
         .func = &do_nmea,
