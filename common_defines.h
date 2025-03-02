@@ -17,6 +17,7 @@
 #define ESP32_TEST						(7)
 #define REMOTE_CTRL						(8)
 #define NAVIGATOR						(9)
+#define FLOOR_HC						(10)
 
 
 //#include "project_specific.h"
@@ -82,24 +83,14 @@ typedef enum
 #define WATER_DV_OP			(0x102)
 #define WATER_DV_CHANGE		(0x103)
 
-/*
-Message definitions for device montiro queue
-*/
-#define MSG_WIFI			1	// wifi connect (.val = 1)/disconnect (.val = 0) event 
-#define MSG_BAT				2	// battery level .val = ADC battery measurement * 1000
-#define MSG_LED_FLASH		3	// nw state and remote state flashing
-#define NW_STATE_CHANGE		4	// nw connected (.val = 1) / disconnected (.val = 0)
-#define REMOTE_STATE_CHANGE	5	// remote connected (.val = 1) / disconnected (.val = 0)
-
-
-
-
-
 #define BOOT_MSG			(0x200)
 
 #define DEVICE_TOPIC_Q				"gnetdev/query"
 #define DEVICE_TOPIC_R				"gnetdev/response"
 #define DEVICE_TOPIC_L				"gnetdev/log"
+
+
+#define PI					3.14159265358979
 
 /*
 //definitions moved to project_specific.h
@@ -132,9 +123,15 @@ typedef struct
 		uint32_t val;
 		union
 			{
-			int m_val[6];
+			int m_val[8];
 			uint64_t ts;
 			}vts;
+		union
+			{
+			uint32_t uval[16];
+			int ival[16];
+			float fval[16];
+			}ifvals;
 		}msg_t;
 
 typedef struct

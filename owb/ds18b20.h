@@ -107,6 +107,8 @@ esp_err_t ds18b20_get_temperature(int nDS, float *ret_temperature);
 
 esp_err_t ds18b20_init();
 
+uint64_t get_addr(int nDS);
+
 #ifdef __cplusplus
 }
 #endif

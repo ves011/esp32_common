@@ -27,14 +27,14 @@
 #include "esp_vfs.h"
 #include "esp_spiffs.h"
 #include "driver/i2c_master.h"
-#if ACTIVE_CONTROLLER != ESP32_TEST
-	#include "mdns.h"
-#endif
-#include "mdns.h"
+
 #include "lwip/apps/netbiosns.h"
 #include "common_defines.h"
 #include "external_defs.h"
 #include "project_specific.h"
+#ifdef MDNS
+	#include "mdns.h"
+#endif
 #include "utils.h"
 #include "cmd_wifi.h"
 #include "wifi_credentials.h"

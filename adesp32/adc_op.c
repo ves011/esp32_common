@@ -46,7 +46,7 @@ static adc_cali_handle_t adc1_cal_handle[10];
 static adc_oneshot_unit_handle_t adc1_handle;
 static SemaphoreHandle_t adcval_mutex;
 static int *adc_ch_vect, adc_no_chn;
-static int chn_to_use[3] = {0, 1, 3};
+static int chn_to_use[3];
 static int adc_init = 0;
 
 static struct
@@ -256,15 +256,12 @@ int do_ad(int argc, char **argv)
 			nrs = ad_args.arg1->ival[0];
 		else
 			nrs = 1;
-		
-		s_data[0] = s1_data;
-		adc_get_data(ch_vect, 1, (int **)&s_data, nrs);
+			
 		for(i = 0; i < nrs; i++)
 			{
-			//adc_cali_raw_to_voltage(adc1_cal_handle[ch_vect[0]], s_data[0][i], &voltage);
-			//ESP_LOGI(TAG, "%d chn: %d = %d %d",  i, ch_vect[0], s_data[0][i], voltage);
-			//adc_cali_raw_to_voltage(adc1_cal_handle[ch_vect[0]], s_data[i], &voltage);
-			ESP_LOGI(TAG, "%d chn: %d = %d",  i, ch_vect[0], s1_data[i]);
+			s_data[0] = s1_data;
+			adc_get_data(ch_vect, 1, (int **)&s_data, 1);
+			ESP_LOGI(TAG, "%d chn: %d = %d",  i, ch_vect[0], s1_data[0]);
 			vTaskDelay(pdMS_TO_TICKS(50));
 			}
 		}
@@ -309,7 +306,15 @@ int do_ad(int argc, char **argv)
 	}
 void register_ad()
 	{
+	chn_to_use[0]  = ADC_CHN_0;
+	chn_to_use[1]  = ADC_CHN_1;
+	chn_to_use[2]  = ADC_CHN_2;
 	adc_init5(3, chn_to_use);
+#if ACTIVE_CONTROLLER == FLOOR_HC
+	chn_to_use[0] = 4;
+	adc_init5(1, chn_to_use);
+#endif
+	
 	ad_args.op = arg_str1(NULL, NULL, "<op>", "op: r | mr");
 	ad_args.arg = arg_int0(NULL, NULL, "<chn#>", "channel to read");
 	ad_args.arg1 = arg_int0(NULL, NULL, "<nrs>", "no of samples");

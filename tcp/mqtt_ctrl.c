@@ -49,9 +49,11 @@
 #include "ptst.h"
 #include "hmc5883.h"
 #elif ACTIVE_CONTROLLER == WATER_CONTROLLER || ACTIVE_CONTROLLER == WP_CONTROLLER
-#include "waterop.h"
-#include "pumpop.h"
-#include "ad7811.h"
+	#include "waterop.h"
+	#include "pumpop.h"
+	#include "ad7811.h"
+#elif ACTIVE_CONTROLLER == FLOOR_HC
+	#include "temps.h"
 #endif
 
 #define CONFIG_BROKER_URL "mqtts://proxy.gnet:1886"
@@ -227,6 +229,8 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
 					do_mpu(argc, argv);
 					do_ptst(argc, argv);
 					do_hmc(argc, argv);
+#elif ACTIVE_CONTROLLER == FLOOR_HC
+					do_temp(argc, argv);
 #endif
 					}
 				else if(strcmp(topic, DEVICE_TOPIC_Q) == 0)
@@ -282,6 +286,7 @@ int mqtt_start(void)
 			.network.reconnect_timeout_ms = 2000,
 			.session.message_retransmit_timeout = 500,
 			.session.keepalive = 30,
+			.task.stack_size = 8192,
 			};
     create_topics();
     client = esp_mqtt_client_init(&mqtt_cfg);
@@ -341,6 +346,7 @@ void publish_MQTT_client_log(char *message)
 
 void create_topics()
 	{
+	strcpy(USER_MQTT, "ESP3299");
 #if ACTIVE_CONTROLLER == PUMP_CONTROLLER
 	sprintf(USER_MQTT, "pump%02d", CTRL_DEV_ID);
 #elif ACTIVE_CONTROLLER == AGATE_CONTROLLER
@@ -357,8 +363,12 @@ void create_topics()
 	sprintf(USER_MQTT, "esp32%02d", CTRL_DEV_ID);
 #elif ACTIVE_CONTROLLER == NAVIGATOR
 	sprintf(USER_MQTT, "navi%02d", CTRL_DEV_ID);
+#elif ACTIVE_CONTROLLER == ESP32_TEST
+	sprintf(USER_MQTT, "qt%02d", CTRL_DEV_ID);
+#elif ACTIVE_CONTROLLER == FLOOR_HC
+	sprintf(USER_MQTT, "%s%02d", DEV_NAME, CTRL_DEV_ID);
 #endif
-
+	ESP_LOGI(TAG, "USER_MQTT: %s", USER_MQTT);
 	strcpy(TOPIC_STATE, USER_MQTT);
 	strcat(TOPIC_STATE, "/state");
 	strcpy(TOPIC_MONITOR, USER_MQTT);
