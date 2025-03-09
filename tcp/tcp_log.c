@@ -53,6 +53,7 @@ int tcp_log_init()
 	log_server = LOG_SERVER_DEV;
 #else
 	log_port = LOG_PORT;
+	log_server = LOG_SERVER;
 #endif
 #if COMM_PROTO == MQTT_PROTO
 	strcpy(log_user, USER_MQTT)

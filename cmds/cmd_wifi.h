@@ -13,6 +13,7 @@
 #define JOIN_TIMEOUT_MS (10000)
 
 #if WIFI_AP_ON
+	#define APCONF_FILE "apconf.txt"
 	extern esp_netif_t *esp_netif_ap;
 #endif
 #if WIFI_STA_ON

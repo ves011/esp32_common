@@ -4,7 +4,7 @@
  *  Created on: Nov 30, 2023
  *      Author: viorel_serbu
  */
-#include "freertos/projdefs.h"
+//#include "freertos/projdefs.h"
 #include "project_specific.h"
 #ifdef ADC_AD7811
 #include <stdio.h>
@@ -48,6 +48,7 @@ struct
     struct arg_str *op;
     struct arg_int *arg;
     struct arg_int *arg1;
+    struct arg_int *arg2;
     struct arg_end *end;
 	} ad_args;
 
@@ -106,11 +107,11 @@ int adc_get_data(int chn, int16_t *s_vect, int nr_samp)
 	int dummy = 0, dbin = 0, ret = ESP_FAIL;
 	adc_msg_t msg;
 	int16_t s_bin[200];
-	//nr_samples = nr_samp;
-	//sample_count = 0;
-	//samples = s_vect;
-	//s_channel = chn;
-	int q_wait = (SAMPLE_PERIOD * NR_SAMPLES_PC) / 1000 + 50;
+	nr_samples = nr_samp;
+	sample_count = 0;
+	samples = s_vect;
+	s_channel = chn;
+	int q_wait = (SAMPLE_PERIOD * nr_samples) / 1000 + 50;
 	if(xSemaphoreTake(adcval_mutex,  q_wait / portTICK_PERIOD_MS ) == pdTRUE)
 		{
 		nr_samples = nr_samp;
@@ -234,7 +235,6 @@ int do_ad(int argc, char **argv)
 	{
 	int nerrors = arg_parse(argc, argv, (void **)&ad_args);
 	int chnn, nrs;
-	int16_t s_data[200];
 	int data;
 	int dbin;
 	if (nerrors != 0)
@@ -244,6 +244,7 @@ int do_ad(int argc, char **argv)
 		}
 	if(strcmp(ad_args.op->sval[0], "r") == 0)
 		{
+		int16_t *s_data;
 		if(ad_args.arg->count)
 			chnn = ad_args.arg->ival[0];
 		else
@@ -252,20 +253,54 @@ int do_ad(int argc, char **argv)
 			nrs = ad_args.arg1->ival[0];
 		else
 			nrs = 1;
-		//adc_get_data(chnn, s_data, nrs);
-		for(int i = 0; i < nrs; i++)
+		s_data = calloc(nrs, sizeof(int));
+		if(s_data)
 			{
-			read_ADmv(chnn, &data, &dbin);
-			ESP_LOGI(TAG, "chn: %d = %d",  chnn, data);
-			vTaskDelay(pdMS_TO_TICKS(50));
+			adc_get_data(chnn, s_data, nrs);
+			for(int i = 0; i < nrs; i++)
+				ESP_LOGI(TAG, "chn: %d = %d",  chnn, s_data[i]);
+			free(s_data);
 			}
-		//ESP_LOGI(TAG, "chn: %d = %d / %d, %d, %d, %d",  chnn, s_data[0], s_data[1], s_data[2], s_data[3], s_data[4]);
+		else 
+			ESP_LOGI(TAG, "Not enough memory");
+
 		}
-	else if(strcmp(ad_args.op->sval[0], "mr") == 0)
+	else if(strcmp(ad_args.op->sval[0], "rm") == 0)
 		{
+		int chns, chnn;
+		int16_t *s_data[10];
+		int16_t *s1_data[4];
+		int i;
 		if(ad_args.arg->count)
+			chns = ad_args.arg->ival[0];
+		else
+ 			chns = 0;
+ 			
+		if(ad_args.arg1->count)
+			chnn = ad_args.arg1->ival[0];
+		else
+			chnn = 1;
+			
+		if(ad_args.arg2->count)
+			nrs = ad_args.arg2->ival[0];
+		else
+			nrs = 5;
+		
+		for(i = 0; i < chnn; i++)
 			{
-			chnn = ad_args.arg->ival[0];
+			//ch_vect[i] = chn_to_use[i + chns];
+			s1_data[i] = calloc(nrs, sizeof(int16_t));
+			if(s1_data[i])
+				s_data[i] = s1_data[i];
+			else
+				{
+				for(int k = 0; k < i; k++)
+					free(s1_data[k]);
+				ESP_LOGE(TAG, "Not enough memory for sample data");
+				break;
+				}
+			}
+		if(i == chnn)
 			if(ad_args.arg1->count)
 				{
 				nrs = ad_args.arg1->ival[0];
@@ -281,6 +316,7 @@ void register_ad()
 	ad_args.op = arg_str1(NULL, NULL, "<op>", "op: r | mr");
 	ad_args.arg = arg_int0(NULL, NULL, "<arg>", "value to write");
 	ad_args.arg1 = arg_int0(NULL, NULL, "<nrs>", "no of samples");
+	ad_args.arg2 = arg_int0(NULL, NULL, "<nrs>", "no of samples");
 	ad_args.end = arg_end(1);
 	const esp_console_cmd_t ad_cmd =
 		{

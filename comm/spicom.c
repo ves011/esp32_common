@@ -8,8 +8,9 @@
 
 #include <stdio.h>
 #include <string.h>
+#include "project_specific.h"
 
-#ifdef ADC_7811
+#ifdef ADC_AD7811
 #include "soc/gpio_reg.h"
 #include "soc/dport_access.h"
 #include "driver/spi_master.h"
@@ -18,7 +19,7 @@
 #include "argtable3/argtable3.h"
 #include "esp_rom_sys.h"
 #include "common_defines.h"
-#include "project_specific.h"
+
 #include "gpios.h"
 #include "spicom.h"
 

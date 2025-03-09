@@ -109,8 +109,10 @@
 
 #if ACTIVE_CONTROLLER == WESTA_CONTROLLER
 	#define DHT_DATA_PIN 			5
-	#define I2C_MASTER_SCL_IO       4      					/*!< GPIO number used for I2C master clock */
-	#define I2C_MASTER_SDA_IO       1      					/*!< GPIO number used for I2C master data  */
+	#define I2C_MASTER_SCL_IO_0     4      					/*!< GPIO number used for I2C master clock */
+	#define I2C_MASTER_SDA_IO_0     1      					/*!< GPIO number used for I2C master data  */
+	#define I2C_MASTER_SCL_IO_1     99     					/*!< GPIO number used for I2C master clock */
+	#define I2C_MASTER_SDA_IO_1     99    					/*!< GPIO number used for I2C master data  */
 	#define RG_GPIO					7
 	#define DS18B20_PIN 			6
 #endif
@@ -133,13 +135,12 @@
 #endif
 
 #ifdef ADC_AD7811
-	#if ACTIVE_CONTROLLER != WP_CONTROLLER
-		#define PIN_NUM_CONVST		26		//
-	
+	#if ACTIVE_CONTROLLER == FLOOR_HC
+		#define PIN_NUM_CONVST		11		//
 	//SPI communication AD7811
-		#define PIN_NUM_MISO		25
-		#define PIN_NUM_MOSI		33
-		#define PIN_NUM_CLK			32
+		#define PIN_NUM_MISO		12
+		#define PIN_NUM_MOSI		3
+		#define PIN_NUM_CLK			8
 	#endif
 #endif
 

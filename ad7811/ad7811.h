@@ -28,7 +28,7 @@
 #define NR_SAMPLES_PC			200
 #define NR_SAMPLES_PS			10
 #define NR_SAMPLES_DV			10
-#define SAMPLE_PERIOD			500				//ADC sampling rate (us)
+#define SAMPLE_PERIOD			400				//ADC sampling rate (us)
 
 
 typedef struct

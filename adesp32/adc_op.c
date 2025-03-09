@@ -8,6 +8,7 @@
 #include <string.h>
 #include <stdio.h>
 #include "project_specific.h"
+#ifdef ADC_ESP32
 #include "sdkconfig.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
@@ -246,7 +247,7 @@ int do_ad(int argc, char **argv)
 	if(strcmp(ad_args.op->sval[0], "r") == 0)
 		{
 		int *s_data[1];
-		int s1_data[100];
+		int s1_data[500];
 		if(ad_args.arg->count)
 			ch_vect[0] = ad_args.arg->ival[0];
 		else
@@ -262,18 +263,18 @@ int do_ad(int argc, char **argv)
 			s_data[0] = s1_data;
 			adc_get_data(ch_vect, 1, (int **)&s_data, 1);
 			ESP_LOGI(TAG, "%d chn: %d = %d",  i, ch_vect[0], s1_data[0]);
-			vTaskDelay(pdMS_TO_TICKS(50));
+			vTaskDelay(pdMS_TO_TICKS(10));
 			}
 		}
 	else if(strcmp(ad_args.op->sval[0], "rm") == 0)
 		{
 		int *s_data[10];
-		int s1_data[100], s2_data[100], s3_data[100], s4_data[100], s5_data[100];
-		s_data[0] = s1_data;
-		s_data[1] = s2_data;
-		s_data[2] = s3_data;
-		s_data[3] = s4_data;
-		s_data[4] = s5_data; 
+		int *s1_data[5];
+		//s_data[0] = s1_data;
+		//s_data[1] = s2_data;
+		//s_data[2] = s3_data;
+		//s_data[3] = s4_data;
+		//s_data[4] = s5_data; 
 		//int s_data[3][5];
 		// ad r <start channel> <no of channels> <nr samples>
 		if(ad_args.arg->count)
@@ -289,30 +290,57 @@ int do_ad(int argc, char **argv)
 		else
 			nrs = 5;
 		for(i = 0; i < chnn; i++)
-			ch_vect[i] = chn_to_use[i + chns];
-		for(n = 0; n < chnn; n++)
-			my_printf("ch_vect[%d] = %d\n", n, ch_vect[n]);
-		adc_get_data(ch_vect, chnn, s_data, nrs);
-		for(n = 0; n < chnn; n++)
 			{
+			ch_vect[i] = chn_to_use[i + chns];
+			s1_data[i] = calloc(nrs, sizeof(int));
+			if(s1_data[i])
+				s_data[i] = s1_data[i];
+			else
+				{
+				for(int k = 0; k < i; k++)
+					free(s1_data[k]);
+				ESP_LOGE(TAG, "Not enough memory for sample data");
+				break;
+				}
+			}
+		if(i == chnn)
+			{
+			char c[30], m[256];
+			strcpy(m, "  #  ");
+			for(n = 0; n < chnn; n++)
+				{
+				sprintf(c, "\t%6d", ch_vect[n]);
+				strcat(m, c);
+				}
+			my_printf("%s", m);
+			adc_get_data(ch_vect, chnn, s_data, nrs);
 			for(j = 0; j < nrs; j++)
 				{
-				//adc_cali_raw_to_voltage(adc1_cal_handle[ch_vect[n]], s_data[n][j], &voltage);
-				ESP_LOGI(TAG, "%d chn: %d = %d",  i, ch_vect[n], *(s_data[n] + j));
+				sprintf(m, "%5d", j);
+				for(n = 0; n < chnn; n++)
+					{
+					sprintf(c, "\t%6d",  *(s_data[n] + j));
+					strcat(m, c);
+					}
+				my_printf("%s",  m);
 				}
+			for(i = 0; i < chnn; i++)
+				free(s1_data[i]);
 			}
 		}
 	return ESP_OK;
 	}
 void register_ad()
 	{
+#if ACTIVE_CONTROLLER == NAVIGATOR
 	chn_to_use[0]  = ADC_CHN_0;
 	chn_to_use[1]  = ADC_CHN_1;
 	chn_to_use[2]  = ADC_CHN_2;
 	adc_init5(3, chn_to_use);
-#if ACTIVE_CONTROLLER == FLOOR_HC
-	chn_to_use[0] = 4;
-	adc_init5(1, chn_to_use);
+#elif ACTIVE_CONTROLLER == FLOOR_HC
+	chn_to_use[0] = 0;
+	chn_to_use[1] = 4;
+	adc_init5(2, chn_to_use);
 #endif
 	
 	ad_args.op = arg_str1(NULL, NULL, "<op>", "op: r | mr");
@@ -330,3 +358,4 @@ void register_ad()
 		};
 	ESP_ERROR_CHECK(esp_console_cmd_register(&ad_cmd));
 	}
+#endif

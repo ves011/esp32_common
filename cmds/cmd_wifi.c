@@ -49,6 +49,9 @@ esp_netif_ip_info_t dev_ipinfo;
 #if WIFI_AP_ON
 static bool ap_init = false;
 esp_netif_t *esp_netif_ap;
+static char ap_pass[32];
+static char ap_ssid[32];
+static uint8_t ap_a, ap_b, ap_c, ap_d;
 #endif
 #if WIFI_STA_ON
 esp_netif_t *esp_netif_sta;
@@ -65,6 +68,10 @@ static struct
     struct arg_int *timeout;
     struct arg_end *end;
 	} wifi_args;
+
+#if WIFI_AP_ON	
+	static int get_ap_conf();
+#endif
 
 static void print_auth_mode(int authmode, char *logbuf)
 	{
@@ -214,14 +221,7 @@ static void event_handler(void* arg, esp_event_base_t event_base,
     	ESP_LOGE(WIFITAG, "IP lost / WIFI STA disconnected");
     	}
 	}
-/*
-static void scan_done_handler(void* arg, esp_event_base_t event_base,
-                              int32_t event_id, void* event_data)
-	{
-	//ESP_LOGI(WIFITAG, "SCAN DONE event");
-	scan_done = 1;
-	}
-*/
+
 #if WIFI_STA_ON
 static void wifi_init_sta(void)
 	{
@@ -247,19 +247,20 @@ static void wifi_init_ap(void)
     esp_netif_ap = esp_netif_create_default_wifi_ap();
     assert(esp_netif_ap);
 
-    wifi_config_t wifi_config =
-    	{
+    wifi_config_t wifi_config = {
 		.ap =
 			{
-	    	.ssid = AP_SSID,
-	    	.ssid_len = strlen(AP_SSID),
+	    	//.ssid = ap_ssid,
+	    	.ssid_len = strlen(ap_ssid),
 	    	.channel = 6,
-	    	.password = AP_PASS,
+	    	//.password = ap_pass,
 	    	.max_connection = 4,
 	    	.authmode = WIFI_AUTH_WPA2_PSK,
 	    	.pmf_cfg = {.required = false,},
 	    	}
 	    };
+	strcpy((char *)(wifi_config.ap.ssid), ap_ssid);
+	strcpy((char *)(wifi_config.ap.password), ap_pass);
 	ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &wifi_config));
     ap_init = true;
 	}
@@ -285,6 +286,7 @@ void initialise_wifi(void)
     
 #if WIFI_AP_ON
     /* Initialize AP */
+    get_ap_conf();
     ESP_LOGI(WIFITAG, "ESP_WIFI_MODE_AP");
 	#if WIFI_STA_ON
 	    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_APSTA));
@@ -306,12 +308,20 @@ void initialise_wifi(void)
 	ESP_ERROR_CHECK(esp_wifi_start());
 #ifdef MDNS
 	initialise_mdns();
-	//netbiosns_init();
-    //netbiosns_set_name(HOSTNAME);
     char localhname[40];
     mdns_hostname_get(localhname);
     ESP_LOGI(WIFITAG, "mDNS hostname: %s.local", localhname);
 #endif
+
+#if WIFI_AP_ON
+	esp_netif_ip_info_t ip_info;
+	IP4_ADDR(&ip_info.ip, ap_a, ap_b, ap_c, ap_d);
+	IP4_ADDR(&ip_info.gw, ap_a, ap_b, ap_c, ap_d); 
+	IP4_ADDR(&ip_info.netmask, 255, 255, 255, 0);
+	ESP_ERROR_CHECK(esp_netif_dhcps_stop(esp_netif_ap));
+	ESP_ERROR_CHECK(esp_netif_set_ip_info(esp_netif_ap, &ip_info));
+	ESP_ERROR_CHECK(esp_netif_dhcps_start(esp_netif_ap));
+#endif	
 	initialized = true;
 	}
 
@@ -338,16 +348,6 @@ bool wifi_join(const char *ssid, const char *pass, int timeout_ms)
     return (bits & CONNECTED_BIT) != 0;
 	}
 
-/** Arguments used by 'join' function */
-/*
-static struct
-	{
-    struct arg_int *timeout;
-    struct arg_str *ssid;
-    struct arg_str *password;
-    struct arg_end *end;
-	} join_args;
-*/
 bool isConnected()
 	{
 	esp_err_t err;
@@ -541,37 +541,6 @@ void register_wifi(void)
         .func = &do_wifi,
         .argtable = &wifi_args
     	};
-/*    	
-    const esp_console_cmd_t join_cmd =
-    	{
-        .command = "connect",
-        .help = "Join WiFi AP as a station",
-        .hint = NULL,
-        .func = &wifi_connect,
-        .argtable = &join_args
-    	};
-
-    const esp_console_cmd_t wifi_scan_cmd =
-        	{
-            .command = "wifiscan",
-            .help = "scan available wifi nw",
-            .hint = NULL,
-            .func = &wifi_scan,
-            .argtable = NULL
-        	};
-
-    const esp_console_cmd_t wifi_disconnect_cmd =
-    		{
-            .command = "disconnect",
-            .help = "Disconect WiFi ",
-            .hint = NULL,
-            .func = &wifi_disconnect,
-            .argtable = NULL
-    		};
-
-    ESP_ERROR_CHECK( esp_console_cmd_register(&join_cmd) );
-    ESP_ERROR_CHECK( esp_console_cmd_register(&wifi_scan_cmd));
-*/    
     ESP_ERROR_CHECK( esp_console_cmd_register(&wifi_cmd));
 	}
 
@@ -609,14 +578,43 @@ int do_wifi(int argc, char **argv)
 		}
 	return ESP_OK;
 	}
-/*
-void do_wifi_cmd(int argc, char **argv)
+
+#if WIFI_AP_ON
+static int get_ap_conf()
 	{
-	if(!strcmp(argv[0], "wifiscan"))
-		wifi_scan(argc, argv);
-	else if(!strcmp(argv[0], "disconnect"))
-		wifi_disconnect(argc, argv);
-	else if(!strcmp(argv[0], "connect"))
-		wifi_connect(argc, argv);
+	int ret = ESP_FAIL;
+	FILE *f = NULL;
+	char buf[64];
+	f = fopen(BASE_PATH"/"APCONF_FILE, "r");
+	if(f)
+		{
+		if(fgets(buf, 64, f))
+			{
+			sscanf(buf, "%hhu.%hhu.%hhu.%hhu", &ap_a, &ap_b, &ap_c, &ap_d);
+			if(fgets(buf, 64, f))
+				{
+				if(buf[strlen(buf) -1] == 0x0a)
+					buf[strlen(buf) -1] = 0;
+				strcpy(ap_ssid, buf);
+				if(fgets(buf, 64, f))
+					{
+					if(buf[strlen(buf) -1] == 0x0a)
+						buf[strlen(buf) -1] = 0;
+					strcpy(ap_pass, buf);
+					ret = ESP_OK;
+					}
+				}
+			}
+		fclose(f);
+		}
+	if(ret != ESP_OK)
+		{
+		ESP_LOGI(WIFITAG, "No AP conf file or invalid parameters. Taking default params");
+		ap_a = 192, ap_b = 168, ap_c = 4, ap_d = 1;
+		strcpy(ap_pass, AP_PASS);
+		strcpy(ap_ssid, AP_SSID);	
+		}
+	printf("%x %x %x %x, %s %s", ap_a, ap_b, ap_c, ap_d, ap_ssid, ap_pass);
+	return ret;
 	}
-*/
+#endif
