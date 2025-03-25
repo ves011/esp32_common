@@ -18,6 +18,7 @@
 #define REMOTE_CTRL						(8)
 #define NAVIGATOR						(9)
 #define FLOOR_HC						(10)
+#define PUMP_CONTROLLER_SA				(11) // pump controller stand alone: no mqtt broker no local wifi
 
 
 //#include "project_specific.h"

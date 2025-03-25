@@ -8,7 +8,7 @@
 #ifndef MAIN_TCP_SERVER_H_
 #define MAIN_TCP_SERVER_H_
 
-#define DEFAULT_TCP_SERVER_PORT		10011
+//#define DEFAULT_TCP_SERVER_PORT		10011
 
 // communication states
 #define IDLE					1	// tcp server waiting for connections

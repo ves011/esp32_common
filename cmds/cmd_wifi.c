@@ -234,6 +234,7 @@ static void wifi_init_sta(void)
     wifi_config_t wifi_config = { 0 };
     wifi_config.sta.scan_method = WIFI_ALL_CHANNEL_SCAN;
     wifi_config.sta.sort_method = WIFI_CONNECT_AP_BY_SIGNAL;
+    wifi_config.sta.failure_retry_cnt = 3;
     ESP_ERROR_CHECK( esp_wifi_set_config(WIFI_IF_STA, &wifi_config) );
     sta_init = true;
 	}
@@ -327,9 +328,9 @@ void initialise_wifi(void)
 
 bool wifi_join(const char *ssid, const char *pass, int timeout_ms)
 	{
-	int bits = 0;
+	int bits = 0, ret;
 	if(isConnected())
-	    wifi_disconnect(1, NULL);
+	    wifi_disconnect();
     initialise_wifi();
     wifi_config_t wifi_config = { 0 };
     ESP_ERROR_CHECK( esp_wifi_get_config(WIFI_IF_STA, &wifi_config) );
@@ -338,12 +339,12 @@ bool wifi_join(const char *ssid, const char *pass, int timeout_ms)
         strlcpy((char *) wifi_config.sta.password, pass, sizeof(wifi_config.sta.password));
     ESP_ERROR_CHECK( esp_wifi_set_config(WIFI_IF_STA, &wifi_config) );
 
-    while((bits & CONNECTED_BIT) != CONNECTED_BIT)
+    //while((bits & CONNECTED_BIT) != CONNECTED_BIT)
     	{
-    	esp_wifi_connect();
+    	ret = esp_wifi_connect();
     	bits = xEventGroupWaitBits(wifi_event_group, CONNECTED_BIT,
                                    pdFALSE, pdTRUE, timeout_ms / portTICK_PERIOD_MS);
-    	//ESP_LOGI(WIFITAG, "WiFi connect timeout. retrying...");
+    	ESP_LOGI(WIFITAG, "esp_wifi_connect() return %x %x", ret, bits);
     	}
     return (bits & CONNECTED_BIT) != 0;
 	}

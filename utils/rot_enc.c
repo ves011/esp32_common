@@ -4,6 +4,7 @@
  *  Created on: Mar 3, 2024
  *      Author: viorel_serbu
  */
+#include "project_specific.h"
 #ifdef ROT_ENCODER
 #include <stdio.h>
 #include <string.h>
@@ -15,7 +16,6 @@
 #include "esp_attr.h"
 #include "esp_log.h"
 #include "common_defines.h"
-#include "project_specific.h"
 #include "driver/gptimer.h"
 #include "esp_netif.h"
 #include "esp_spiffs.h"

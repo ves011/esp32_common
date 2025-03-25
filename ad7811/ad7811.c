@@ -102,7 +102,7 @@ static void config_adc_timer()
 	ESP_ERROR_CHECK(gptimer_enable(adc_timer));
 	}
 
-int adc_get_data(int chn, int16_t *s_vect, int nr_samp)
+int adc_get_data_7911(int chn, int16_t *s_vect, int nr_samp)
 	{
 	int dummy = 0, dbin = 0, ret = ESP_FAIL;
 	adc_msg_t msg;
@@ -235,8 +235,6 @@ int do_ad(int argc, char **argv)
 	{
 	int nerrors = arg_parse(argc, argv, (void **)&ad_args);
 	int chnn, nrs;
-	int data;
-	int dbin;
 	if (nerrors != 0)
 		{
 		arg_print_errors(stderr, ad_args.end, argv[0]);
@@ -256,7 +254,7 @@ int do_ad(int argc, char **argv)
 		s_data = calloc(nrs, sizeof(int));
 		if(s_data)
 			{
-			adc_get_data(chnn, s_data, nrs);
+			adc_get_data_7911(chnn, s_data, nrs);
 			for(int i = 0; i < nrs; i++)
 				ESP_LOGI(TAG, "chn: %d = %d",  chnn, s_data[i]);
 			free(s_data);
@@ -264,49 +262,6 @@ int do_ad(int argc, char **argv)
 		else 
 			ESP_LOGI(TAG, "Not enough memory");
 
-		}
-	else if(strcmp(ad_args.op->sval[0], "rm") == 0)
-		{
-		int chns, chnn;
-		int16_t *s_data[10];
-		int16_t *s1_data[4];
-		int i;
-		if(ad_args.arg->count)
-			chns = ad_args.arg->ival[0];
-		else
- 			chns = 0;
- 			
-		if(ad_args.arg1->count)
-			chnn = ad_args.arg1->ival[0];
-		else
-			chnn = 1;
-			
-		if(ad_args.arg2->count)
-			nrs = ad_args.arg2->ival[0];
-		else
-			nrs = 5;
-		
-		for(i = 0; i < chnn; i++)
-			{
-			//ch_vect[i] = chn_to_use[i + chns];
-			s1_data[i] = calloc(nrs, sizeof(int16_t));
-			if(s1_data[i])
-				s_data[i] = s1_data[i];
-			else
-				{
-				for(int k = 0; k < i; k++)
-					free(s1_data[k]);
-				ESP_LOGE(TAG, "Not enough memory for sample data");
-				break;
-				}
-			}
-		if(i == chnn)
-			if(ad_args.arg1->count)
-				{
-				nrs = ad_args.arg1->ival[0];
-				adc_get_data(chnn, s_data, nrs);
-				}
-			}
 		}
 	return ESP_OK;
 	}

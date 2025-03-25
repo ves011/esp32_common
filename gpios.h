@@ -94,6 +94,24 @@
 	#define PUMP_ONLINE_CMD			(7)	//j5/7 --> hardwired / not used if single relay populated
 #endif
 
+#if ACTIVE_CONTROLLER == PUMP_CONTROLLER_SA
+	
+	 /** ACS712 current sensor */
+	#define CURRENT_PIN				(4)	//j5/6 --> hardwired
+	 /** Pump ON/OF control pin */
+	#define PUMP_ONOFF_PIN			(6)	//j5/8 --> hardwired
+
+	#define PUMP_ONOFF_LED			(1)	//j5/4
+	#define PUMP_ONLINE_LED			(7) //j5/7
+
+	#define PUMP_FAULT_LED			(44)//j4/1
+	#define PUMP_ONLINE_CMD			(5)	//j5/5 
+	/** Pressure sensor */
+	#define SENSOR_PIN				(3)	//j4/7
+	/** qmeter signal*/
+	#define QMETER_PIN				(8) //j4/8
+#endif
+
 #if ACTIVE_CONTROLLER == WATER_CONTROLLER
 	#define PINEN_DV0				(6)
 	#define PINEN_DV1				(7)

@@ -2,6 +2,8 @@
 #define EXTERNAL_DEFS_H_
 
 //#include "project_specific.h"
+//#include "freertos/FreeRTOS.h"
+//#include "freertos/queue.h"
 
 extern char TOPIC_STATE[32], TOPIC_MONITOR[32], TOPIC_CTRL[32], TOPIC_CMD[32], TOPIC_LOG[32];
 #if ACTIVE_CONTROLLER == WP_CONTROLLER

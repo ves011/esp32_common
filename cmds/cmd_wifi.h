@@ -10,7 +10,7 @@
 #define CMD_WIFI_H__
 
 #define SCAN_LIST_SIZE 30
-#define JOIN_TIMEOUT_MS (10000)
+#define JOIN_TIMEOUT_MS (3000)
 
 #if WIFI_AP_ON
 	#define APCONF_FILE "apconf.txt"

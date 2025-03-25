@@ -30,6 +30,7 @@
 #include "common_defines.h"
 #include "cmd_wifi.h"
 #include "process_message.h"
+#include "project_specific.h"
 #include "tcp_server.h"
 
 static const char *TAG ="tcp_server";
@@ -100,7 +101,7 @@ void tcp_server(void *pvParameters)
     struct sockaddr_in *dest_addr_ip4 = (struct sockaddr_in *)&dest_addr;
     dest_addr_ip4->sin_addr.s_addr = htonl(INADDR_ANY);
     dest_addr_ip4->sin_family = AF_INET;
-    dest_addr_ip4->sin_port = htons(DEFAULT_TCP_SERVER_PORT);
+    dest_addr_ip4->sin_port = htons(TCPCOMMPORT);// htons(DEFAULT_TCP_SERVER_PORT);
     ip_protocol = IPPROTO_IP;
 		
     listen_sock = socket(AF_INET, SOCK_STREAM, ip_protocol);
@@ -112,7 +113,7 @@ void tcp_server(void *pvParameters)
 		ret = bind(listen_sock, (struct sockaddr *)&dest_addr, sizeof(dest_addr));
 		if (ret == 0)
 			{
-			ESP_LOGI(TAG, "Socket bound, port %d", DEFAULT_TCP_SERVER_PORT);
+			ESP_LOGI(TAG, "Socket bound, port %d", TCPCOMMPORT);
 			ret = listen(listen_sock, 1);
 			if (ret == 0)
 				{
