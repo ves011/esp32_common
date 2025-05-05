@@ -379,4 +379,10 @@ void create_topics()
 	strcat(TOPIC_CTRL, "/ctrl");
 	strcpy(TOPIC_LOG, USER_MQTT);
 	strcat(TOPIC_LOG, "/log");
+#if ACTIVE_CONTROLLER == WP_CONTROLLER
+	strcpy(TOPIC_STATE_A, TOPIC_STATE);
+	strcat(TOPIC_STATE_A, "/w");
+	strcpy(TOPIC_MONITOR_A, TOPIC_MONITOR);
+	strcat(TOPIC_MONITOR_A, "/w");
+#endif
 	}

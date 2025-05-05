@@ -12,6 +12,8 @@
 #define SCAN_LIST_SIZE 30
 #define JOIN_TIMEOUT_MS (3000)
 
+#define WIFICONF_FILE "wificonf.txt"
+
 #if WIFI_AP_ON
 	#define APCONF_FILE "apconf.txt"
 	extern esp_netif_t *esp_netif_ap;
@@ -24,6 +26,7 @@
 void register_wifi(void);
 bool isConnected(void);
 //int wifi_connect(int argc, char **argv);
+bool wifi_reconnect();
 bool wifi_join(const char *ssid, const char *pass, int timeout_ms);
 void do_wifi_cmd(int argc, char **argv);
 int do_wifi(int argc, char **argv);

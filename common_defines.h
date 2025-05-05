@@ -27,6 +27,7 @@
 
 #define	MQTT_PROTO 					(1)
 #define	TCPSOCK_PROTO				(2)
+#define BLE_PROTO					(3)
 
 #define TCP_QUEUE_SIZE				50
 
@@ -146,14 +147,30 @@ typedef struct
 	
 typedef struct
 	{
+	int state;
+	int status;
+	int pmin;
+	int press;
+	int press_mv;
+	int p0offset;
+	int cmax;
+	int current;
+	int q1000;
+	int tw1000;
+	} pump_mon_val_t;
+	
+typedef struct
+	{
 	uint64_t ts;
 	uint32_t cmd_id;
+	uint32_t pad;		//to keep 8 bytes alignment
 	union
 		{
 		char payload[192];
 		uint8_t u8params[192];
 		uint32_t u32params[48];
 		position_t position;
+		pump_mon_val_t pv;
 		}p;
 	} socket_message_t;
 	

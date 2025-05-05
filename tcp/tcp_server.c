@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <sys/param.h>
+#include <sys/time.h>
 #include "bignum_mod.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/projdefs.h"
@@ -32,6 +33,8 @@
 #include "process_message.h"
 #include "project_specific.h"
 #include "tcp_server.h"
+
+#if COMM_PROTO == TCPSOCK_PROTO
 
 static const char *TAG ="tcp_server";
 static int commstate = IDLE;
@@ -63,9 +66,9 @@ static void send_task(void *pvParameters)
 	send_error = 0;
 	while(1)
 		{
-		if(xQueueReceive(tcp_send_queue, &msg, portMAX_DELAY))
+		if(xQueueReceive(tcp_send_queue, &msg, portMAX_DELAY) &&
+			commstate == CONNECTED)
 			{
-			
 			written = 0, ret = 0;
 			while(written < sizeof(socket_message_t))
 				{
@@ -84,6 +87,9 @@ static void send_task(void *pvParameters)
 				// need to handle here error while sending
 				// or its enough recv() error handling in tcp_server_task ???
 				}
+			ESP_LOGI(TAG, "message sent %u", (unsigned int)msg.cmd_id);
+			if(msg.cmd_id == PUMP_MON)
+				ESP_LOGI(TAG,"%d %d %d %d %d %d %d", msg.p.pv.state, msg.p.pv.status, msg.p.pv.press, msg.p.pv.press_mv, msg.p.pv.current, msg.p.pv.q1000, msg.p.pv.tw1000);
 			}
 		}
 	}
@@ -149,7 +155,7 @@ void tcp_server(void *pvParameters)
 							inet_ntoa_r(((struct sockaddr_in *)&source_addr)->sin_addr, addr_str, sizeof(addr_str) - 1);
 							ESP_LOGI(TAG,
 								"Socket accepted ip address: %s:%d", addr_str, ntohs(((struct sockaddr_in *)&source_addr)->sin_port)) ;
-							while(1) //communication loop
+							while(1) //receive loop
 								{
 								len = recv(server_sock, &message, sizeof(socket_message_t), MSG_WAITALL);
 								if (len < 0)
@@ -166,11 +172,16 @@ void tcp_server(void *pvParameters)
 									}
 								else //process message based on cmd_id && commstate
 									{
-									if(commstate == IDLE)
+									ESP_LOGI(TAG, "message received %u %llx", (unsigned int)message.cmd_id, message.ts);
+									if(message.cmd_id == COMMINIT)
 										{
-										if(message.cmd_id == COMMINIT && message.ts == TSINIT)
+										ESP_LOGI(TAG, "COMMINIT received");
+										if(commstate == IDLE)
 											{
-											ESP_LOGI(TAG, "COMMINIT received");
+											struct timeval tv;
+											tv.tv_sec = message.ts / 1000;
+											tv.tv_usec = (message.ts % 1000) * 1000;
+											settimeofday(&tv, NULL);
 											if(xTaskCreate(process_message_task, "process_message", 8192, NULL, 4, &process_message_task_handle) == pdPASS)
 												{
 												tParams_t tParams;
@@ -210,8 +221,8 @@ void tcp_server(void *pvParameters)
 												esp_restart();
 												}
 											}
-										else // message received but commstate != IDLE
-											 // send back COMNACK
+										else // COMMINIT received but commstate != IDLE
+											 // send back COMNACK and break from receive loop
 											{
 											message.ts = 0xffffffffffffffffULL;
 											message.cmd_id = COMMNACK;
@@ -233,7 +244,7 @@ void tcp_server(void *pvParameters)
 												}
 											}
 										}
-									else //commstate == CONNECTED
+									else //any other message but COMMINIT
 										 //just put the message in the queue
 										{
 										int nmsg = uxQueueMessagesWaiting(tcp_receive_queue);
@@ -303,4 +314,4 @@ void register_tcp_server()
 		esp_restart();
 		}	
 	}
-
+#endif

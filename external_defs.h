@@ -28,4 +28,8 @@ extern i2c_master_bus_handle_t i2c_bus_handle_0, i2c_bus_handle_1;
 	extern int commstate;
 #endif
 
+#if COMM_PROTO == BLE_PROTO
+	extern QueueHandle_t msg2remote_queue;
+#endif
+
 #endif //EXTERNAL_DEFS_H_

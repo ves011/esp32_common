@@ -25,6 +25,17 @@
 
 #define SEND_TO_SERIAL			4
 
+//pump controller messages
+#define GET_STATE				0x1001
+#define PUMP_LIMITS				0x1002
+#define P0_OFFSET				0x1003
+#define PUMP_MON				0x1004
+#define PUMP_CONF				0x1005
+#define PUMP_P0OFF				0x1006
+
+
+extern QueueHandle_t tcp_receive_queue, tcp_send_queue;
+
 typedef struct
 	{
 	int socket;
