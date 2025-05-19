@@ -64,6 +64,7 @@ int add_handler(int ith, void *func)
 			if(timer_handler[ith][i] == NULL)
 				{
 				timer_handler[ith][i] = func;
+				ESP_LOGE(TAG, "install handler on line %d / %d", ith, i);
 				return ESP_OK;
 				}
 			}
@@ -78,6 +79,7 @@ int remove_handler(int ith, void *func)
 		if(timer_handler[ith][i] == func)
 			{
 			timer_handler[ith][i] = NULL;
+			ESP_LOGI(TAG, "removed handler on line %d / %d", ith, i);
 			return ESP_OK;
 			}
 		}
@@ -115,10 +117,10 @@ void dev_mon_task(void *pvParameters)
 				{
 				case MSG_WIFI:
 					wifi_connected = msg.val;
-					//if(!wifi_connected) // trigger a reconnect each 5 seconds
-					//	add_handler(5, wifi_reconnect);
-					//else
-					//	remove_handler(5, wifi_reconnect);
+					if(!wifi_connected) // trigger a reconnect each 5 seconds
+						add_handler(9, wifi_reconnect);
+					else
+						remove_handler(9, wifi_reconnect);
 					break;
 				case MSG_TIMER_MON:
 					for(i = 1; i < 10; i++)

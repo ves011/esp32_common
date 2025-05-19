@@ -185,8 +185,8 @@ static void event_handler(void* arg, esp_event_base_t event_base,
 			}
         if(!restart_in_progress)
     		{
-			ESP_ERROR_CHECK(esp_wifi_disconnect());
-			ESP_ERROR_CHECK(esp_wifi_connect());
+			//ESP_ERROR_CHECK(esp_wifi_disconnect());
+			//ESP_ERROR_CHECK(esp_wifi_connect());
 			}
 		xEventGroupClearBits(wifi_event_group, CONNECTED_BIT);
     	}
@@ -372,8 +372,10 @@ bool wifi_reconnect()
 	}
 bool wifi_join(const char *ssid, const char *pass, int timeout_ms)
 	{
-	if(isConnected())
+	if(!isConnected(ssid))
 	    wifi_disconnect();
+	strcpy(sta_ssid, ssid);
+	strcpy(sta_pass, pass);
     initialise_wifi();
 #if WIFI_STA_ON
 	int bits = 0, ret;
@@ -397,8 +399,9 @@ bool wifi_join(const char *ssid, const char *pass, int timeout_ms)
 #endif
 	}
 
-bool isConnected()
+bool isConnected(char *ssid)
 	{
+	int i;
 	esp_err_t err;
 	wifi_mode_t mode;
 	wifi_ap_record_t ap_info;
@@ -411,6 +414,13 @@ bool isConnected()
 	if(err == ESP_ERR_WIFI_NOT_CONNECT)
 		return false;
 	if(strlen((char *)ap_info.ssid) == 0)
+		return false;
+	for(i = 0; i < strlen(ssid); i++)
+		{
+		if(ap_info.ssid[i] != ssid[i])
+			break;
+		}
+	if(i < strlen(ssid))
 		return false;
 	ESP_LOGI(WIFITAG, "isConnected() err %d", err);
 	return true;
@@ -727,3 +737,9 @@ static int get_ap_conf()
 	return ret;
 	}
 #endif
+
+void get_sta_conf(char *ssid, char *pass)
+	{
+	strcpy(ssid, sta_ssid);
+	strcpy(pass, sta_pass);
+	}

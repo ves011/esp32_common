@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "freertos/FreeRTOS.h"
+#include "freertos/projdefs.h"
 #include "freertos/task.h"
 #include "freertos/event_groups.h"
 #include "freertos/queue.h"
@@ -27,7 +28,10 @@
 #include "project_specific.h"
 //#include "comm.h"
 #include "external_defs.h"
+#include "tcp_server.h"
 #include "btcomm.h"
+
+//#define DEBUG_BTCOMM
 
 #if COMM_PROTO == BLE_PROTO
 
@@ -40,7 +44,7 @@ static void bt_notify_task(void *pvParams);
 static char* GATTS_TAG = "BTComm";
 //QueueHandle_t msg2remote_queue = NULL;
 static TaskHandle_t bt_notify_task_handle;
-static int btConnected;
+int btConnected;
 char mdata[20];
 
 #define PROFILE_NUM					1
@@ -157,7 +161,9 @@ static void process_message_task(void *pvParameters)
 		if(xQueueReceive(tcp_receive_queue, &msg, portMAX_DELAY))
 			{
 			process_message(msg);
+#ifdef DEBUG_BTCOMM			
 			ESP_LOGI(GATTS_TAG, "Message received cmd_id %lu", (unsigned long)msg.cmd_id);
+#endif
 			}
 		}
 	}
@@ -253,7 +259,9 @@ static void gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param
 void example_write_event_env(esp_gatt_if_t gatts_if, prepare_type_env_t *prepare_write_env, esp_ble_gatts_cb_param_t *param)
 	{
     esp_gatt_status_t status = ESP_GATT_OK;
+#ifdef DEBUG_BTCOMM    
     ESP_LOGI(GATTS_TAG, "example_write_event_env() %d %d", param->write.need_rsp, param->write.is_prep);
+#endif
     if (param->write.need_rsp)
     	{
         if (param->write.is_prep)
@@ -377,8 +385,9 @@ static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_i
 			esp_ble_gatts_send_response(gatts_if, param->read.conn_id, param->read.trans_id, ESP_GATT_OK, &rsp);
 			break;
 	    case ESP_GATTS_WRITE_EVT:
+#ifdef DEBUG_BTCOMM
 			ESP_LOGI(GATTS_TAG, "GATT_WRITE_EVT, conn_id %d, trans_id %" PRIu32 ", handle %d len %d", param->write.conn_id, param->write.trans_id, param->write.handle, param->write.len);
-			
+#endif			
 			if (!param->write.is_prep)
 				{
 				//ESP_LOGI(GATTS_TAG, "GATT_WRITE_EVT, value len %d, value :", param->write.len);
@@ -388,7 +397,9 @@ static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_i
 					msg.cmd_id = ((socket_message_t *)param->write.value)->cmd_id;
 					msg.ts = ((socket_message_t *)param->write.value)->ts;
 					memcpy(msg.p.u8params, ((socket_message_t *)param->write.value)->p.u8params, param->write.len - 16);
+#ifdef DEBUG_BTCOMM					
 					ESP_LOGI(GATTS_TAG, "socket_message_t ts:%llu, cmd_id: %lu", msg.ts, (unsigned long)msg.cmd_id);
+#endif
 					xQueueSend(tcp_receive_queue, &msg, portMAX_DELAY);
 					}
 				
@@ -518,7 +529,7 @@ static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_i
 			btConnected = 0;
 			break;
 		case ESP_GATTS_CONF_EVT:
-			ESP_LOGI(GATTS_TAG, "ESP_GATTS_CONF_EVT, status %d attr_handle %d", param->conf.status, param->conf.handle);
+			//ESP_LOGI(GATTS_TAG, "ESP_GATTS_CONF_EVT, status %d attr_handle %d", param->conf.status, param->conf.handle);
 			if (param->conf.status != ESP_GATT_OK)
 				esp_log_buffer_hex(GATTS_TAG, param->conf.value, param->conf.len);
 			break;
@@ -625,9 +636,14 @@ static void bt_notify_task(void *pvParams)
 			if(btConnected)
 				{
 				ret = esp_ble_gatts_send_indicate(gl_profile_tab.gatts_if, gl_profile_tab.conn_id, gl_profile_tab.char_handle,
-																	sizeof(socket_message_t), (uint8_t *)&qmsg, false);
-				//if(!ret)
-					ESP_LOGI(GATTS_TAG, "notification sent: %x", ret);
+																	sizeof(socket_message_t), (uint8_t *)&qmsg, true);
+				vTaskDelay(pdMS_TO_TICKS(20));
+#ifndef DEBUG_BTCOMM	
+				if(ret)
+#endif
+					ESP_LOGI(GATTS_TAG, "notification sent: %u / %x", (unsigned int)qmsg.cmd_id, ret);
+				//if(qmsg.cmd_id == PUMP_ERR)
+				//	ESP_LOGI(GATTS_TAG, "notification sent: %u / %x", (unsigned int)qmsg.cmd_id, ret);
 				}
 			}
 		}

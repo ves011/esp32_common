@@ -16,5 +16,6 @@
 
 int tcp_log_init();
 int tcp_log_message(char *message);
+int bt_log_message(char *message);
 
 #endif /* COMMON_TCP_TCP_LOG_H_ */

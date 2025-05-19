@@ -32,6 +32,13 @@
 #define PUMP_MON				0x1004
 #define PUMP_CONF				0x1005
 #define PUMP_P0OFF				0x1006
+#define PUMP_SETONLINE			0x1007
+#define PUMP_ERR				0x2001
+#define GET_WIFICONF			0x3001
+#define SET_WIFICONF			0x3002
+#define SYS_CMD					0x4001
+#define LOG_MESSAGE				0x5001
+
 
 
 extern QueueHandle_t tcp_receive_queue, tcp_send_queue;

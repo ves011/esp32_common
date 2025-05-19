@@ -37,6 +37,7 @@ typedef enum
 	CONSOLE_ON,
 	CONSOLE_TCP,
 	CONSOLE_MQTT,
+	CONSOLE_BTLE,
 	} console_state_t;
 
 #define PIN_ON						(1)

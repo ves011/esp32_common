@@ -8,6 +8,7 @@
 #include <string.h>
 #include <sys/param.h>
 #include "esp_system.h"
+#include "esp_timer.h"
 #include "esp_wifi.h"
 #include "esp_event.h"
 #include "esp_log.h"
@@ -31,6 +32,11 @@
 	#include "mqtt_client.h"
 	#include "mqtt_ctrl.h"
 #endif
+#if COMM_PROTO == BLE_PROTO
+	#include "tcp_server.h"
+	#include "esp_gatts_api.h"
+	#include "btcomm.h"
+#endif
 #include "external_defs.h"
 #include "tcp_log.h"
 
@@ -48,7 +54,7 @@ int tcp_log_init()
 	int ret = ESP_FAIL;
 	int log_port;
 	char *log_server;
-#ifdef TEST_BUILD
+#if TEST_BUILD == 1
 	log_port = LOG_PORT_DEV;
 	log_server = LOG_SERVER_DEV;
 #else
@@ -159,7 +165,23 @@ int tcp_log_message(char *message)
 		}
 	return 1;
 	}
-
+#if COMM_PROTO == BLE_PROTO
+int bt_log_message(char *message)
+	{
+	/*
+	//quite complicated!!!
+	socket_message_t msg;
+	if(strlen(message) > sizeof(msg.p.u8params))
+		message[sizeof(msg.p.u8params) - 1] = 0;
+	msg.cmd_id = LOG_MESSAGE;
+	msg.ts = esp_timer_get_time();
+	strcpy((char *)(msg.p.u8params), message);
+	if(tcp_send_queue)
+		xQueueSend(tcp_send_queue, &msg, 0);
+	*/
+	return 1;
+	}
+#endif
 static void tcp_log_task(void *pvParameters)
 	{
 	char buf[1024];

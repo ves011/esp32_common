@@ -189,11 +189,11 @@ static int do_ping_cmd(int argc, char **argv)
         my_printf("%s arguments error", argv[0]);
         return 1;
     	}
-    if(!isConnected())
-    	{
-    	ESP_LOGI(TAG, "WiFi not connected or in AP mode");
-    	return 1;
-    	}
+    //if(!isConnected(sta_ssid))
+    //	{
+    //	ESP_LOGI(TAG, "WiFi not connected or in AP mode");
+    //	return 1;
+    //	}
     if (ping_args.timeout->count > 0)
         config.timeout_ms = (uint32_t)(ping_args.timeout->dval[0] * 1000);
 
@@ -936,6 +936,8 @@ int set_console(int argc, char **argv)
 			cs = CONSOLE_TCP;
 		else if(strcmp(console_args.op->sval[0], "mqtt") == 0)
 			cs = CONSOLE_MQTT;
+		else if(strcmp(console_args.op->sval[0], "bt") == 0)
+			cs = CONSOLE_BTLE;
 		else
 			{
 			my_printf("console: unknown option [%s]", console_args.op->sval[0]);
@@ -944,7 +946,8 @@ int set_console(int argc, char **argv)
 		if(console_state != cs)
 			rw_console_state(PARAM_WRITE, &cs);
 		console_state = cs;
-		tcp_log_init();
+		if(console_state == CONSOLE_TCP)
+			tcp_log_init();
 		}
 	else
 		my_printf("Console state: %d\n", console_state);
