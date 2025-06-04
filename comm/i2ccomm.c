@@ -18,10 +18,11 @@
 #include "hal/gpio_types.h"
 #include "sys/stat.h"
 #include "math.h"
-#include "../main/project_specific.h"
+#include "project_specific.h"
 #include "gpios.h"	
 #include "i2ccomm.h"
 
+#ifdef USE_I2C
 static char *TAG = "I2C_op";
 
 i2c_master_bus_handle_t i2c_bus_handle_0, i2c_bus_handle_1;
@@ -119,3 +120,4 @@ i2c_master_dev_handle_t i2c_add_device(int bus_no, uint16_t dev_address)
 		i2c_master_bus_add_device(i2c_bus_handle_1, &dev_cfg, &dh);
 	return dh;
 	}
+#endif

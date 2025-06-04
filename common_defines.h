@@ -19,6 +19,7 @@
 #define NAVIGATOR						(9)
 #define FLOOR_HC						(10)
 #define PUMP_CONTROLLER_SA				(11) // pump controller stand alone: no mqtt broker no local wifi
+#define GENERIC_BT_GATTC				(12)
 
 
 //#include "project_specific.h"
@@ -28,6 +29,9 @@
 #define	MQTT_PROTO 					(1)
 #define	TCPSOCK_PROTO				(2)
 #define BLE_PROTO					(3)
+
+#define BLE_CLIENT					(1)
+#define BLE_SERVER					(2)
 
 #define TCP_QUEUE_SIZE				50
 

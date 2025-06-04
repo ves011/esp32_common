@@ -17,14 +17,22 @@ typedef struct
     uint16_t gatts_if;
     uint16_t app_id;
     uint16_t conn_id;
+    
+//service    
     uint16_t service_handle;
     esp_gatt_srvc_id_t service_id;
-    uint16_t char_handle;
-    esp_bt_uuid_t char_uuid;
-    esp_gatt_perm_t perm;
-    esp_gatt_char_prop_t property;
-    uint16_t descr_handle;
-    esp_bt_uuid_t descr_uuid;
+    uint16_t char_no;
+    char_info_t *char_info;
+    
+//  characteristics
+    //uint16_t char_handle;
+    //esp_bt_uuid_t char_uuid;
+    //esp_gatt_perm_t perm;
+    //esp_gatt_char_prop_t property;
+    //uint16_t descr_handle;
+    //esp_bt_uuid_t descr_uuid;
+
+
 	}gatts_profile_inst_t;
 
 typedef struct
@@ -34,5 +42,6 @@ typedef struct
 	} prepare_type_env_t;
 
 int btcomm_init();
-
+void register_bt();
+void start_bt(int role);
 #endif /* COMM_BTCOMM_H_ */

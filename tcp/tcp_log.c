@@ -35,6 +35,7 @@
 #if COMM_PROTO == BLE_PROTO
 	#include "tcp_server.h"
 	#include "esp_gatts_api.h"
+	#include "ble_server.h"
 	#include "btcomm.h"
 #endif
 #include "external_defs.h"
@@ -62,7 +63,7 @@ int tcp_log_init()
 	log_server = LOG_SERVER;
 #endif
 #if COMM_PROTO == MQTT_PROTO
-	strcpy(log_user, USER_MQTT)
+	strcpy(log_user, USER_MQTT);
 #else
 	strcpy(log_user, DEV_NAME);
 #endif

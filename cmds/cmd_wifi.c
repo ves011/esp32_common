@@ -46,18 +46,18 @@ const int DISCONNECTED_BIT = BIT1;
 //static int scan_done;
 esp_netif_ip_info_t dev_ipinfo;
 
-//#if WIFI_AP_ON
-static bool ap_init = false;
+#if WIFI_AP_ON == 1
+	static bool ap_init = false;
 esp_netif_t *esp_netif_ap;
 static char ap_pass[32];
 static char ap_ssid[32];
-static char sta_pass[32];
-static char sta_ssid[32];
 static uint8_t ap_a, ap_b, ap_c, ap_d;
-//#endif
+#endif
 //#if WIFI_STA_ON
 esp_netif_t *esp_netif_sta;
 static bool sta_init = false;
+static char sta_pass[32];
+static char sta_ssid[32];
 //#endif
 
 #define WIFITAG "wifi op"
@@ -399,7 +399,7 @@ bool wifi_join(const char *ssid, const char *pass, int timeout_ms)
 #endif
 	}
 
-bool isConnected(char *ssid)
+bool isConnected(const char *ssid)
 	{
 	int i;
 	esp_err_t err;
@@ -673,6 +673,7 @@ static void get_wifi_conf()
 		}
 	else
 		ESP_LOGI(WIFITAG, "cannot open %s", WIFICONF_FILE);
+#if WIFI_AP_ON == 1
 	if(a != 0){	ap_a = a; ap_b = b; ap_c = c; ap_d = d; }
 	else {ap_a = AP_A; ap_b = AP_B; ap_c = AP_C; ap_d = AP_D;}
 	if(strlen(ap_ss))
@@ -684,7 +685,9 @@ static void get_wifi_conf()
 		strcpy(ap_pass, ap_p);
 	else
 		strcpy(ap_pass, AP_PASS);
-		
+	ESP_LOGI(WIFITAG, "AP NW: %hhu.%hhu.%hhu.%hhu AP SSID: %s AP PASS: %s", ap_a, ap_b, ap_c, ap_d, ap_ssid, ap_pass);
+#endif
+
 	if(strlen(sta_ss)) 
 		strcpy(sta_ssid, sta_ss);
 	else
@@ -694,7 +697,7 @@ static void get_wifi_conf()
 		strcpy(sta_pass, sta_p);
 	else
 		strcpy(sta_pass, DEFAULT_PASS);
-	ESP_LOGI(WIFITAG, "AP NW: %hhu.%hhu.%hhu.%hhu AP SSID: %s AP PASS: %s", ap_a, ap_b, ap_c, ap_d, ap_ssid, ap_pass);
+	
 	ESP_LOGI(WIFITAG, "STA SSID: %s STA PASS: %s", sta_ssid, sta_pass);
 	}
 

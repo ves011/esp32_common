@@ -59,12 +59,12 @@ int my_log_vprintf(const char *fmt, va_list arguments)
 		//strip special characters
 		return tcp_log_message(buf);
 		}
-	else if(console_state >= CONSOLE_BTLE)
-		{
-		char buf[1024];
-		vsnprintf(buf, sizeof(buf) - 1, fmt, arguments);
-		return bt_log_message(buf);
-		}
+	//else if(console_state >= CONSOLE_BTLE)
+	//	{
+	//	char buf[1024];
+	//	vsnprintf(buf, sizeof(buf) - 1, fmt, arguments);
+	//	return bt_log_message(buf);
+	//	}
 	else
 		return 1;
 	}
@@ -80,8 +80,8 @@ void my_printf(char *format, ...)
 		puts(buf);
 	else if(console_state == CONSOLE_TCP || console_state == CONSOLE_MQTT)
 		tcp_log_message(buf);
-	else if(console_state >= CONSOLE_BTLE)
-		bt_log_message(buf);
+	//else if(console_state >= CONSOLE_BTLE)
+	//	bt_log_message(buf);
 	}
 void my_fputs(char *buf, FILE *f)
 	{
@@ -89,8 +89,8 @@ void my_fputs(char *buf, FILE *f)
 		puts(buf);
 	else if(console_state == CONSOLE_TCP || console_state == CONSOLE_MQTT)
 		tcp_log_message(buf);
-	else if(console_state >= CONSOLE_BTLE)
-		bt_log_message(buf);
+	//else if(console_state >= CONSOLE_BTLE)
+	//	bt_log_message(buf);
 	}
 int rw_console_state(int rw, console_state_t *cs)
 	{

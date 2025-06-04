@@ -24,7 +24,7 @@
 
 // Register WiFi functions
 void register_wifi(void);
-bool isConnected(char *ssid);
+bool isConnected(const char *ssid);
 //int wifi_connect(int argc, char **argv);
 bool wifi_reconnect();
 bool wifi_join(const char *ssid, const char *pass, int timeout_ms);
