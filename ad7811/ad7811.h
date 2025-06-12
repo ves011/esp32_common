@@ -30,7 +30,7 @@
 #define NR_SAMPLES_DV			10
 #define SAMPLE_PERIOD			400				//ADC sampling rate (us)
 
-
+extern SemaphoreHandle_t adcval_mutex;
 typedef struct
 	{
 	uint8_t source;

@@ -49,6 +49,7 @@
 #include "esp_ota_ops.h"
 #include "esp_timer.h"
 #include "sdkconfig.h"
+#include "project_specific.h"
 #include "common_defines.h"
 #include "external_defs.h"
 	#include "utils.h"

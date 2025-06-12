@@ -86,7 +86,9 @@ int spiad_rw(uint16_t cmd, int len_tx, uint16_t *data)
 	t.length = len_tx;
 	t.tx_data[1] = cmd & 0xff;
 	t.tx_data[0] = cmd >> 8;
+	spi_device_acquire_bus(spiad, portMAX_DELAY);
 	ret=spi_device_polling_transmit(spiad, &t);  //start transaction
+	spi_device_release_bus(spiad);
 	if(ret != ESP_OK)
 		ESP_LOGI(TAG, "Error starting transaction %d", ret);
 	else
