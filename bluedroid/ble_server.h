@@ -8,14 +8,20 @@
 #ifndef ESP32_COMMON_COMM_BLE_SERVER_H_
 #define ESP32_COMMON_COMM_BLE_SERVER_H_
 
+#include "esp_bt_defs.h"
+#include  "esp_gatts_api.h"
+#include "inttypes.h"
+
 #define PROFILE_NUM					1
 #define PROFILE_A_APP_ID 			0			// used by main service
 #define PROFILE_B_APP_ID 			1			//used by device information service
 
-#define GATTS_SERVICE_UUID_A   		0x8f00
+/* make sure it matches adv_service_uuid128[12] & adv_service_uuid128[13] */
+#define GATTS_SERVICE_UUID_A   		0x8e00
+/* -----------------------------------------------------------------------*/
 #define GATTS_NUM_CHAR_A			1
-#define GATTS_CHAR_UUID_A      		0x8f01		// business communication channel
-#define LOG_CHAR_UUID_A      		0x8f02		// log notification channel
+#define GATTS_CHAR_UUID_A      		GATTS_SERVICE_UUID_A | 1		// business communication channel
+#define LOG_CHAR_UUID_A      		GATTS_SERVICE_UUID_A | 2		// log notification channel
 #define GATTS_NUM_HANDLE_A     		(3 * GATTS_NUM_CHAR_A + 1)
 
 #define DEVICE_INFORMATION_SERVICE	0x180A
@@ -42,9 +48,32 @@ typedef struct
     esp_bt_uuid_t descr_uuid;
 	} char_info_t;
 	
+typedef struct
+	{
+    esp_gatts_cb_t gatts_cb;
+    uint16_t gatts_if;
+    uint16_t app_id;
+    uint16_t conn_id;
+    
+//service    
+    uint16_t service_handle;
+    esp_gatt_srvc_id_t service_id;
+    uint16_t char_no;
+    char_info_t *char_info;
+    
+//  characteristics
+    //uint16_t char_handle;
+    //esp_bt_uuid_t char_uuid;
+    //esp_gatt_perm_t perm;
+    //esp_gatt_char_prop_t property;
+    //uint16_t descr_handle;
+    //esp_bt_uuid_t descr_uuid;
 
+
+	}gatts_profile_inst_t;
 void gatts_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_if, esp_ble_gatts_cb_param_t *param);
 void bt_notify_task(void *pvParams);
 int create_service_info();
-
+void start_adv();
+void send_indication();
 #endif /* ESP32_COMMON_COMM_BLE_SERVER_H_ */

@@ -11,6 +11,7 @@
 //#define DEFAULT_TCP_SERVER_PORT		10011
 
 // communication states
+#include "freertos/idf_additions.h"
 #define IDLE					1	// tcp server waiting for connections
 #define CONNECTED				2	// socket connection established
 
@@ -25,15 +26,6 @@
 
 #define SEND_TO_SERIAL			4
 
-//pump controller messages
-#define GET_STATE				0x1001
-#define PUMP_LIMITS				0x1002
-#define P0_OFFSET				0x1003
-#define PUMP_MON				0x1004
-#define PUMP_CONF				0x1005
-#define PUMP_P0OFF				0x1006
-#define PUMP_SETONLINE			0x1007
-#define PUMP_ERR				0x2001
 #define GET_WIFICONF			0x3001
 #define SET_WIFICONF			0x3002
 #define SYS_CMD					0x4001

@@ -782,8 +782,11 @@ nmea_parser_handle_t nmea_parser_init(const nmea_parser_config_t *config)
     /* Set attributes */
     esp_gps->uart_port = config->uart.uart_port;
     esp_gps->all_statements &= 0xFE;
+	esp_gps->tcp_queue = NULL;
+#if (COMM_PROTO  & TCP_PROTO) == TCP_PROTO
     esp_gps->tcp_queue = tcp_send_queue;
-    /* Install UART friver */
+#endif
+    /* Install UART driver */
     uart_config_t uart_config = 
     	{
         .baud_rate = config->uart.baud_rate,

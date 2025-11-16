@@ -23,6 +23,8 @@
 #define JS_REQUEST			1
 #define CON_REQUEST			2
 
+#define CONV_DONE_EVT		1
+
 
 /* ACS712 20A --> 100mv/A
  * min resolution = 15mV --> 150mA
@@ -54,5 +56,6 @@ void register_ad();
 // ensure the caller always provides s_vect matrix with exact size of n_chn X nr_samp
 //!!!
 int adc_get_data(int *chn, int n_chn, int **s_vect, int nr_samp);
+int adc_get_data_cont(int **s_vect);
 
 #endif /* MAIN_ADC_OP_H_ */

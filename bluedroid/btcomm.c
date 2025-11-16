@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/projdefs.h"
 #include "freertos/task.h"
@@ -17,37 +18,48 @@
 #include "esp_log.h"
 #include "esp_console.h"
 #include "argtable3/argtable3.h"
-#include "nvs_flash.h"
+//#include "nvs_flash.h"
 #include "esp_bt.h"
 #include "esp_gap_ble_api.h"
 #include "esp_gatts_api.h"
+#include "esp_gattc_api.h"
 #include "esp_bt_defs.h"
 #include "esp_bt_main.h"
 #include "esp_gatt_common_api.h"
-#include "esp_netif.h"
+//#include "esp_netif.h"
 #include "common_defines.h"
-#include "process_message.h"
 #include "project_specific.h"
+#include "process_message.h"
 //#include "comm.h"
-#include "external_defs.h"
-#include "tcp_server.h"
+//#include "external_defs.h"
+//#include "tcp_server.h"
 #include "ble_server.h"
+#include "ble_client.h"
 #include "btcomm.h"
 
 //#define DEBUG_BTCOMM
 
-#if COMM_PROTO == BLE_PROTO
+#if (COMM_PROTO & BLE_PROTO) == BLE_PROTO
 
 TaskHandle_t process_message_task_handle = NULL, bt_notify_task_handle = NULL;
-QueueHandle_t tcp_receive_queue = NULL, tcp_send_queue = NULL;
+QueueHandle_t bt_receive_queue = NULL, bt_send_queue = NULL;
+
+TaskHandle_t client_process_message_task_handle = NULL, bt_client_notify_task_handle = NULL;
+QueueHandle_t bt_client_receive_queue = NULL, bt_client_send_queue = NULL;
 
 //static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_if, esp_ble_gatts_cb_param_t *param);
 static int do_bt(int argc, char **argv);
+static int add_ble_dev(uint8_t *bda, esp_ble_addr_type_t bda_type, char *dname);
+//static void connect2ble_device(const char *remote_bda);
 
 static char* TAG = "BTComm";
 //QueueHandle_t msg2remote_queue = NULL;
 
 int btConnected = 0, btEnabled = 0, btRole = 0;
+uint32_t scan_d = 10;
+
+ble_dev_list_t *ble_dev = NULL;
+int n_scan_results = 0;
 //char mdata[20];
 /*
 #define PROFILE_NUM					1
@@ -86,51 +98,6 @@ char btDevName[32];
  * 128bit BT SIG UUID base for 16bit UUID
 		fb349b5f-8000-8000-1000-0000xxxx0000
 */
-/*
-static uint8_t adv_service_uuid128[16] =
-	{
-    // LSB <--------------------------------------------------------------------------------> MSB 
-    //first uuid, 16bit, [12],[13] is the value
-	//0xe2, 0x67, 0x84, 0xa2, 0x82, 0x08, 0x11, 0xee, 0xb9, 0x62, 0x02, 0x42, 0x00, 0xee, 0xee, 0x00,
-	0xfb, 0x34, 0x9b, 0x5f, 0x80, 0x00, 0x00, 0x80, 0x00, 0x10, 0x00, 0x00, 0x8f, 0x00, 0x00, 0x00,
-    //second uuid, 32bit, [12], [13], [14], [15] is the value
-	//0xe2, 0x67, 0x87, 0x36, 0x82, 0x08, 0x11, 0xee, 0xb9, 0x62, 0x02, 0x42, 0xac, 0x12, 0x00, 0x02,
-	//0xe2, 0x67, 0x84, 0xa2, 0x82, 0x08, 0x11, 0xee, 0xb9, 0x62, 0x02, 0x42, 0xFF, 0x00, 0x00, 0x00,
-	};
-static esp_ble_adv_data_t adv_data =
-	{
-    .set_scan_rsp = false,
-    .include_name = true,
-    .include_txpower = false,
-    .min_interval = 0x0006, //slave connection min interval, Time = min_interval * 1.25 msec
-    .max_interval = 0x0010, //slave connection max interval, Time = max_interval * 1.25 msec
-    .appearance = 0x023, //0x00,
-    .manufacturer_len = 0, //TEST_MANUFACTURER_DATA_LEN,
-    .p_manufacturer_data =  NULL, //&test_manufacturer[0],
-    .service_data_len = 0,
-    .p_service_data = NULL,
-    .service_uuid_len = sizeof(adv_service_uuid128),
-    .p_service_uuid = adv_service_uuid128,
-    .flag = (ESP_BLE_ADV_FLAG_GEN_DISC | ESP_BLE_ADV_FLAG_BREDR_NOT_SPT),
-	};
-// scan response data
-static esp_ble_adv_data_t scan_rsp_data =
-	{
-    .set_scan_rsp = true,
-    .include_name = false,
-    .include_txpower = true,
-    //.min_interval = 0x0006,
-    //.max_interval = 0x0010,
-    //.appearance = 0x023,
-    .manufacturer_len = 0, //TEST_MANUFACTURER_DATA_LEN,
-    .p_manufacturer_data =  NULL, //&test_manufacturer[0],
-    .service_data_len = 0,
-    .p_service_data = NULL,
-    .service_uuid_len = 0, //sizeof(adv_service_uuid128),
-    .p_service_uuid = NULL, //adv_service_uuid128,
-    .flag = (ESP_BLE_ADV_FLAG_GEN_DISC | ESP_BLE_ADV_FLAG_BREDR_NOT_SPT),
-	};
-*/
 static esp_ble_adv_params_t adv_params =
 	{
     .adv_int_min        = 0x20,
@@ -142,36 +109,15 @@ static esp_ble_adv_params_t adv_params =
     .channel_map        = ADV_CHNL_ALL,
     .adv_filter_policy = ADV_FILTER_ALLOW_SCAN_ANY_CON_ANY,
 	};
-/*	
-static esp_ble_scan_params_t ble_scan_params = {
-    .scan_type              = BLE_SCAN_TYPE_ACTIVE,
-    .own_addr_type          = BLE_ADDR_TYPE_PUBLIC,
-    .scan_filter_policy     = BLE_SCAN_FILTER_ALLOW_ALL,
-    .scan_interval          = 0x50,
-    .scan_window            = 0x30,
-    .scan_duplicate         = BLE_SCAN_DUPLICATE_DISABLE
-};
-
-static gatts_profile_inst_t gl_profile_tab =
-	{
-    .gatts_cb = gatts_profile_a_event_handler,
-    .gatts_if = ESP_GATT_IF_NONE,       // Not get the gatt_if, so initial is ESP_GATT_IF_NONE 
-	};
-
-static prepare_type_env_t prepare_write_env;
-*/
-/*
-void process_message(socket_message_t msg)
-	{
 	
-	}
-*/
+static void send_data(int len, uint16_t flags);
+
 static void process_message_task(void *pvParameters)
 	{
 	socket_message_t msg;
 	while(1)
 		{
-		if(xQueueReceive(tcp_receive_queue, &msg, portMAX_DELAY))
+		if(xQueueReceive(bt_receive_queue, &msg, portMAX_DELAY))
 			{
 			process_message(msg);
 #ifdef DEBUG_BTCOMM			
@@ -180,13 +126,29 @@ static void process_message_task(void *pvParameters)
 			}
 		}
 	}
-
-
+#if (BT_ROLE & BLE_CLIENT) == BLE_CLIENT
+static esp_ble_scan_params_t ble_scan_params = {
+    .scan_type              = BLE_SCAN_TYPE_ACTIVE,
+    .own_addr_type          = BLE_ADDR_TYPE_PUBLIC,
+    .scan_filter_policy     = BLE_SCAN_FILTER_ALLOW_ALL,
+    .scan_interval          = 0xa0,
+    .scan_window            = 0x60,
+    .scan_duplicate         = BLE_SCAN_DUPLICATE_DISABLE
+};
+static int start_scan(int duration)
+	{
+	scan_d = duration;
+	esp_err_t scan_ret = esp_ble_gap_set_scan_params(&ble_scan_params);
+	if (scan_ret)
+		ESP_LOGE(TAG, "set scan params error, error code = %x", scan_ret);
+	return scan_ret;
+	}
+#endif
 static void gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param)
 	{
 	uint8_t *adv_name = NULL;
     uint8_t adv_name_len = 0;
-    char buf[64], dname[64];
+    char dname[64];
 	 switch (event)
 		 {
 		 case ESP_GAP_BLE_ADV_DATA_SET_COMPLETE_EVT:
@@ -214,12 +176,16 @@ static void gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param
 	        break;
 	        
 		case ESP_GAP_BLE_SCAN_PARAM_SET_COMPLETE_EVT:
-	    	{
 	        //the unit of the duration is second
-	        uint32_t duration = 10;
-	        esp_ble_gap_start_scanning(duration);
+			if(ble_dev)
+				{
+	        	free(ble_dev);
+	        	ble_dev = NULL;
+	        	}
+			n_scan_results = 0;
+	        esp_ble_gap_start_scanning(scan_d);
 	        break;
-	        }
+
 	    case ESP_GAP_BLE_SCAN_START_COMPLETE_EVT:
 	        //scan start complete event to indicate scan start successfully or failed
 	        if (param->scan_start_cmpl.status != ESP_BT_STATUS_SUCCESS) 
@@ -237,30 +203,34 @@ static void gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param
 		        case ESP_GAP_SEARCH_INQ_RES_EVT:
 		        	//ESP_LOGI(GATTC_TAG, " ");
 		            //esp_log_buffer_hex(GATTC_TAG, scan_result->scan_rst.bda, 6);
-		            //ESP_LOGI(GATTC_TAG, "searched Adv Data Len %d, Scan Response Len %d", scan_result->scan_rst.adv_data_len, scan_result->scan_rst.scan_rsp_len);
+		            //ESP_LOGI(TAG, "searched Adv Data Len %d, Scan Response Len %d", scan_result->scan_rst.adv_data_len, scan_result->scan_rst.scan_rsp_len);
+		            //ESP_LOG_BUFFER_HEX(TAG, scan_result->scan_rst.ble_adv, scan_result->scan_rst.adv_data_len +  scan_result->scan_rst.scan_rsp_len);
 		            adv_name = esp_ble_resolve_adv_data(scan_result->scan_rst.ble_adv,
 		                                                ESP_BLE_AD_TYPE_NAME_CMPL, &adv_name_len);
 					if(adv_name)
+						{
 						strncpy(dname, (char *)adv_name, adv_name_len);
+						dname[adv_name_len] = 0;
+						}
 					else
-	 					strcpy(dname, "NULL");
+						{
+						adv_name = esp_ble_resolve_adv_data(scan_result->scan_rst.ble_adv,
+		                                                ESP_BLE_AD_TYPE_NAME_SHORT, &adv_name_len);
+						if(adv_name)
+							{
+							strncpy(dname, (char *)adv_name, adv_name_len);
+							dname[adv_name_len] = 0;
+							}
+						else                              
+	 						strcpy(dname, "NULL");
+						}
 		            //ESP_LOGI(GATTC_TAG, "searched Device Name Len %d", adv_name_len);
 		            //esp_log_buffer_char(GATTC_TAG, adv_name, adv_name_len);
-		
-		#if CONFIG_EXAMPLE_DUMP_ADV_DATA_AND_SCAN_RESP
-		            if (scan_result->scan_rst.adv_data_len > 0) {
-		                ESP_LOGI(GATTC_TAG, "adv data:");
-		                esp_log_buffer_hex(GATTC_TAG, &scan_result->scan_rst.ble_adv[0], scan_result->scan_rst.adv_data_len);
-		            }
-		            if (scan_result->scan_rst.scan_rsp_len > 0) {
-		                ESP_LOGI(GATTC_TAG, "scan resp:");
-		                esp_log_buffer_hex(GATTC_TAG, &scan_result->scan_rst.ble_adv[scan_result->scan_rst.adv_data_len], scan_result->scan_rst.scan_rsp_len);
-		            }
-		#endif
-					sprintf(buf, "%02x:%02x:%02x:%02x:%02x:%02x:", scan_result->scan_rst.bda[0], scan_result->scan_rst.bda[1]
-																	, scan_result->scan_rst.bda[2], scan_result->scan_rst.bda[3]
-																	, scan_result->scan_rst.bda[4], scan_result->scan_rst.bda[5]);
-					ESP_LOGI(TAG, "Device BDA: %s  name: %s", buf, dname);
+					add_ble_dev(scan_result->scan_rst.bda, scan_result->scan_rst.ble_addr_type, dname);
+					//sprintf(buf, "%02x:%02x:%02x:%02x:%02x:%02x:", scan_result->scan_rst.bda[0], scan_result->scan_rst.bda[1]
+					//												, scan_result->scan_rst.bda[2], scan_result->scan_rst.bda[3]
+					//												, scan_result->scan_rst.bda[4], scan_result->scan_rst.bda[5]);
+					//ESP_LOGI(TAG, "Device BDA: %s  name: %s", buf, dname);
 /*					
 		            if (!connect && strcmp(dname, remote_device_name) == 0)
 		            	{
@@ -314,7 +284,8 @@ static void gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param
 void start_bt(int role)
 	{
 	btRole = role;
-	btcomm_init();
+	if(btcomm_init() == ESP_OK)
+		btEnabled = 1;
 	}
 int btcomm_init()
 	{
@@ -354,8 +325,46 @@ int btcomm_init()
 	    
 	if(!ret)
 		{
-		if(btRole == BLE_SERVER)
+#if ((BT_ROLE & BLE_SERVER) == BLE_SERVER) //(btRole == BLE_SERVER)
 			{
+			bt_receive_queue = xQueueCreate(TCP_QUEUE_SIZE, sizeof(socket_message_t));
+    		if(!bt_receive_queue)
+    			{
+				ESP_LOGE(TAG, "Unable to create bt_receive_queue");
+				esp_restart();
+				}
+			bt_send_queue = xQueueCreate(TCP_QUEUE_SIZE, sizeof(socket_message_t));
+		    if(!bt_send_queue)
+		    	{
+				ESP_LOGE(TAG, "Unable to create bt_send_queue");
+				esp_restart();
+				}
+			if(bt_notify_task_handle)
+				{
+				vTaskDelete(bt_notify_task_handle);
+				bt_notify_task_handle = NULL;
+				}
+			xTaskCreate(bt_notify_task, "BT_not_task", 8192, NULL, 5, &bt_notify_task_handle);
+			if(!bt_notify_task_handle)
+				{
+				ESP_LOGE(TAG, "Unable to start bt notification task");
+				esp_restart();
+				}
+			if(process_message_task_handle)
+				{
+				vTaskDelete(process_message_task_handle);
+				process_message_task_handle = NULL;
+				}
+			if(xTaskCreate(process_message_task, 
+								"process_msg", 
+								8192, 
+								NULL, 
+								4, 
+								&process_message_task_handle) != pdPASS)
+				{
+				ESP_LOGE(TAG, "Unable to start process message task");
+				esp_restart();
+				}
 			ret = create_service_info();
 			ret = esp_ble_gatts_register_callback(gatts_event_handler);
 			if (ret)
@@ -374,41 +383,76 @@ int btcomm_init()
 				
     			if(!ret)
     				{
-					esp_err_t local_mtu_ret = esp_ble_gatt_set_local_mtu(500);
-					if (local_mtu_ret)
-		    			ESP_LOGE(TAG, "set local  MTU failed, error code = %x", local_mtu_ret);
+					ret = esp_ble_gatt_set_local_mtu(500);
+					if (ret)
+		    			ESP_LOGE(TAG, "set local  MTU failed, error code = %x", ret);
+					else
+						ESP_LOGI(TAG, "BLE server initialization OK");
 		    		}
 				}
 			}
+#endif
+#if ((BT_ROLE & BLE_CLIENT) == BLE_CLIENT) 
+			{
+			bt_client_receive_queue = xQueueCreate(TCP_QUEUE_SIZE, sizeof(socket_message_t));
+		    if(!bt_client_receive_queue)
+		    	{
+				ESP_LOGE(TAG, "Unable to create bt_client_receive_queue");
+				esp_restart();
+				}
+			bt_client_send_queue = xQueueCreate(TCP_QUEUE_SIZE, sizeof(socket_message_t));
+		    if(!bt_client_send_queue)
+		    	{
+				ESP_LOGE(TAG, "Unable to create bt_client_send_queue");
+				esp_restart();
+				}
+			if(bt_client_notify_task_handle)
+				{
+				vTaskDelete(bt_client_notify_task_handle);
+				bt_client_notify_task_handle = NULL;
+				}
+			xTaskCreate(bt_client_notify_task, "BTC_not_task", 8192, NULL, 5, &bt_client_notify_task_handle);
+			if(!bt_client_notify_task_handle)
+				{
+				ESP_LOGE(TAG, "Unable to start bt client notification task");
+				esp_restart();
+				}
+			if(client_process_message_task_handle)
+				{
+				vTaskDelete(client_process_message_task_handle);
+				client_process_message_task_handle = NULL;
+				}
+			if(xTaskCreate(client_process_message_task, 
+								"process_msg_cli", 
+								8192, 
+								NULL, 
+								4, 
+								&client_process_message_task_handle) != pdPASS)
+				{
+				ESP_LOGE(TAG, "Unable to start client process message task");
+				esp_restart();
+				}
+			ret = esp_ble_gattc_register_callback(esp_gattc_cb);
+			if (!ret)
+				{
+				ret = esp_ble_gattc_app_register(CLIENT_PROFILE_A_APP_ID);
+				if(!ret)
+					{
+					ret = esp_ble_gatt_set_local_mtu(500);
+					if (ret)
+				        ESP_LOGE(TAG, "set local  MTU failed, error code = %x", ret);
+					else
+						ESP_LOGI(TAG, "BLE client initialization OK");
+					}
+				else
+					ESP_LOGE(TAG, "%s gattc app register failed, error code = %x", __func__, ret);
+				}
+			else
+				ESP_LOGE(TAG, "gattc callback register error, error code = %x", ret);
+		    }
+#endif
 		}
 	
-		
-	if(bt_notify_task_handle)
-		{
-		vTaskDelete(bt_notify_task_handle);
-		bt_notify_task_handle = NULL;
-		}
-	xTaskCreate(bt_notify_task, "BT_not_task", 8192, NULL, 5, &bt_notify_task_handle);
-	if(!bt_notify_task_handle)
-		{
-		ESP_LOGE(TAG, "Unable to start bt notification task");
-		esp_restart();
-		}
-	if(process_message_task_handle)
-		{
-		vTaskDelete(process_message_task_handle);
-		process_message_task_handle = NULL;
-		}
-	if(xTaskCreate(process_message_task, 
-						"process_message", 
-						8192, 
-						NULL, 
-						4, 
-						&process_message_task_handle) != pdPASS)
-		{
-		ESP_LOGE(TAG, "Unable to start process message task task");
-		esp_restart();
-		}
 	//esp_err_t scan_ret = esp_ble_gap_set_scan_params(&ble_scan_params);
 	//if (scan_ret)
 	//	ESP_LOGE(TAG, "set scan params error, error code = %x", scan_ret);
@@ -419,6 +463,7 @@ static struct
 	{
     struct arg_str *op;
     struct arg_str *dname;
+    struct arg_int *profile;
     struct arg_end *end;
 	} bt_args;
 		
@@ -434,20 +479,8 @@ static int do_bt(int argc, char **argv)
 		}
 	if(strcmp(bt_args.op->sval[0], "start") == 0)
 		{
-		if(bt_args.dname->count == 0 ||
-			(strcmp(bt_args.dname->sval[0], "server") && strcmp(bt_args.dname->sval[0], "client")))
-			ESP_LOGI(TAG, "Bluetooth role not specified or invalid role");
-		else
-			{
-			if(strcmp(bt_args.dname->sval[0], "server") == 0)
-				btRole = BLE_SERVER;
-			else
-				btRole = BLE_CLIENT;
-			if(btcomm_init() == ESP_OK)
-				{
-				btEnabled = 1;
-				}
-			}
+		if(btcomm_init() == ESP_OK)
+			btEnabled = 1;
 		}
 	else if(strcmp(bt_args.op->sval[0], "stop") == 0)
 		{
@@ -468,16 +501,50 @@ static int do_bt(int argc, char **argv)
 				vTaskDelete(process_message_task_handle);
 				process_message_task_handle = NULL;
 				}
+			if(bt_client_notify_task_handle)
+				{
+				vTaskDelete(bt_client_notify_task_handle);
+				bt_client_notify_task_handle = NULL;
+				}
+	
+			if(client_process_message_task_handle)
+				{
+				vTaskDelete(client_process_message_task_handle);
+				client_process_message_task_handle = NULL;
+				}
 			btEnabled = 0;
 			}
 		}
+
+#if ((BT_ROLE & BLE_CLIENT) == BLE_CLIENT)
 	else if(strcmp(bt_args.op->sval[0], "scan") == 0)
 		{
-		
+		int sd = 10;
+		if(bt_args.dname->count)
+			sd = atoi(bt_args.dname->sval[0]);
+		start_scan(sd);	
+		}
+	else if(strcmp(bt_args.op->sval[0], "list") == 0)
+		{
+		char buf[32];
+		for(int i = 0; i < n_scan_results; i++)
+			{
+			sprintf(buf, "%02x:%02x:%02x:%02x:%02x:%02x:", ble_dev[i].dev_bda[0], ble_dev[i].dev_bda[1], ble_dev[i].dev_bda[2], ble_dev[i].dev_bda[3], 
+															ble_dev[i].dev_bda[4], ble_dev[i].dev_bda[5] );
+			ESP_LOGI(TAG, "%4d  Device BDA: %s  name: %s", i, buf, ble_dev[i].dnamae);				
+			}
 		}
 	else if(strcmp(bt_args.op->sval[0], "connect") == 0)
 		{
-		
+		if(bt_args.dname->count)
+			{
+			if(bt_args.profile->count)
+				connect2ble_device(bt_args.dname->sval[0], bt_args.profile->ival[0]);
+			else
+				ESP_LOGI(TAG, "Profile to be used not provided");
+			}
+		else
+			ESP_LOGI(TAG, "Remote BDA not provided");
 		}
 	else if(strcmp(bt_args.op->sval[0], "disconnect") == 0)
 		{
@@ -485,8 +552,21 @@ static int do_bt(int argc, char **argv)
 		}
 	else if(strcmp(bt_args.op->sval[0], "send") == 0)
 		{
-		
+		if(bt_args.dname->count)
+			{
+			if(bt_args.profile->count)
+				{
+				send_data(atoi(bt_args.dname->sval[0]), bt_args.profile->ival[0]);
+				}
+			}
 		}
+#endif
+#if ((BT_ROLE & BLE_SERVER) == BLE_SERVER)
+	else if(strcmp(bt_args.op->sval[0], "notify") == 0)
+		{
+		send_indication();
+		}	
+#endif		
 	return ESP_OK;
 	}
 
@@ -495,6 +575,7 @@ void register_bt()
 	btConnected = btEnabled = 0, btRole = 0;
 	bt_args.op = arg_str1(NULL, NULL, "<op>", "start | stop | connect | disconnect | scan | send");
     bt_args.dname = arg_str0(NULL, NULL, "<device name> | <packet to send> | <server | client>", "device name to connect or packet data to send");
+    bt_args.profile = arg_int0(NULL, NULL, "<0...#>", "profile to be used by connection");
     bt_args.end = arg_end(2);
     const esp_console_cmd_t bt_cmd =
     	{
@@ -505,17 +586,52 @@ void register_bt()
         .argtable = &bt_args
     	};
     ESP_ERROR_CHECK( esp_console_cmd_register(&bt_cmd));
-    tcp_receive_queue = xQueueCreate(TCP_QUEUE_SIZE, sizeof(socket_message_t));
-    if(!tcp_receive_queue)
-    	{
-		ESP_LOGE(TAG, "Unable to create tcp_receive_queue");
-		esp_restart();
+    
+	}
+int add_ble_dev(uint8_t *bda, esp_ble_addr_type_t bda_type, char *dname)
+	{
+	int i, ret = ESP_FAIL;
+	for(i = 0; i < n_scan_results; i++)
+		{
+		if(memcmp(ble_dev[i].dev_bda, bda, 6) == 0)
+			break;
 		}
-	tcp_send_queue = xQueueCreate(TCP_QUEUE_SIZE, sizeof(socket_message_t));
-    if(!tcp_send_queue)
-    	{
-		ESP_LOGE(TAG, "Unable to create tcp_send_queue");
-		esp_restart();
+	if(i == n_scan_results)
+		{
+		ble_dev = realloc(ble_dev, (n_scan_results + 1) * sizeof(ble_dev_list_t));
+		if(ble_dev)
+			{
+			memcpy(ble_dev[n_scan_results].dev_bda, bda, 6);
+			strncpy(ble_dev[n_scan_results].dnamae, dname, 31);
+			ble_dev[n_scan_results].bda_type = bda_type;
+			ble_dev[n_scan_results].in_use = 0;
+			n_scan_results++;
+			ret = ESP_OK;
+			}
 		}
+	else
+		ret = ESP_OK;
+	return ret;
+	}
+	
+static void send_data(int len, uint16_t flags)
+	{
+	bt_raw_data_t btrd;
+	btrd.ts = esp_timer_get_time();
+	btrd.id = BT_RAW_PDU;
+	btrd.len = len;
+	btrd.flags = flags;
+	for(int i = 0; i < len; i++)	
+		btrd.pdu[i] = i;
+	xQueueSend(bt_client_send_queue, &btrd, portMAX_DELAY);
+	}
+void set_advp(int maxint, int minint)
+	{
+	adv_params.adv_int_min = (minint * 1000) / 625;
+	adv_params.adv_int_max = (maxint * 1000) / 625;
+	}
+void get_advp()
+	{
+	ESP_LOGI(TAG, "Adv params - min int: %d, max int: %d", (adv_params.adv_int_min * 625) / 1000, (adv_params.adv_int_max * 625) / 1000);
 	}
 #endif

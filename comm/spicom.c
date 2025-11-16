@@ -10,7 +10,7 @@
 #include <string.h>
 #include "project_specific.h"
 
-#ifdef ADC_AD7811
+#ifdef USE_SPI
 #include "soc/gpio_reg.h"
 #include "soc/dport_access.h"
 #include "driver/spi_master.h"
@@ -35,10 +35,12 @@ struct
 
 static spi_device_handle_t spiad;
 
+#ifdef ADC_AD7811
 /*
  * pre transaction callback
  * used to toogle CONVST/RFS/TFS
  */
+
 void spiad_pt_callback(spi_transaction_t *t)
 	{
 	uint32_t v = 1 << PIN_NUM_CONVST;
@@ -76,7 +78,36 @@ void spiadmaster_init()
 	ESP_ERROR_CHECK(spi_bus_initialize(SPI3_HOST, &buscfg, SPI_DMA_CH_AUTO));
 	ESP_ERROR_CHECK(spi_bus_add_device(SPI3_HOST, &devcfg, &spiad));
 	}
-
+#endif
+void spimaster_init()
+	{
+	spi_bus_config_t buscfg=
+		{
+		.miso_io_num=PIN_NUM_MISO,
+		.mosi_io_num=PIN_NUM_MOSI,
+		.sclk_io_num=PIN_NUM_CLK,
+		.quadwp_io_num = -1,
+		.quadhd_io_num = -1,
+		.data4_io_num = -1,
+		.data5_io_num = -1,
+		.data6_io_num = -1,
+		.data7_io_num = -1
+		};
+	spi_device_interface_config_t devcfg=
+		{
+		.address_bits = 0,
+		.command_bits = 0,
+		.clock_speed_hz = 1*1000*1000,           	// Clock out at 1 MHz
+		.mode = 1,                             		// SPI mode 1 CPOL = 0/CPHA = 1
+		.spics_io_num = -1,      		         	// CS pin not used
+		.queue_size = 1,                          	//
+#ifdef ADC_AD7811
+		.pre_cb = spiad_pt_callback,				// pre-transaction callback: toogle CONVST/RFS/TFS
+#endif
+	    };
+	ESP_ERROR_CHECK(spi_bus_initialize(SPI3_HOST, &buscfg, SPI_DMA_CH_AUTO));
+	ESP_ERROR_CHECK(spi_bus_add_device(SPI3_HOST, &devcfg, &spiad));
+	}
 int spiad_rw(uint16_t cmd, int len_tx, uint16_t *data)
 	{
 	esp_err_t ret;

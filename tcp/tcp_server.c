@@ -34,7 +34,7 @@
 #include "project_specific.h"
 #include "tcp_server.h"
 
-#if COMM_PROTO == TCPSOCK_PROTO
+#if (COMM_PROTO & TCP_PROTO) == TCP_PROTO
 
 static const char *TAG ="tcp_server";
 static int commstate = IDLE;
@@ -88,8 +88,8 @@ static void send_task(void *pvParameters)
 				// or its enough recv() error handling in tcp_server_task ???
 				}
 			ESP_LOGI(TAG, "message sent %u", (unsigned int)msg.cmd_id);
-			if(msg.cmd_id == PUMP_MON)
-				ESP_LOGI(TAG,"%d %d %d %d %d %d %d", msg.p.pv.state, msg.p.pv.status, msg.p.pv.press, msg.p.pv.press_mv, msg.p.pv.current, msg.p.pv.q1000, msg.p.pv.tw1000);
+			//if(msg.cmd_id == PUMP_MON)
+			//	ESP_LOGI(TAG,"%d %d %d %d %d %d %d", msg.p.pv.state, msg.p.pv.status, msg.p.pv.press, msg.p.pv.press_mv, msg.p.pv.current, msg.p.pv.q1000, msg.p.pv.tw1000);
 			}
 		}
 	}

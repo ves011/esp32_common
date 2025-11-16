@@ -10,34 +10,34 @@
 #include <string.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/projdefs.h"
-#include "freertos/task.h"
-#include "freertos/event_groups.h"
+//#include "freertos/task.h"
+//#include "freertos/event_groups.h"
 #include "freertos/queue.h"
-#include "esp_system.h"
+//#include "esp_system.h"
 #include "esp_log.h"
-#include "nvs_flash.h"
-#include "esp_bt.h"
+//#include "nvs_flash.h"
+//#include "esp_bt.h"
 #include "esp_gap_ble_api.h"
-#include "esp_gatts_api.h"
-#include "esp_bt_defs.h"
-#include "esp_bt_main.h"
-#include "esp_gatt_common_api.h"
-#include "esp_netif.h"
+//#include "esp_gatts_api.h"
+//#include "esp_bt_defs.h"
+//#include "esp_bt_main.h"
+//#include "esp_gatt_common_api.h"
+//#include "esp_netif.h"
 #include "common_defines.h"
-#include "process_message.h"
+//#include "process_message.h"
 #include "project_specific.h"
 //#include "comm.h"
-#include "external_defs.h"
-#include "tcp_server.h"
+//#include "external_defs.h"
+//#include "tcp_server.h"
+
+
+#if (COMM_PROTO & BLE_PROTO) == BLE_PROTO
 #include "ble_server.h"
 #include "btcomm.h"
-
 //#define DEBUG_BTCOMM
 
-#if COMM_PROTO == BLE_PROTO
-
 //TaskHandle_t process_message_task_handle = NULL, send_task_handle = NULL;
-extern QueueHandle_t tcp_receive_queue, tcp_send_queue;
+
 extern int btConnected;
 extern char btDevName[32];
 extern uint8_t adv_config_done;
@@ -63,31 +63,19 @@ static esp_attr_value_t gatts_char1_val =
     .attr_value   = char1_str,
 	};
 
+#define MIN_ADV_INTERVAL	0x0006
+#define MAX_ADV_INTERVAL	0x0010
 
 #define adv_config_flag      (1 << 0)
 #define scan_rsp_config_flag (1 << 1)
 
-//e26784a2-8208-11ee-b962-0242ac120002
-//e2678736-8208-11ee-b962-0242ac120002
-//fb349b5f-8000-8000-1000
-
-static uint8_t adv_service_uuid128[16] =
-	{
-    /* LSB <--------------------------------------------------------------------------------> MSB */
-    //first uuid, 16bit, [12],[13] is the value
-	//0xe2, 0x67, 0x84, 0xa2, 0x82, 0x08, 0x11, 0xee, 0xb9, 0x62, 0x02, 0x42, 0x00, 0xee, 0xee, 0x00,
-	0xfb, 0x34, 0x9b, 0x5f, 0x80, 0x00, 0x00, 0x80, 0x00, 0x10, 0x00, 0x00, 0x8f, 0x00, 0x00, 0x00,
-    //second uuid, 32bit, [12], [13], [14], [15] is the value
-	//0xe2, 0x67, 0x87, 0x36, 0x82, 0x08, 0x11, 0xee, 0xb9, 0x62, 0x02, 0x42, 0xac, 0x12, 0x00, 0x02,
-	//0xe2, 0x67, 0x84, 0xa2, 0x82, 0x08, 0x11, 0xee, 0xb9, 0x62, 0x02, 0x42, 0xFF, 0x00, 0x00, 0x00,
-	};
 static esp_ble_adv_data_t adv_data =
 	{
     .set_scan_rsp = false,
     .include_name = true,
     .include_txpower = false,
-    .min_interval = 0x0006, //slave connection min interval, Time = min_interval * 1.25 msec
-    .max_interval = 0x0010, //slave connection max interval, Time = max_interval * 1.25 msec
+    .min_interval = MIN_ADV_INTERVAL, //slave connection min interval, Time = min_interval * 1.25 msec
+    .max_interval = MAX_ADV_INTERVAL, //slave connection max interval, Time = max_interval * 1.25 msec
     .appearance = 0x023, //0x00,
     .manufacturer_len = 0, //TEST_MANUFACTURER_DATA_LEN,
     .p_manufacturer_data =  NULL, //&test_manufacturer[0],
@@ -115,18 +103,6 @@ static esp_ble_adv_data_t scan_rsp_data =
     .flag = (ESP_BLE_ADV_FLAG_GEN_DISC | ESP_BLE_ADV_FLAG_BREDR_NOT_SPT),
 	};
 
-static esp_ble_adv_params_t adv_params =
-	{
-    .adv_int_min        = 0x20,
-    .adv_int_max        = 0x40,
-    .adv_type           = ADV_TYPE_IND,
-    .own_addr_type      = BLE_ADDR_TYPE_PUBLIC,
-    //.peer_addr            =
-    //.peer_addr_type       =
-    .channel_map        = ADV_CHNL_ALL,
-    .adv_filter_policy = ADV_FILTER_ALLOW_SCAN_ANY_CON_ANY,
-	};
-	
 static gatts_profile_inst_t gl_profile_tab[PROFILE_NUM] =
 	{
 	[PROFILE_A_APP_ID] = 
@@ -246,7 +222,7 @@ static void write_event_env(esp_gatt_if_t gatts_if, prepare_type_env_t *prepare_
 void example_exec_write_event_env(prepare_type_env_t *prepare_write_env, esp_ble_gatts_cb_param_t *param)
 	{
     if (param->exec_write.exec_write_flag == ESP_GATT_PREP_WRITE_EXEC)
-        esp_log_buffer_hex(TAG, prepare_write_env->prepare_buf, prepare_write_env->prepare_len);
+        ESP_LOG_BUFFER_HEX(TAG, prepare_write_env->prepare_buf, prepare_write_env->prepare_len);
     else
         ESP_LOGI(TAG,"ESP_GATT_PREP_WRITE_CANCEL");
 
@@ -260,7 +236,7 @@ void example_exec_write_event_env(prepare_type_env_t *prepare_write_env, esp_ble
 
 static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_if, esp_ble_gatts_cb_param_t *param)
 	{
-	socket_message_t msg;
+	//socket_message_t msg;
 	switch (event)
 		{
 	    case ESP_GATTS_REG_EVT:
@@ -375,7 +351,7 @@ static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_i
 				}
 			break;
 	    case ESP_GATTS_READ_EVT:
-	    	ESP_LOGI(TAG, "GATT_READ_EVT, conn_id %d, trans_id %" PRIu32 ", handle %d", param->read.conn_id, param->read.trans_id, param->read.handle);
+	    	ESP_LOGI(TAG, "GATT_READ_EVT, conn_id %d, trans_id %u, handle %d", param->read.conn_id, (unsigned int)param->read.trans_id, param->read.handle);
 			esp_gatt_rsp_t rsp;
 			memset(&rsp, 0, sizeof(esp_gatt_rsp_t));
 			rsp.attr_value.handle = param->read.handle;
@@ -393,63 +369,57 @@ static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_i
 			if (!param->write.is_prep)
 				{
 				//ESP_LOGI(TAG, "GATT_WRITE_EVT, value len %d, value :", param->write.len);
-				//if(param->write.handle == gl_profile_tab[PROFILE_A_APP_ID].char_handle && param->write.len == sizeof(socket_message_t))
 				for(int i = 0; i < gl_profile_tab[PROFILE_A_APP_ID].char_no; i++)
-				{	
-				//if(param->write.handle == gl_profile_tab[PROFILE_A_APP_ID].char_handle && param->write.len == sizeof(socket_message_t))
-				if((param->write.handle == gl_profile_tab[PROFILE_A_APP_ID].char_info[i].char_handle) 
-					&& (param->write.len == sizeof(socket_message_t)))
-					{
-					//esp_log_buffer_hex(TAG, param->write.value, param->write.len);
-					msg.cmd_id = ((socket_message_t *)param->write.value)->cmd_id;
-					msg.ts = ((socket_message_t *)param->write.value)->ts;
-					memcpy(msg.p.u8params, ((socket_message_t *)param->write.value)->p.u8params, param->write.len - 16);
-#ifdef DEBUG_BTCOMM					
-					ESP_LOGI(TAG, "socket_message_t ts:%llu, cmd_id: %lu", msg.ts, (unsigned long)msg.cmd_id);
-#endif
-					xQueueSend(tcp_receive_queue, &msg, portMAX_DELAY);
-					}
-				
-				if (gl_profile_tab[PROFILE_A_APP_ID].char_info[i].descr_handle == param->write.handle && param->write.len == 2)
-					{
-					uint16_t descr_value = param->write.value[1]<<8 | param->write.value[0];
-					if (descr_value == 0x0001)
+					{	
+					if(param->write.handle == gl_profile_tab[PROFILE_A_APP_ID].char_info[i].char_handle)
 						{
-						if (a_property & ESP_GATT_CHAR_PROP_BIT_NOTIFY)
-							{
-							ESP_LOGI(TAG, "notify enable");
-							uint8_t notify_data[2];
-							notify_data[0] = 0;
-							notify_data[1] = NOTIFICATION_OK;
-							//the size of notify_data[] need less than MTU size
-							int si = esp_ble_gatts_send_indicate(gatts_if, param->write.conn_id, gl_profile_tab[PROFILE_A_APP_ID].char_info[i].char_handle,
-													sizeof(notify_data), notify_data, false);
-							ESP_LOGI(TAG, "notification sent: %d, descr handle: %x", si, param->write.handle);
-							}
+						//esp_log_buffer_hex(TAG, param->write.value, param->write.len);
+	#ifdef DEBUG_BTCOMM					
+						ESP_LOGI(TAG, "socket_message_t ts:%llu, cmd_id: %lu", msg.ts, (unsigned long)msg.cmd_id);
+	#endif
+						xQueueSend(bt_receive_queue, param->write.value, portMAX_DELAY);
 						}
-					else if (descr_value == 0x0002)
-						{
-						if (a_property & ESP_GATT_CHAR_PROP_BIT_INDICATE)
-							{
-							ESP_LOGI(TAG, "indicate enable");
-							uint8_t notify_data[2];
-							notify_data[0] = 0;
-							notify_data[1] = INDICATION_OK;
-							//the size of indicate_data[] need less than MTU size
-							esp_ble_gatts_send_indicate(gatts_if, param->write.conn_id, gl_profile_tab[PROFILE_A_APP_ID].char_info[i].char_handle,
-													sizeof(notify_data), notify_data, true);
-							}
-						}
-					else if (descr_value == 0x0000)
-						ESP_LOGI(TAG, "notify/indicate disable ");
-					else
-						{
-						ESP_LOGE(TAG, "unknown descr value");
-						esp_log_buffer_hex(TAG, param->write.value, param->write.len);
-						}
-					}
 					
-				}
+					if (gl_profile_tab[PROFILE_A_APP_ID].char_info[i].descr_handle == param->write.handle && param->write.len == 2)
+						{
+						uint16_t descr_value = param->write.value[1]<<8 | param->write.value[0];
+						if (descr_value == 0x0001)
+							{
+							if (a_property & ESP_GATT_CHAR_PROP_BIT_NOTIFY)
+								{
+								ESP_LOGI(TAG, "notify enable");
+								uint8_t notify_data[2];
+								notify_data[0] = 0;
+								notify_data[1] = NOTIFICATION_OK;
+								//the size of notify_data[] need less than MTU size
+								int si = esp_ble_gatts_send_indicate(gatts_if, param->write.conn_id, gl_profile_tab[PROFILE_A_APP_ID].char_info[i].char_handle,
+														sizeof(notify_data), notify_data, false);
+								ESP_LOGI(TAG, "notification sent: %d, descr handle: %x", si, param->write.handle);
+								}
+							}
+						else if (descr_value == 0x0002)
+							{
+							if (a_property & ESP_GATT_CHAR_PROP_BIT_INDICATE)
+								{
+								ESP_LOGI(TAG, "indicate enable");
+								uint8_t notify_data[2];
+								notify_data[0] = 0;
+								notify_data[1] = INDICATION_OK;
+								//the size of indicate_data[] need less than MTU size
+								esp_ble_gatts_send_indicate(gatts_if, param->write.conn_id, gl_profile_tab[PROFILE_A_APP_ID].char_info[i].char_handle,
+														sizeof(notify_data), notify_data, true);
+								}
+							}
+						else if (descr_value == 0x0000)
+							ESP_LOGI(TAG, "notify/indicate disable ");
+						else
+							{
+							ESP_LOGE(TAG, "unknown descr value");
+							ESP_LOG_BUFFER_HEX(TAG, param->write.value, param->write.len);
+							}
+						}
+						
+					}
 				}
 			write_event_env(gatts_if, &prepare_write_env, param);
 			break;
@@ -507,7 +477,7 @@ static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_i
 		case ESP_GATTS_CONF_EVT:
 			//ESP_LOGI(TAG, "ESP_GATTS_CONF_EVT, status %d attr_handle %d", param->conf.status, param->conf.handle);
 			if (param->conf.status != ESP_GATT_OK)
-				esp_log_buffer_hex(TAG, param->conf.value, param->conf.len);
+				ESP_LOG_BUFFER_HEX(TAG, param->conf.value, param->conf.len);
 			break;
 		case ESP_GATTS_OPEN_EVT:
 		case ESP_GATTS_CANCEL_OPEN_EVT:
@@ -600,7 +570,7 @@ void bt_notify_task(void *pvParams)
 	int ret;
 	while(1)
 		{
-		if(xQueueReceive(tcp_send_queue, &qmsg, portMAX_DELAY))
+		if(xQueueReceive(bt_send_queue, &qmsg, portMAX_DELAY))
 			{
 			if(btConnected)
 				{
@@ -624,7 +594,7 @@ int create_service_info()
 	int ret = ESP_OK;
 	for(int i = 0; i < PROFILE_NUM; i++)
 		{
-		gl_profile_tab[i].char_info = calloc(sizeof(char_info_t), gl_profile_tab[i].char_no);
+		gl_profile_tab[i].char_info = calloc(gl_profile_tab[i].char_no, sizeof(char_info_t));
 		if(gl_profile_tab[i].char_info)
 			{
 			if(i == PROFILE_A_APP_ID)
@@ -657,4 +627,22 @@ int create_service_info()
 		}
 	return ret;
 	}
+
+void start_adv()
+	{
+	esp_ble_gap_config_adv_data(&adv_data);
+	adv_config_done |= adv_config_flag;
+    esp_ble_gap_config_adv_data(&scan_rsp_data);
+    adv_config_done |= scan_rsp_config_flag;
+	}
+void send_indication()
+	{
+	socket_message_t msg;
+	msg.ts = esp_timer_get_time();
+	msg.cmd_id = 0xff;
+	msg.p.u8params[0] = 2;
+	msg.p.u8params[1] = 1;
+	xQueueSend(bt_send_queue, &msg, 0);
+	}
+
 #endif

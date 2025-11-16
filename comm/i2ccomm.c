@@ -76,6 +76,13 @@ int master_receive(i2c_master_dev_handle_t handle, uint8_t *rd_buf, int size)
 		ESP_LOGI(TAG, "i2c receive error: %d", ret);
 	return ret;
 	}
+int master_transmit_receive(i2c_master_dev_handle_t handle, uint8_t *wr_buf, int wr_size, uint8_t *rd_buf, int rd_size)
+	{
+	int ret = i2c_master_transmit_receive(handle, wr_buf, wr_size, rd_buf, rd_size, 100);
+	if(ret != ESP_OK)
+		ESP_LOGI(TAG, "i2c receive error: %d", ret);
+	return ret;
+	}
 int i2c_probe_device(int bus_no, uint16_t dev_addr)
 	{
 	int ret = ESP_FAIL;

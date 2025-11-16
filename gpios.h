@@ -124,13 +124,20 @@
 #endif
 
 #if ACTIVE_CONTROLLER == WESTA_CONTROLLER
-	#define DHT_DATA_PIN 			5
-	#define I2C_MASTER_SCL_IO_0     4      					/*!< GPIO number used for I2C master clock */
+	#define DHT_DATA_PIN 			4
+	#define I2C_MASTER_SCL_IO_0     5      					/*!< GPIO number used for I2C master clock */
 	#define I2C_MASTER_SDA_IO_0     1      					/*!< GPIO number used for I2C master data  */
 	#define I2C_MASTER_SCL_IO_1     99     					/*!< GPIO number used for I2C master clock */
 	#define I2C_MASTER_SDA_IO_1     99    					/*!< GPIO number used for I2C master data  */
 	#define RG_GPIO					7
 	#define DS18B20_PIN 			6
+#endif
+
+#if ACTIVE_CONTROLLER == WMON_CONTROLLER
+	#define I2C_MASTER_SCL_IO_0     8      					/*!< GPIO number used for I2C master clock */
+	#define I2C_MASTER_SDA_IO_0     3      					/*!< GPIO number used for I2C master data  */
+	#define I2C_MASTER_SCL_IO_1     99     					/*!< GPIO number used for I2C master clock */
+	#define I2C_MASTER_SDA_IO_1     99    					/*!< GPIO number used for I2C master data  */
 #endif
 
 #if ACTIVE_CONTROLLER == ESP32_TEST
@@ -142,12 +149,18 @@
 #if ACTIVE_CONTROLLER == NAVIGATOR
 	#define I2C_MASTER_SCL_IO_0     16      					/*!< GPIO number used for I2C master clock */
 	#define I2C_MASTER_SDA_IO_0     15      					/*!< GPIO number used for I2C master data  */
+	#define I2C_MASTER_SCL_IO_1     99     					/*!< GPIO number used for I2C master clock */
+	#define I2C_MASTER_SDA_IO_1     99    					/*!< GPIO number used for I2C master data  */
 	#define HMC_DRDY_PIN			17
 	#define MPU_DRDY_PIN			18
 	#define NW_CONNECT_ON			9
 	#define NW_CONNECT_OFF			11
 	#define REMOTE_CONNECT_ON		46
 	#define REMOTE_CONNECT_OFF		10
+	#define DEC_LEFT_A				(6)
+	#define DEC_LEFT_B				(5)
+	#define DEC_RIGHT_A				(41)
+	#define DEC_RIGHT_B				(42)
 #endif
 
 #ifdef ADC_AD7811

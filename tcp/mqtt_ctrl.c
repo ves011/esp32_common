@@ -10,49 +10,40 @@
 #include <ctype.h>
 #include <unistd.h>
 #include "esp_log.h"
-#include "esp_console.h"
+#include "time.h"
 #include "esp_netif.h"
-#include "esp_system.h"
-#include "esp_sleep.h"
-#include "spi_flash_mmap.h"
-#include "driver/rtc_io.h"
-#include "driver/uart.h"
-#include "driver/i2c_master.h"
-#include "argtable3/argtable3.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "esp_heap_caps.h"
-#include "lwip/sockets.h"
-#include "lwip/netdb.h"
-#include "freertos/task.h"
 #include "mqtt_client.h"
-#include "esp_spiffs.h"
 #include "esp_timer.h"
-#include "sdkconfig.h"
+#include "driver/i2c_types.h"
 #include "project_specific.h"
 #include "common_defines.h"
 #include "external_defs.h"
-#include "utils.h"
 #include "cmd_system.h"
 #include "cmd_wifi.h"
 #include "mqtt_ctrl.h"
+#if ACTIVE_CONTROLLER == WMON_CONTROLLER
+	//#include "adc_op.h"
+	#include "wmon.h"
+#endif
 #if ACTIVE_CONTROLLER == PUMP_CONTROLLER
-#include "adc_op.h"
-#include "pumpop.h"
-#elif ACTIVE_CONTROLLER == AGATE_CONTROLLER
-#include "gateop.h"
-#elif ACTIVE_CONTROLLER == WESTA_CONTROLLER
-#include "westaop.h"
-#elif ACTIVE_CONTROLLER == NAVIGATOR
-#include "nmea_parser.h"
-#include "mpu6050.h"
-#include "ptst.h"
-#include "hmc5883.h"
-#elif ACTIVE_CONTROLLER == WATER_CONTROLLER || ACTIVE_CONTROLLER == WP_CONTROLLER
+	#include "adc_op.h"
+	#include "pumpop.h"
+	#elif ACTIVE_CONTROLLER == AGATE_CONTROLLER
+	#include "gateop.h"
+	#elif ACTIVE_CONTROLLER == WESTA_CONTROLLER
+	#include "westaop.h"
+	#elif ACTIVE_CONTROLLER == NAVIGATOR
+	#include "nmea_parser.h"
+	#include "mpu6050.h"
+	#include "ptst.h"
+	#include "hmc5883.h"
+#endif
+#if ACTIVE_CONTROLLER == WATER_CONTROLLER || ACTIVE_CONTROLLER == WP_CONTROLLER
 	#include "waterop.h"
 	#include "pumpop.h"
 	#include "ad7811.h"
-#elif ACTIVE_CONTROLLER == FLOOR_HC
+#endif
+#if ACTIVE_CONTROLLER == FLOOR_HC
 	#include "temps.h"
 #endif
 
@@ -231,12 +222,9 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
 					do_hmc(argc, argv);
 #elif ACTIVE_CONTROLLER == FLOOR_HC
 					do_temp(argc, argv);
+#elif ACTIVE_CONTROLLER == WMON_CONTROLLER
+					do_wmon(argc, argv);
 #endif
-					}
-				else if(strcmp(topic, DEVICE_TOPIC_Q) == 0)
-					{
-					if(!strcmp(argv[1], "reqID"))
-						publish_MQTT_client_status();
 					}
 #if ACTIVE_CONTROLLER == WATER_CONTROLLER
 				else if(!strcmp(topic, DEVICE_TOPIC_R) ||
@@ -247,6 +235,11 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
 					parse_devstr(argc, argv);
 					}
 #endif
+				else if(strcmp(topic, DEVICE_TOPIC_Q) == 0)
+					{
+					if(!strcmp(argv[1], "reqID"))
+						publish_MQTT_client_status();
+					}
 				for(i = 0; i < 10; i++)
 					free(argv[i]);
 				free(argv);
@@ -367,6 +360,8 @@ void create_topics()
 	sprintf(USER_MQTT, "qt%02d", CTRL_DEV_ID);
 #elif ACTIVE_CONTROLLER == FLOOR_HC
 	sprintf(USER_MQTT, "%s%02d", DEV_NAME, CTRL_DEV_ID);
+#elif ACTIVE_CONTROLLER == WMON_CONTROLLER
+	sprintf(USER_MQTT, "wmon%02d", CTRL_DEV_ID);
 #endif
 	ESP_LOGI(TAG, "USER_MQTT: %s", USER_MQTT);
 	strcpy(TOPIC_STATE, USER_MQTT);

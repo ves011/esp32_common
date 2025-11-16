@@ -28,12 +28,14 @@
 #include "driver/i2c_master.h"
 #include "project_specific.h"
 #include "common_defines.h"
-#if COMM_PROTO == MQTT_PROTO
+#if (COMM_PROTO & MQTT_PROTO) == MQTT_PROTO
 	#include "mqtt_client.h"
 	#include "mqtt_ctrl.h"
 #endif
-#if COMM_PROTO == BLE_PROTO
+#if (COMM_PROTO & TCP_PROTO) == TCP_PROTO
 	#include "tcp_server.h"
+#endif
+#if (COMM_PROTO & BLE_PROTO) == BLE_PROTO
 	#include "esp_gatts_api.h"
 	#include "ble_server.h"
 	#include "btcomm.h"
@@ -62,7 +64,7 @@ int tcp_log_init()
 	log_port = LOG_PORT;
 	log_server = LOG_SERVER;
 #endif
-#if COMM_PROTO == MQTT_PROTO
+#if (COMM_PROTO & MQTT_PROTO) == MQTT_PROTO
 	strcpy(log_user, USER_MQTT);
 #else
 	strcpy(log_user, DEV_NAME);
@@ -166,7 +168,7 @@ int tcp_log_message(char *message)
 		}
 	return 1;
 	}
-#if COMM_PROTO == BLE_PROTO
+#if (COMM_PROTO & BLE_PROTO) == BLE_PROTO
 int bt_log_message(char *message)
 	{
 	/*
@@ -204,7 +206,7 @@ static void tcp_log_task(void *pvParameters)
 			tcp_log_enable = 0;
 			vTaskDelete(NULL);
 			}
-#if COMM_PROTO == MQTT_PROTO
+#if (COMM_PROTO & MQTT_PROTO) == MQTT_PROTO
 		if(console_state == CONSOLE_MQTT)
 			{
 			publish_MQTT_client_log(buf);

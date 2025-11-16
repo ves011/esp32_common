@@ -8,30 +8,22 @@
 
 #include <stdio.h>
 #include <string.h>
-#include "esp_console.h"
-#include "argtable3/argtable3.h"
-#include "driver/gpio.h"
-#include "hal/gpio_types.h"
 #include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
 #include "freertos/queue.h"
 #include "esp_netif.h"
-#include "driver/gpio.h"
-#include "driver/i2c_master.h"
 #include "esp_log.h"
-#include "errno.h"
 #include "esp_spiffs.h"
-#include "mqtt_client.h"
 #include "sys/stat.h"
 #include "common_defines.h"
-//#include "mqtt_ctrl.h"
-#include "external_defs.h"
-#include "tcp_log.h"
 #include "project_specific.h"
 
-
+#if (COMM_PROTO & TCP_PROTO) == TCP_PROTO || (COMM_PROTO & MQTT_PROTO) == MQTT_PROTO
+	#include "mqtt_client.h"
+	#include "tcp_log.h"
+#endif
+#include "external_defs.h"
 #if ACTIVE_CONTROLLER == WESTA_CONTROLLER
-#include "westaop.h"
+	#include "westaop.h"
 #endif
 
 #if ACTIVE_CONTROLLER == WATER_CONTROLLER
@@ -47,7 +39,7 @@ esp_vfs_spiffs_conf_t conf_spiffs =
 	.max_files = 5,
 	.format_if_mount_failed = true
 	};
-
+#if (COMM_PROTO & TCP_PROTO) == TCP_PROTO || (COMM_PROTO & MQTT_PROTO) == MQTT_PROTO
 int my_log_vprintf(const char *fmt, va_list arguments)
 	{
 	if(console_state == CONSOLE_ON)
@@ -68,6 +60,7 @@ int my_log_vprintf(const char *fmt, va_list arguments)
 	else
 		return 1;
 	}
+#endif
 
 void my_printf(char *format, ...)
 	{
@@ -78,8 +71,10 @@ void my_printf(char *format, ...)
 	va_end( args );
 	if(console_state == CONSOLE_ON)
 		puts(buf);
+#if (COMM_PROTO & TCP_PROTO) == TCP_PROTO || (COMM_PROTO & MQTT_PROTO) == MQTT_PROTO	
 	else if(console_state == CONSOLE_TCP || console_state == CONSOLE_MQTT)
 		tcp_log_message(buf);
+#endif	
 	//else if(console_state >= CONSOLE_BTLE)
 	//	bt_log_message(buf);
 	}
@@ -87,8 +82,10 @@ void my_fputs(char *buf, FILE *f)
 	{
 	if(console_state == CONSOLE_ON)
 		puts(buf);
+#if (COMM_PROTO & TCP_PROTO) == TCP_PROTO || (COMM_PROTO & MQTT_PROTO) == MQTT_PROTO	
 	else if(console_state == CONSOLE_TCP || console_state == CONSOLE_MQTT)
 		tcp_log_message(buf);
+#endif	
 	//else if(console_state >= CONSOLE_BTLE)
 	//	bt_log_message(buf);
 	}
@@ -141,45 +138,6 @@ int rw_console_state(int rw, console_state_t *cs)
 	return ret;
 	}
 
-/*
-#if ACTIVE_CONTROLLER == WESTA_CONTROLLER
-int write_tpdata(int rw, char *bufdata)
-	{
-	FILE *f = NULL;
-	time_t now = 0;
-    struct tm timeinfo = { 0 };
-    char strtime[100], file_name[64], fbuf[400];
-    int ret = ESP_FAIL;
-	time(&now);
-	localtime_r(&now, &timeinfo);
-	strftime(strtime, sizeof(strtime), "%Y-%m-%dT%H:%M:%S", &timeinfo);
-	sprintf(file_name, "%s/%d.tph", BASE_PATH, timeinfo.tm_year + 1900);
-	if(rw == PARAM_WRITE)
-		{
-		if(xSemaphoreTake(pthfile_mutex, ( TickType_t ) 50 )) // 2 sec wait
-			{
-			f = fopen(file_name, "a");
-			if(f)
-				{
-				sprintf(fbuf, "%s %s\n", strtime, bufdata);
-				fputs(fbuf, f);
-				fclose(f);
-				ret =  ESP_OK;
-				}
-			else
-				{
-				ESP_LOGI(TAG, "Cannot open %s for writing. errno = %d", file_name, errno);
-				ret = ESP_FAIL;
-				}
-			xSemaphoreGive(pthfile_mutex);
-			}
-		else
-			ret = ESP_FAIL;
-		}
-	return ret;
-	}
-#endif
-*/
 int spiffs_storage_check()
 	{
 	esp_err_t ret;

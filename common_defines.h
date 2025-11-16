@@ -9,6 +9,8 @@
 #define COMMON_COMMON_DEFINES_H_
 
 /** @brief control devices type */
+#include <stdint.h>
+
 #define AGATE_CONTROLLER				(1) //auto gate
 #define PUMP_CONTROLLER					(2) //
 #define OTA_CONTROLLER					(3) // OTA factory app
@@ -20,18 +22,14 @@
 #define FLOOR_HC						(10)
 #define PUMP_CONTROLLER_SA				(11) // pump controller stand alone: no mqtt broker no local wifi
 #define GENERIC_BT_GATTC				(12)
-
-
-//#include "project_specific.h"
+#define WMON_CONTROLLER					(13)
+#define JOYSTICK						(14)
 
 #define USER_TASK_PRIORITY			(5)
 
 #define	MQTT_PROTO 					(1)
-#define	TCPSOCK_PROTO				(2)
-#define BLE_PROTO					(3)
-
-#define BLE_CLIENT					(1)
-#define BLE_SERVER					(2)
+#define	TCP_PROTO					(2)
+#define BLE_PROTO					(4)
 
 #define TCP_QUEUE_SIZE				50
 
@@ -160,6 +158,7 @@ typedef struct
 	int p0offset;
 	int cmax;
 	int current;
+	int acs_offset;
 	int q1000;
 	int tw1000;
 	} pump_mon_val_t;

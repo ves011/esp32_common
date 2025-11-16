@@ -246,7 +246,7 @@ void ota_task(const char *url)
                 return;
             	}
             binary_file_length += data_read;
-            ESP_LOGD(TAG, "Written image length %d", binary_file_length);
+            ESP_LOGI(TAG, "Written image length %d", binary_file_length);
         	}
         else if (data_read == 0)
         	{

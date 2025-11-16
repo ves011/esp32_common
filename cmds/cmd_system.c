@@ -19,6 +19,8 @@
 #include <unistd.h>
 #include <netdb.h>
 #include <sys/dirent.h>
+#include "esp_clk_tree.h"
+#include "esp_clk_tree.h"
 #include "esp_log.h"
 #include "esp_console.h"
 #include "esp_system.h"
@@ -48,6 +50,9 @@
 #include "esp_partition.h"
 #include "esp_ota_ops.h"
 #include "esp_timer.h"
+#include "esp_psram.h"
+#include "soc/clk_tree_defs.h"
+#include "esp_pm.h"
 #include "sdkconfig.h"
 #include "project_specific.h"
 #include "common_defines.h"
@@ -269,6 +274,8 @@ static int get_version(int argc, char **argv)
 	const char *model;
 	esp_chip_info_t info;
 	uint32_t flash_size;
+	uint32_t cpu_clk = 0;
+	esp_pm_config_t pm_config;
 	esp_chip_info(&info);
 
 	switch(info.model)
@@ -313,6 +320,45 @@ static int get_version(int argc, char **argv)
 		   flash_size / (1024 * 1024), " MB",
 		   info.features & CHIP_FEATURE_EMB_PSRAM ? "/PSRAM" : "/no PSRAM");
 	printf("\trevision number:%d\r\n", info.revision);
+	
+	ESP_LOGI(TAG, "This is %s chip with %d CPU core(s), %s%s%s%s, ",
+           CONFIG_IDF_TARGET,
+           info.cores,
+           (info.features & CHIP_FEATURE_WIFI_BGN) ? "WiFi/" : "",
+           (info.features & CHIP_FEATURE_BT) ? "BT" : "",
+           (info.features & CHIP_FEATURE_BLE) ? "BLE" : "",
+           (info.features & CHIP_FEATURE_IEEE802154) ? ", 802.15.4 (Zigbee/Thread)" : "");
+#if CONFIG_SPIRAM == 1    
+    size_t psram_size = esp_psram_get_size();
+	ESP_LOGI(TAG,"PSRAM size: %d", psram_size);
+#endif
+    unsigned major_rev = info.revision / 100;
+    unsigned minor_rev = info.revision % 100;
+    ESP_LOGI(TAG, "silicon revision v%d.%d, ", major_rev, minor_rev);
+    if(esp_flash_get_size(NULL, &flash_size) != ESP_OK) 
+    	{
+        printf("Get flash size failed");
+        return ESP_FAIL;
+    	}
+
+    ESP_LOGI(TAG, "%" PRIu32 "MB %s flash\n", flash_size / (uint32_t)(1024 * 1024),
+           (info.features & CHIP_FEATURE_EMB_FLASH) ? "embedded" : "external");
+
+    ESP_LOGI(TAG, "Minimum free heap size: %" PRIu32 " bytes\n", esp_get_minimum_free_heap_size());
+    
+    esp_clk_tree_src_get_freq_hz((soc_module_clk_t)SOC_MOD_CLK_CPU, ESP_CLK_TREE_SRC_FREQ_PRECISION_CACHED, &cpu_clk);
+    ESP_LOGI(TAG, "CPU freq: %u", (unsigned int)cpu_clk);
+    esp_clk_tree_src_get_freq_hz((soc_module_clk_t)SOC_MOD_CLK_APB, ESP_CLK_TREE_SRC_FREQ_PRECISION_CACHED, &cpu_clk);
+    ESP_LOGI(TAG, "APB freq: %u", (unsigned int)cpu_clk);
+    esp_clk_tree_src_get_freq_hz((soc_module_clk_t)SOC_MOD_CLK_XTAL, ESP_CLK_TREE_SRC_FREQ_PRECISION_CACHED, &cpu_clk);
+    ESP_LOGI(TAG, "XTAL freq: %u", (unsigned int)cpu_clk);
+    ESP_ERROR_CHECK(esp_pm_get_configuration(&pm_config));
+    ESP_LOGI(TAG, "==== pm configuration ============");
+    ESP_LOGI(TAG, "max freq: %d", pm_config.max_freq_mhz);
+    ESP_LOGI(TAG, "min freq: %d", pm_config.min_freq_mhz);
+    ESP_LOGI(TAG, "light_sleep_enable: %d", pm_config.light_sleep_enable);
+    ESP_LOGI(TAG, "==================================");
+    
 	return 0;
 	}
 
@@ -453,7 +499,7 @@ static int ls_files(int argc, char **argv)
 		sprintf(outputm, " %c    %-25s   ", ftype, ent->d_name);
 		if(stat(pfname, &st) == 0)
 			{
-			sprintf(pfname, "%6lu    ", (uint32_t)(st.st_size));
+			sprintf(pfname, "%6u    ", (unsigned int)(st.st_size));
 			strcat(outputm, pfname);
 			strcat(outputm, ctime (&st.st_mtim.tv_sec));
 			}
@@ -666,23 +712,26 @@ static void register_heap(void)
 #if WITH_TASKS_INFO
 
 static int tasks_info(int argc, char **argv)
-{
+	{
+	char buf[64];
     const size_t bytes_per_task = 40; /* see vTaskList description */
     char *task_list_buffer = malloc(uxTaskGetNumberOfTasks() * bytes_per_task);
-    if (task_list_buffer == NULL) {
+    if (task_list_buffer == NULL) 
+    	{
         ESP_LOGE(TAG, "failed to allocate buffer for vTaskList output");
         return 1;
-    }
-    my_fputs("Task Name\tStatus\tPrio\tHWM\tTask#", stdout);
+    	}
+    strcpy(buf, "Task Name\tStatus\tPrio\tHWM\tTask#");
+    //my_fputs("Task Name\tStatus\tPrio\tHWM\tTask#", stdout);
 #ifdef CONFIG_FREERTOS_VTASKLIST_INCLUDE_COREID
-    fputs("\tAffinity", stdout);
+    strcat(buf, "\tAffinity");
 #endif
-    my_fputs("\n", stdout);
+    my_fputs(buf, stdout);
     vTaskList(task_list_buffer);
     my_fputs(task_list_buffer, stdout);
     free(task_list_buffer);
     return 0;
-}
+	}
 
 static void register_tasks(void)
 {
@@ -802,66 +851,72 @@ static struct {
 } light_sleep_args;
 
 static int light_sleep(int argc, char **argv)
-{
+	{
     int nerrors = arg_parse(argc, argv, (void **) &light_sleep_args);
-    if (nerrors != 0) {
+    if (nerrors != 0) 
+    	{
         //arg_print_errors(stderr, light_sleep_args.end, argv[0]);
         my_printf("%s arguments error", argv[0]);
         return 1;
-    }
+    	}
     esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_ALL);
-    if (light_sleep_args.wakeup_time->count) {
+    if (light_sleep_args.wakeup_time->count) 
+    	{
         uint64_t timeout = 1000ULL * light_sleep_args.wakeup_time->ival[0];
         ESP_LOGI(TAG, "Enabling timer wakeup, timeout=%lluus", timeout);
         ESP_ERROR_CHECK( esp_sleep_enable_timer_wakeup(timeout) );
-    }
+    	}
     int io_count = light_sleep_args.wakeup_gpio_num->count;
-    if (io_count != light_sleep_args.wakeup_gpio_level->count) {
+    if (io_count != light_sleep_args.wakeup_gpio_level->count) 
+    	{
         ESP_LOGE(TAG, "Should have same number of 'io' and 'io_level' arguments");
         return 1;
-    }
-    for (int i = 0; i < io_count; ++i) {
+    	}
+    for (int i = 0; i < io_count; ++i) 
+    	{
         int io_num = light_sleep_args.wakeup_gpio_num->ival[i];
         int level = light_sleep_args.wakeup_gpio_level->ival[i];
-        if (level != 0 && level != 1) {
+        if (level != 0 && level != 1) 
+        	{
             ESP_LOGE(TAG, "Invalid wakeup level: %d", level);
             return 1;
-        }
+        	}
         ESP_LOGI(TAG, "Enabling wakeup on GPIO%d, wakeup on %s level",
                  io_num, level ? "HIGH" : "LOW");
 
         ESP_ERROR_CHECK( gpio_wakeup_enable(io_num, level ? GPIO_INTR_HIGH_LEVEL : GPIO_INTR_LOW_LEVEL) );
-    }
-    if (io_count > 0) {
+    	}
+    if (io_count > 0) 
         ESP_ERROR_CHECK( esp_sleep_enable_gpio_wakeup() );
-    }
-    if (CONFIG_ESP_CONSOLE_UART_NUM >= 0 && CONFIG_ESP_CONSOLE_UART_NUM <= UART_NUM_1) {
+    if (CONFIG_ESP_CONSOLE_UART_NUM >= 0 && CONFIG_ESP_CONSOLE_UART_NUM <= UART_NUM_1) 
+    	{
         ESP_LOGI(TAG, "Enabling UART wakeup (press ENTER to exit light sleep)");
         ESP_ERROR_CHECK( uart_set_wakeup_threshold(CONFIG_ESP_CONSOLE_UART_NUM, 3) );
         ESP_ERROR_CHECK( esp_sleep_enable_uart_wakeup(CONFIG_ESP_CONSOLE_UART_NUM) );
-    }
+    	}
     fflush(stdout);
     fsync(fileno(stdout));
     esp_light_sleep_start();
     esp_sleep_wakeup_cause_t cause = esp_sleep_get_wakeup_cause();
     const char *cause_str;
-    switch (cause) {
-    case ESP_SLEEP_WAKEUP_GPIO:
-        cause_str = "GPIO";
-        break;
-    case ESP_SLEEP_WAKEUP_UART:
-        cause_str = "UART";
-        break;
-    case ESP_SLEEP_WAKEUP_TIMER:
-        cause_str = "timer";
-        break;
-    default:
-        cause_str = "unknown";
-        my_printf("%d\n", cause);
-    }
+    switch (cause) 
+    	{
+	    case ESP_SLEEP_WAKEUP_GPIO:
+	        cause_str = "GPIO";
+	        break;
+	    case ESP_SLEEP_WAKEUP_UART:
+	        cause_str = "UART";
+	        break;
+	    case ESP_SLEEP_WAKEUP_TIMER:
+	        cause_str = "timer";
+	        break;
+	    default:
+	        cause_str = "unknown";
+	        my_printf("%d\n", cause);
+	    }
     ESP_LOGI(TAG, "Woke up from: %s", cause_str);
     return 0;
-}
+	}
 
 static void register_light_sleep(void)
 {
@@ -947,8 +1002,10 @@ int set_console(int argc, char **argv)
 		if(console_state != cs)
 			rw_console_state(PARAM_WRITE, &cs);
 		console_state = cs;
+#if (COMM_PROTO & TCP_PROTO) == TCP_PROTO || (COMM_PROTO & MQTT_PROTO) == MQTT_PROTO	
 		if(console_state == CONSOLE_TCP)
 			tcp_log_init();
+#endif		
 		}
 	else
 		my_printf("Console state: %d\n", console_state);

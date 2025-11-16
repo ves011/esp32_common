@@ -9,6 +9,7 @@
 #ifndef CMD_WIFI_H__
 #define CMD_WIFI_H__
 
+#include <stdbool.h>
 #define SCAN_LIST_SIZE 30
 #define JOIN_TIMEOUT_MS (10000)
 
