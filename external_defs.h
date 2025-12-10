@@ -6,7 +6,7 @@
 #include "freertos/queue.h"
 #include "esp_netif.h"
 
-extern char TOPIC_STATE[32], TOPIC_MONITOR[32], TOPIC_CTRL[32], TOPIC_CMD[32], TOPIC_LOG[32];
+extern char TOPIC_STATE[32], TOPIC_MONITOR[32], TOPIC_CTRL[32], TOPIC_CMD[32], TOPIC_LOG[32], TOPIC_KA[32];
 #if ACTIVE_CONTROLLER == WP_CONTROLLER
 	extern char TOPIC_STATE_A[32], TOPIC_MONITOR_A[32];
 	extern QueueHandle_t ui_cmd_q;
