@@ -52,7 +52,7 @@ esp_mqtt_client_handle_t client;
 int client_connected = 0;
 static const char *TAG = "MQTTClient";
 
-char TOPIC_STATE[32], TOPIC_MONITOR[32], TOPIC_CTRL[32], TOPIC_CMD[32], TOPIC_LOG[32];
+char TOPIC_STATE[32], TOPIC_MONITOR[32], TOPIC_CTRL[32], TOPIC_CMD[32], TOPIC_LOG[32], TOPIC_KA[32];
 #if ACTIVE_CONTROLLER == WP_CONTROLLER
 	char TOPIC_STATE_A[32], TOPIC_MONITOR_A[32];
 #endif
@@ -265,6 +265,7 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
 int mqtt_start(void)
 	{
 	esp_err_t ret = ESP_FAIL;
+	sprintf(USER_MQTT, "%s%02d", PD_USER, CTRL_DEV_ID);
 	const esp_mqtt_client_config_t mqtt_cfg = {
 		    .broker.address.uri = CONFIG_BROKER_URL,
 		    .broker.verification.certificate = (const char *)server_cert_pem_start,
@@ -339,6 +340,7 @@ void publish_MQTT_client_log(char *message)
 
 void create_topics()
 	{
+/*		
 	strcpy(USER_MQTT, "ESP3299");
 #if ACTIVE_CONTROLLER == PUMP_CONTROLLER
 	sprintf(USER_MQTT, "pump%02d", CTRL_DEV_ID);
@@ -363,6 +365,7 @@ void create_topics()
 #elif ACTIVE_CONTROLLER == WMON_CONTROLLER
 	sprintf(USER_MQTT, "wmon%02d", CTRL_DEV_ID);
 #endif
+*/
 	ESP_LOGI(TAG, "USER_MQTT: %s", USER_MQTT);
 	strcpy(TOPIC_STATE, USER_MQTT);
 	strcat(TOPIC_STATE, "/state");
@@ -374,6 +377,8 @@ void create_topics()
 	strcat(TOPIC_CTRL, "/ctrl");
 	strcpy(TOPIC_LOG, USER_MQTT);
 	strcat(TOPIC_LOG, "/log");
+	strcpy(TOPIC_KA, USER_MQTT);
+	strcat(TOPIC_KA, "/ka");
 #if ACTIVE_CONTROLLER == WP_CONTROLLER
 	strcpy(TOPIC_STATE_A, TOPIC_STATE);
 	strcat(TOPIC_STATE_A, "/w");
