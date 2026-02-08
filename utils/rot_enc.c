@@ -4,32 +4,33 @@
  *  Created on: Mar 3, 2024
  *      Author: viorel_serbu
  */
+#include "esp_timer.h"
 #include "project_specific.h"
 #ifdef ROT_ENCODER
 #include <stdio.h>
 #include <string.h>
-#include "esp_console.h"
 #include "driver/gpio.h"
 #include "hal/gpio_types.h"
 #include "freertos/FreeRTOS.h"
-#include "freertos/queue.h"
-#include "esp_attr.h"
+//#include "freertos/queue.h"
+//#include "esp_attr.h"
 #include "esp_log.h"
 #include "common_defines.h"
 #include "driver/gptimer.h"
-#include "esp_netif.h"
-#include "esp_spiffs.h"
-#include "mqtt_client.h"
+//#include "esp_netif.h"
 #include "external_defs.h"
-#include "gpios.h"
-#include "lvgl.h"
-#include "lcd.h"
 #include "rot_enc.h"
 
 static const char *TAG = "ROT_ENC";
 static QueueHandle_t cmd_q;
 static gptimer_handle_t key_timer;
 static int key_state, key_timer_state, press_time;
+static int key_count;
+static uint64_t last_key_event_time;
+
+static QueueHandle_t ui_cmd_queue;
+
+//#define DEBUG_ON
 
 void IRAM_ATTR rot_enc_isr_handler(void* arg)
 	{
@@ -38,7 +39,10 @@ void IRAM_ATTR rot_enc_isr_handler(void* arg)
 	if(gpio_num == ROT_ENC_S1)
 		msg.source = SOURCE_ROT;
 	else if(gpio_num == ROT_ENC_KEY)
+		{
 		msg.source = SOURCE_KEY;
+		msg.vts.ts = esp_timer_get_time();
+		}
 	xQueueSendFromISR(cmd_q, &msg, 0);
 	}
 
@@ -104,34 +108,40 @@ static void init_gpios()
 
 static void rot_enc_cmd(void* arg)
 	{
-	msg_t msg;
-    uint32_t s1, s2, key;
+	msg_t msgr, msgs;
+    int s1, s2, key;
+    key_count = 0;
+    last_key_event_time = 0;
     while(1)
     	{
-        if(xQueueReceive(cmd_q, &msg, portMAX_DELAY))
+        if(xQueueReceive(cmd_q, &msgr, portMAX_DELAY))
         	{
         	s1 = gpio_get_level(ROT_ENC_S1);
         	s2 = gpio_get_level(ROT_ENC_S2);
         	key = gpio_get_level(ROT_ENC_KEY);
-        	if(msg.source == SOURCE_ROT) // knob rotation
+        	if(msgr.source == SOURCE_ROT) // knob rotation
         		{
         		if(s1 == 1 && s2 == 0)
         			{
-        			//ESP_LOGI(TAG, "knob rotate left");
-        			msg.source = K_ROT;
-        			msg.val = K_ROT_LEFT;
-        			xQueueSend(ui_cmd_q, &msg, 0);
+					#ifdef DEBUG_ON
+        				ESP_LOGI(TAG, "knob rotate left");
+        			#endif
+        			msgs.source = K_ROT;
+        			msgs.val = K_ROT_RIGHT;
+        			xQueueSend(ui_cmd_queue, &msgs, 0);
         			}
         		else if(s1 == 1 && s2 == 1)
         			{
-        			//ESP_LOGI(TAG, "knob rotate right");
-        			msg.source = K_ROT;
-        			msg.val = K_ROT_RIGHT;
+					#ifdef DEBUG_ON
+        				ESP_LOGI(TAG, "knob rotate right");
+        			#endif
+        			msgs.source = K_ROT;
+        			msgs.val = K_ROT_LEFT;
         			//ui_cmd_task();
-        			xQueueSend(ui_cmd_q, &msg, 0);
+        			xQueueSend(ui_cmd_queue, &msgs, 0);
         			}
         		}
-        	else if(msg.source == SOURCE_KEY) // key pressed or released
+        	else if(msgr.source == SOURCE_KEY) // key pressed or released
         		{
         		if(!key)
         			{
@@ -142,10 +152,12 @@ static void rot_enc_cmd(void* arg)
         					gptimer_stop(key_timer);
         					key_timer_state = 0;
         					}
-        				//ESP_LOGI(TAG, "key released");
+        				#ifdef DEBUG_ON
+        					ESP_LOGI(TAG, "key released");
+        				#endif
         				key_state = key;
-        				msg.source = K_UP;
-        				xQueueSend(ui_cmd_q, &msg, 0);
+        				msgs.source = K_UP;
+        				xQueueSend(ui_cmd_queue, &msgs, 0);
         				}
         			}
         		else
@@ -163,14 +175,32 @@ static void rot_enc_cmd(void* arg)
         				gptimer_start(key_timer);
         				press_time = PUSH_TIME_SHORT;
         				key_timer_state = 1;
-        				//ESP_LOGI(TAG, "key pressed");
+        				#ifdef DEBUG_ON
+        					ESP_LOGI(TAG, "key pressed %llu / %d", msgr.vts.ts - last_key_event_time, key_count);
+        				#endif
+
+						if(msgr.vts.ts - last_key_event_time < PUSH_KEY_REPEAT)
+							{
+							key_count++;
+							/*
+							if(key_count > 1)
+								{
+								msgs.source = K_REPEAT;
+								msgs.val = key_count;
+	        					xQueueSend(ui_cmd_queue, &msgs, 0);
+	        					}*/
+							}
+						else
+							key_count = 0;
+						last_key_event_time = msgr.vts.ts;
         				key_state = key;
-        				msg.source = K_DOWN;
-        				xQueueSend(ui_cmd_q, &msg, 0);
+        				msgs.source = K_DOWN;
+        				msgs.ifvals.ival[0] = key_count;
+        				xQueueSend(ui_cmd_queue, &msgs, 0);
         				}
         			}
         		}
-        	else if(msg.source == SOURCE_TIMER) //key timer expired
+        	else if(msgr.source == SOURCE_TIMER) //key timer expired
         		{
         		if(key_timer_state)
         			{
@@ -179,7 +209,13 @@ static void rot_enc_cmd(void* arg)
         			if(press_time == PUSH_TIME_SHORT)
         				{
         				//short press
-        				//ESP_LOGI(TAG, "short timer expired - key command");
+        				#ifdef DEBUG_ON
+        					ESP_LOGI(TAG, "short timer expired - key command");
+        				#endif
+        				msgs.source = K_PRESS;
+        				msgs.val = PUSH_TIME_SHORT;
+        				xQueueSend(ui_cmd_queue, &msgs, 0);
+        				
         				//reconfigure timer to count for long press
         				gptimer_alarm_config_t al_config = 	{
 										.reload_count = 0,
@@ -190,26 +226,48 @@ static void rot_enc_cmd(void* arg)
         				gptimer_set_raw_count(key_timer, 0);
         				gptimer_start(key_timer);
         				key_timer_state = 1;
-        				msg.source = K_PRESS;
         				press_time = PUSH_TIME_LONG;
-        				msg.val = PUSH_TIME_SHORT;
-        				xQueueSend(ui_cmd_q, &msg, 0);
         				}
         			else if(press_time == PUSH_TIME_LONG)
         				{
         				//long press
-        				//ESP_LOGI(TAG, "long timer expired - key command");
+        				#ifdef DEBUG_ON
+        					ESP_LOGI(TAG, "long timer expired - key command");
+        				#endif
         				//reconfigure timer to count for short press
-        				msg.source = K_PRESS;
-        				msg.val = PUSH_TIME_LONG;
-        				xQueueSend(ui_cmd_q, &msg, 0);
+        				msgs.source = K_PRESS;
+        				msgs.val = PUSH_TIME_LONG;
+        				xQueueSend(ui_cmd_queue, &msgs, 0);
+        				
+        				//reconfigure timer to count for longlong press
+        				gptimer_alarm_config_t al_config = 	{
+										.reload_count = 0,
+										.alarm_count = PUSH_TIME_LONGLONG,
+										.flags.auto_reload_on_alarm = true,
+										};
+        				ESP_ERROR_CHECK(gptimer_set_alarm_action(key_timer, &al_config));
+        				gptimer_set_raw_count(key_timer, 0);
+        				gptimer_start(key_timer);
+        				key_timer_state = 1;
+        				press_time = PUSH_TIME_LONGLONG;
+        				}
+        			else if(press_time == PUSH_TIME_LONGLONG)
+        				{
+        				//long press
+        				#ifdef DEBUG_ON
+        					ESP_LOGI(TAG, "longlong timer expired - key command");
+        				#endif
+        				//reconfigure timer to count for short press
+        				msgs.source = K_PRESS;
+        				msgs.val = PUSH_TIME_LONGLONG;
+        				xQueueSend(ui_cmd_queue, &msgs, 0);
         				}
         			}
         		}
         	}
     	}
 	}
-void init_rotenc()
+void init_rotenc(QueueHandle_t ui_cmd_q)
 	{
 	TaskHandle_t rot_enc_cmd_handle;
 	key_state = 0;
@@ -220,10 +278,11 @@ void init_rotenc()
 		ESP_LOGE(TAG, "Unable to create rotary encoder cmd queue");
 		esp_restart();
 		}
+	ui_cmd_queue = ui_cmd_q;
 	init_gpios();
 	config_key_timer();
 	key_timer_state = 0;
-	xTaskCreatePinnedToCore(rot_enc_cmd, "rot_enc_cmd", 4096, NULL, 5, &rot_enc_cmd_handle, 1);
+	xTaskCreate(rot_enc_cmd, "rot_enc_cmd", 4096, NULL, 5, &rot_enc_cmd_handle);
 	if(!rot_enc_cmd_handle)
 		{
 		ESP_LOGE(TAG, "Unable to start rotary encoder cmd task");

@@ -13,7 +13,7 @@
 extern "C" {
 #endif
 
-#define MAX_TEMP_DEVICES		(8)
+#define MAX_TEMP_DEVICES		(20)
 
 typedef struct ds18b20_device_t {
     onewire_bus_handle_t bus;
@@ -91,6 +91,8 @@ esp_err_t ds18b20_set_resolution(int nDS, ds18b20_resolution_t resolution);
 //esp_err_t ds18b20_trigger_temperature_conversion(ds18b20_device_handle_t ds18b20);
 esp_err_t ds18b20_trigger_temperature_conversion(int nDS);
 
+esp_err_t ds18b20_trigger_all_temp_conv();
+
 /**
  * @brief Get temperature from DS18B20
  *
@@ -105,7 +107,7 @@ esp_err_t ds18b20_trigger_temperature_conversion(int nDS);
 //esp_err_t ds18b20_get_temperature(ds18b20_device_handle_t ds18b20, float *temperature);
 esp_err_t ds18b20_get_temperature(int nDS, float *ret_temperature);
 
-esp_err_t ds18b20_init();
+esp_err_t ds18b20_init(ds18b20_resolution_t res);
 
 uint64_t get_addr(int nDS);
 

@@ -7,6 +7,7 @@
    CONDITIONS OF ANY KIND, either express or implied.
 */
 
+#include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
 #include "esp_log.h"
@@ -47,18 +48,25 @@ const int DISCONNECTED_BIT = BIT1;
 esp_netif_ip_info_t dev_ipinfo;
 
 #if WIFI_AP_ON == 1
-	static bool ap_init = false;
-esp_netif_t *esp_netif_ap;
-static char ap_pass[32];
-static char ap_ssid[32];
-static uint8_t ap_a, ap_b, ap_c, ap_d;
+	//static bool ap_init = false;
+	static ap_conf_t ap_conf;
+	//esp_netif_t *esp_netif_ap;
+	//static char ap_pass[32];
+	//static char ap_ssid[32];
+	//static uint8_t ap_a, ap_b, ap_c, ap_d;
+	#define AP_A	192
+	#define AP_B	168
+	#define AP_C	10
+	#define AP_D	1
 #endif
-//#if WIFI_STA_ON
-esp_netif_t *esp_netif_sta;
-static bool sta_init = false;
-static char sta_pass[32];
-static char sta_ssid[32];
-//#endif
+#if WIFI_STA_ON
+	//esp_netif_t *esp_netif_sta;
+	static sta_conf_t sta_conf = {0};
+
+	//static bool sta_init = false;
+	//static char sta_pass[32];
+	//static char sta_ssid[32];
+#endif
 
 #define WIFITAG "wifi op"
 static char *command = "wifi";
@@ -72,11 +80,11 @@ static struct
 	} wifi_args;
 
 static void get_wifi_conf();
-
+/*
 #if WIFI_AP_ON	
 	static int get_ap_conf();
 #endif
-
+*/
 static void print_auth_mode(int authmode, char *logbuf)
 	{
     switch (authmode) {
@@ -185,8 +193,8 @@ static void event_handler(void* arg, esp_event_base_t event_base,
 			}
         if(!restart_in_progress)
     		{
-			//ESP_ERROR_CHECK(esp_wifi_disconnect());
-			//ESP_ERROR_CHECK(esp_wifi_connect());
+			ESP_ERROR_CHECK(esp_wifi_disconnect());
+			ESP_ERROR_CHECK(esp_wifi_connect());
 			}
 		xEventGroupClearBits(wifi_event_group, CONNECTED_BIT);
     	}
@@ -229,24 +237,26 @@ static void event_handler(void* arg, esp_event_base_t event_base,
 #if WIFI_STA_ON
 static void wifi_init_sta(void)
 	{
-    if (sta_init) 
+    if (sta_conf.init) 
         return;
 
-    esp_netif_sta = esp_netif_create_default_wifi_sta();
-    assert(esp_netif_sta);
-
+	//esp_netif_t *esp_netif_sta;
+    //esp_netif_sta = esp_netif_create_default_wifi_sta();
+    //assert(esp_netif_sta);
+	assert(esp_netif_create_default_wifi_sta());
     wifi_config_t wifi_config = { 0 };
     wifi_config.sta.scan_method = WIFI_ALL_CHANNEL_SCAN;
     wifi_config.sta.sort_method = WIFI_CONNECT_AP_BY_SIGNAL;
     wifi_config.sta.failure_retry_cnt = 3;
     ESP_ERROR_CHECK( esp_wifi_set_config(WIFI_IF_STA, &wifi_config) );
-    sta_init = true;
+    sta_conf.init = true;
 	}
 #endif
 #if WIFI_AP_ON
 static void wifi_init_ap(void)
 	{
-    if (ap_init) 
+	esp_netif_t *esp_netif_ap;
+    if (ap_conf.init) 
         return;
 
     esp_netif_ap = esp_netif_create_default_wifi_ap();
@@ -256,7 +266,7 @@ static void wifi_init_ap(void)
 		.ap =
 			{
 	    	//.ssid = ap_ssid,
-	    	.ssid_len = strlen(ap_ssid),
+	    	.ssid_len = strlen(ap_conf.ssid),
 	    	.channel = 6,
 	    	//.password = ap_pass,
 	    	.max_connection = 4,
@@ -264,17 +274,17 @@ static void wifi_init_ap(void)
 	    	.pmf_cfg = {.required = false,},
 	    	}
 	    };
-	strcpy((char *)(wifi_config.ap.ssid), ap_ssid);
-	strcpy((char *)(wifi_config.ap.password), ap_pass);
+	strcpy((char *)(wifi_config.ap.ssid), ap_conf.ssid);
+	strcpy((char *)(wifi_config.ap.password), ap_conf.pass);
 	ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &wifi_config));
 	esp_netif_ip_info_t ip_info;
-	IP4_ADDR(&ip_info.ip, ap_a, ap_b, ap_c, ap_d);
-	IP4_ADDR(&ip_info.gw, ap_a, ap_b, ap_c, ap_d); 
+	IP4_ADDR(&ip_info.ip, ap_conf.ap_a, ap_conf.ap_b, ap_conf.ap_c, ap_conf.ap_d);
+	IP4_ADDR(&ip_info.gw, ap_conf.ap_a, ap_conf.ap_b, ap_conf.ap_c, ap_conf.ap_d); 
 	IP4_ADDR(&ip_info.netmask, 255, 255, 255, 0);
 	ESP_ERROR_CHECK(esp_netif_dhcps_stop(esp_netif_ap));
 	ESP_ERROR_CHECK(esp_netif_set_ip_info(esp_netif_ap, &ip_info));
 	ESP_ERROR_CHECK(esp_netif_dhcps_start(esp_netif_ap));
-    ap_init = true;
+    ap_conf.init = true;
 	}
 #endif
 	
@@ -322,6 +332,7 @@ void initialise_wifi(void)
 		ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
 		wifi_init_sta();
 		ESP_ERROR_CHECK(esp_wifi_start());
+		esp_wifi_set_max_tx_power(40);
 		//wifi_join(sta_ssid, sta_pass, JOIN_TIMEOUT_MS);
 	#elif WIFI_AP_ON
 		ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_AP));
@@ -365,25 +376,37 @@ void initialise_wifi(void)
 	initialized = true;
 	//wifi_join(sta_ssid, sta_pass, JOIN_TIMEOUT_MS);
 	}
-
+/*
 bool wifi_reconnect()
 	{
-	return wifi_join(sta_ssid, sta_pass, JOIN_TIMEOUT_MS);
+	return wifi_join(sta_conf.ssid, sta_conf.pass, JOIN_TIMEOUT_MS);
 	}
+*/
 bool wifi_join(const char *ssid, const char *pass, int timeout_ms)
 	{
+	char s[40], p[40];
+	p[0] = 0;
 	if(!isConnected(ssid))
 	    wifi_disconnect();
-	strcpy(sta_ssid, ssid);
-	strcpy(sta_pass, pass);
+	//strcpy(sta_conf.ssid, ssid);
+	//strcpy(sta_conf.pass, pass);
     initialise_wifi();
+    if(ssid)
+		strcpy(s, ssid);
+	else
+		strcpy(s, sta_conf.ssid);
+	if(pass)
+		strcpy(p, pass);
+	else
+		strcpy(p, sta_conf.pass);
 #if WIFI_STA_ON
 	int bits = 0, ret;
     wifi_config_t wifi_config = { 0 };
+    ESP_LOGI(WIFITAG, "wifi_join(): STA SSID: \"%s\" STA PASS: \"%s\"", s, p);
     ESP_ERROR_CHECK( esp_wifi_get_config(WIFI_IF_STA, &wifi_config) );
-    strlcpy((char *) wifi_config.sta.ssid, ssid, sizeof(wifi_config.sta.ssid));
-    if (pass)
-        strlcpy((char *) wifi_config.sta.password, pass, sizeof(wifi_config.sta.password));
+    strlcpy((char *) wifi_config.sta.ssid, s, sizeof(wifi_config.sta.ssid));
+    if (strlen(p))
+        strlcpy((char *) wifi_config.sta.password, p, sizeof(wifi_config.sta.password));
     ESP_ERROR_CHECK( esp_wifi_set_config(WIFI_IF_STA, &wifi_config) );
 
     //while((bits & CONNECTED_BIT) != CONNECTED_BIT)
@@ -425,6 +448,7 @@ bool isConnected(const char *ssid)
 	ESP_LOGI(WIFITAG, "isConnected() err %d", err);
 	return true;
 	}
+
 static int wifi_connect(const char *ssid, const char *pwd, int timeout)
 	{
 	esp_err_t err;
@@ -646,10 +670,10 @@ static void get_wifi_conf()
 	{
 	FILE *f = NULL;
 	char buf[64];
-	char ap_ss[32], ap_p[32], sta_ss[32], sta_p[32];
+	char ap_ss[32], ap_p[32], ap_h[32], sta_ss[32], sta_p[32], sta_h[32];
 	uint8_t a, b, c, d;
 	a = b = c = d = 0;
-	ap_ss[0] = ap_p[0] = sta_ss[0] = sta_p[0] = 0;
+	ap_ss[0] = ap_p[0] = sta_ss[0] = sta_p[0] = ap_h[0] = sta_h[0] = 0;
 	
 	f = fopen(BASE_PATH"/"WIFICONF_FILE, "r");
 	if(f)
@@ -664,43 +688,53 @@ static void get_wifi_conf()
 				sscanf(buf + strlen("APSSID: "), "%s", ap_ss);
 			else if(strstr(buf, "APPASS: "))
 				sscanf(buf + strlen("APPASS: "), "%s", ap_p);
+			else if(strstr(buf, "APHOST: "))
+				sscanf(buf + strlen("APHOST: "), "%s", ap_h);
 			else if(strstr(buf, "STASSID: "))
 				sscanf(buf + strlen("STASSID: "), "%s", sta_ss);
 			else if(strstr(buf, "STAPASS: "))
 				sscanf(buf + strlen("STAPASS: "), "%s", sta_p);
+			else if(strstr(buf, "STAHOST: "))
+				sscanf(buf + strlen("STAHOST: "), "%s", sta_h);
 			}
 		fclose(f);
 		}
 	else
 		ESP_LOGI(WIFITAG, "cannot open %s", WIFICONF_FILE);
 #if WIFI_AP_ON == 1
-	if(a != 0){	ap_a = a; ap_b = b; ap_c = c; ap_d = d; }
-	else {ap_a = AP_A; ap_b = AP_B; ap_c = AP_C; ap_d = AP_D;}
+	if(a != 0){	ap_conf.ap_a = a; ap_conf.ap_b = b; ap_conf.ap_c = c; ap_conf.ap_d = d; }
+	else {ap_conf.ap_a = AP_A; ap_conf.ap_b = AP_B; ap_conf.ap_c = AP_C; ap_conf.ap_d = AP_D;}
 	if(strlen(ap_ss))
-		strcpy(ap_ssid, ap_ss);
+		strcpy(ap_conf.ssid, ap_ss);
 	else
-		strcpy(ap_ssid, AP_SSID);
+		strcpy(ap_conf.ssid, AP_SSID);
 		
 	if(strlen(ap_p))
-		strcpy(ap_pass, ap_p);
+		strcpy(ap_conf.pass, ap_p);
 	else
-		strcpy(ap_pass, AP_PASS);
-	ESP_LOGI(WIFITAG, "AP NW: %hhu.%hhu.%hhu.%hhu AP SSID: %s AP PASS: %s", ap_a, ap_b, ap_c, ap_d, ap_ssid, ap_pass);
+		strcpy(ap_conf.pass, AP_PASS);
+	
+	if(strlen(ap_h))
+		strcpy(ap_conf.hostname, ap_h);
+	else
+		strcpy(ap_conf.hostname, AP_HOSTNAME);
+	
+	ESP_LOGI(WIFITAG, "AP NW: %hhu.%hhu.%hhu.%hhu AP SSID: %s AP PASS: %s", ap_conf.ap_a, ap_conf.ap_b, ap_conf.ap_c, ap_conf.ap_d, ap_conf.ssid, ap_conf.pass);
 #endif
 
 	if(strlen(sta_ss)) 
-		strcpy(sta_ssid, sta_ss);
+		strcpy(sta_conf.ssid, sta_ss);
 	else
-		strcpy(sta_ssid, DEFAULT_SSID);
+		strcpy(sta_conf.ssid, DEFAULT_SSID);
 		
 	if(strlen(sta_p))
-		strcpy(sta_pass, sta_p);
+		strcpy(sta_conf.pass, sta_p);
 	else
-		strcpy(sta_pass, DEFAULT_PASS);
+		strcpy(sta_conf.pass, DEFAULT_PASS);
 	
-	ESP_LOGI(WIFITAG, "STA SSID: %s STA PASS: %s", sta_ssid, sta_pass);
+	ESP_LOGI(WIFITAG, "STA SSID: \"%s\" STA PASS: \"%s\"", sta_conf.ssid, sta_conf.pass);
 	}
-
+/*
 #if WIFI_AP_ON
 static int get_ap_conf()
 	{
@@ -740,9 +774,40 @@ static int get_ap_conf()
 	return ret;
 	}
 #endif
-
-void get_sta_conf(char *ssid, char *pass)
+*/
+bool get_sta_conf(char *ssid, esp_netif_ip_info_t *ipinfo)
 	{
-	strcpy(ssid, sta_ssid);
-	strcpy(pass, sta_pass);
+	wifi_mode_t mode;
+	wifi_ap_record_t ap_info;
+	esp_netif_t *netif = NULL;
+	int err;
+	bool ret = false;
+	err = esp_wifi_get_mode(&mode);
+	if(err == ESP_ERR_WIFI_NOT_INIT)
+		{
+		if(ssid)
+			ssid[0] = 0;
+		if(ipinfo)
+			ipinfo->ip.addr = 0;
+		}
+	err = esp_wifi_sta_get_ap_info(&ap_info);
+	if(err == ESP_OK)
+		{
+		if(ssid)
+			strcpy(ssid, (char *)(ap_info.ssid));
+		do
+			{
+			netif = esp_netif_next_unsafe(netif);
+			if(!netif)
+				break;
+			err = esp_netif_get_ip_info(netif, ipinfo);
+			if(err == ESP_OK)
+				{
+				//sprintf(ip, IPSTR, IP2STR(&ip_info.ip));
+				ret = true;
+				break;
+				}
+			} while (netif);
+		}
+	return ret;
 	}

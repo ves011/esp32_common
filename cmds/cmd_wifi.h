@@ -15,13 +15,32 @@
 
 #define WIFICONF_FILE "wificonf.txt"
 
+//extern esp_netif_ip_info_t dev_ipinfo;
+
 #if WIFI_AP_ON
 	#define APCONF_FILE "apconf.txt"
-	extern esp_netif_t *esp_netif_ap;
+	//extern esp_netif_t *esp_netif_ap;
 #endif
 #if WIFI_STA_ON
-	extern esp_netif_t *esp_netif_sta;
+//	extern esp_netif_t *esp_netif_sta;
 #endif
+
+typedef struct
+	{
+	bool init;
+	char pass[64];
+	char ssid[64];
+	char hostname[32];
+	uint8_t ap_a, ap_b, ap_c, ap_d;
+	} ap_conf_t;
+	
+typedef struct
+	{
+	bool init;
+	char pass[64];
+	char ssid[64];
+	char hostname[32];
+	}sta_conf_t;
 
 // Register WiFi functions
 void register_wifi(void);
@@ -32,6 +51,7 @@ bool wifi_join(const char *ssid, const char *pass, int timeout_ms);
 void do_wifi_cmd(int argc, char **argv);
 int do_wifi(int argc, char **argv);
 void initialise_wifi(void);
-void get_sta_conf(char *ssid, char *pass);
+bool get_sta_conf(char *ssid, esp_netif_ip_info_t *ipinfo);
+
 
 #endif

@@ -4,16 +4,18 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 #include <string.h>
+#include "ds18b20_types.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_check.h"
 
-#include "gpios.h"
 #include "project_specific.h" 
 #include "onewire_bus.h"
 #include "onewire_cmd.h"
 #include "onewire_crc.h"
 #include "ds18b20.h"
+
+//#include "../gpios.h"
 
 
 static const char *TAG = "ds18b20";
@@ -21,6 +23,7 @@ static const char *TAG = "ds18b20";
 #define DS18B20_CMD_CONVERT_TEMP      0x44
 #define DS18B20_CMD_WRITE_SCRATCHPAD  0x4E
 #define DS18B20_CMD_READ_SCRATCHPAD   0xBE
+#define DS18B20_CMD_SKIP_ROM   		  0xCC
 
 /**
  * @brief Structure of DS18B20's scratchpad
@@ -47,7 +50,7 @@ uint64_t get_addr(int nDS)
 		return ds18b20s[nDS]->addr;
 	}
 
-esp_err_t ds18b20_init()
+esp_err_t ds18b20_init(ds18b20_resolution_t res)
 	{
 	num_temp_devices = 0;
 	onewire_bus_handle_t bus;
@@ -72,7 +75,7 @@ esp_err_t ds18b20_init()
             if (ds18b20_new_device(&next_onewire_device, &ds_cfg, &ds18b20s[num_temp_devices]) == ESP_OK)
             	{
 				ESP_LOGI(TAG, "Found a DS18B20[%d], address: %016llX", num_temp_devices, next_onewire_device.address);
-				ESP_ERROR_CHECK(ds18b20_set_resolution(num_temp_devices, DS18B20_RESOLUTION_12B)); 
+				ESP_ERROR_CHECK(ds18b20_set_resolution(num_temp_devices, res)); 
 				num_temp_devices++;
 				if (num_temp_devices >= MAX_TEMP_DEVICES)
 					{
@@ -129,6 +132,18 @@ static esp_err_t ds18b20_send_command(ds18b20_device_handle_t ds18b20, uint8_t c
     return onewire_bus_write_bytes(ds18b20->bus, tx_buffer, sizeof(tx_buffer));
 }
 
+static esp_err_t ds18b20_send_command_norom(ds18b20_device_handle_t ds18b20, uint8_t cmd)
+	{
+    // send command
+    uint8_t tx_buffer[2] = {0};
+    tx_buffer[0] = ONEWIRE_CMD_SKIP_ROM;
+    tx_buffer[1] = cmd;
+    //memcpy(&tx_buffer[1], &ds18b20->addr, sizeof(ds18b20->addr));
+    //tx_buffer[sizeof(ds18b20->addr) + 1] = cmd;
+
+    return onewire_bus_write_bytes(ds18b20->bus, tx_buffer, sizeof(tx_buffer));
+	}
+
 //esp_err_t ds18b20_set_resolution(ds18b20_device_handle_t ds18b20, ds18b20_resolution_t resolution)
 esp_err_t ds18b20_set_resolution(int nDS, ds18b20_resolution_t resolution)
 {
@@ -168,6 +183,23 @@ esp_err_t ds18b20_trigger_temperature_conversion(int nDS)
     return ESP_OK;
 }
 
+//esp_err_t ds18b20_trigger_temperature_conversion(ds18b20_device_handle_t ds18b20)
+esp_err_t ds18b20_trigger_all_temp_conv()
+	{
+	ESP_RETURN_ON_FALSE(ds18b20s[0]->bus, ESP_ERR_INVALID_ARG, TAG, "No DS18B20 devices on bus");
+    // reset bus and check if the ds18b20 is present
+    ESP_RETURN_ON_ERROR(onewire_bus_reset(ds18b20s[0]->bus), TAG, "reset bus error");
+
+    // send command: DS18B20_CMD_CONVERT_TEMP
+    ESP_RETURN_ON_ERROR(ds18b20_send_command_norom(ds18b20s[0], DS18B20_CMD_CONVERT_TEMP), TAG, "send DS18B20_CMD_SKIP_ROM failed");
+
+    // delay proper time for temperature conversion
+    const uint32_t delays_ms[] = {100, 200, 400, 800};
+    vTaskDelay(pdMS_TO_TICKS(delays_ms[ds18b20s[0]->resolution]));
+    return ESP_OK;
+	}
+
+
 //esp_err_t ds18b20_get_temperature(ds18b20_device_handle_t ds18b20, float *ret_temperature)
 esp_err_t ds18b20_get_temperature(int nDS, float *ret_temperature)
 {
@@ -188,6 +220,6 @@ esp_err_t ds18b20_get_temperature(int nDS, float *ret_temperature)
     const uint8_t lsb_mask[4] = {0x07, 0x03, 0x01, 0x00}; // mask bits not used in low resolution
     uint8_t lsb_masked = scratchpad.temp_lsb & (~lsb_mask[scratchpad.configuration >> 5]);
     *ret_temperature = (((int16_t)scratchpad.temp_msb << 8) | lsb_masked)  / 16.0f;
-
+	//ESP_LOGI("T raw", "%04x", (int16_t)((scratchpad.temp_msb << 8) | lsb_masked));
     return ESP_OK;
 }

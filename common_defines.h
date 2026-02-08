@@ -24,6 +24,8 @@
 #define GENERIC_BT_GATTC				(12)
 #define WMON_CONTROLLER					(13)
 #define JOYSTICK						(14)
+#define THERMOSTAT						(15)
+#define DS18B20_ALIGNEMNT				(16)
 
 #define USER_TASK_PRIORITY			(5)
 
@@ -80,7 +82,9 @@ typedef enum
 #define K_PRESS				(0x21)
 #define K_DOWN				(0x22)
 #define K_UP				(0x23)
+#define K_REPEAT			(0x24)
 #define INACT_TIME			(0x40)
+#define CLOCK_TICK_1M		(0x41)
 #define PUMP_VAL_CHANGE		(0x80)
 #define PUMP_OP_ERROR		(0x81)
 

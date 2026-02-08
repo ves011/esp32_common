@@ -19,4 +19,5 @@ void subscribe(char *topic);
 void publish_reqID();
 void publish_topic(char * topic, char * msg, int qos, int retain);
 void publish_MQTT_client_log(char *message);
+int get_MQTT_connection_state(char *id);
 #endif /* TCP_MQTT_CTRL_H_ */

@@ -19,8 +19,9 @@
 #include "sys/stat.h"
 #include "math.h"
 #include "project_specific.h"
-#include "gpios.h"	
 #include "i2ccomm.h"
+
+//#include "../gpios.h"
 
 #ifdef USE_I2C
 static char *TAG = "I2C_op";

@@ -21,6 +21,7 @@
 #include "cmd_system.h"
 #include "cmd_wifi.h"
 #include "mqtt_ctrl.h"
+
 #if ACTIVE_CONTROLLER == WMON_CONTROLLER
 	//#include "adc_op.h"
 	#include "wmon.h"
@@ -45,14 +46,23 @@
 #endif
 #if ACTIVE_CONTROLLER == FLOOR_HC
 	#include "temps.h"
+	#include "actuator.h"
+#endif
+#if ACTIVE_CONTROLLER == THERMOSTAT
+	#include "temps.h"
+	#include "config.h"
+#endif
+#if ACTIVE_CONTROLLER == DS18B20_ALIGNEMNT
+	#include "temps.h"
 #endif
 
 #define CONFIG_BROKER_URL "mqtts://proxy.gnet:1886"
 esp_mqtt_client_handle_t client;
 int client_connected = 0;
 static const char *TAG = "MQTTClient";
+static esp_netif_ip_info_t dev_ipinfo;
 
-char TOPIC_STATE[32], TOPIC_MONITOR[32], TOPIC_CTRL[32], TOPIC_CMD[32], TOPIC_LOG[32], TOPIC_KA[32];
+char TOPIC_STATE[32], TOPIC_ERROR[32], TOPIC_MONITOR[32], TOPIC_CTRL[32], TOPIC_CMD[32], TOPIC_LOG[32], TOPIC_KA[32];
 #if ACTIVE_CONTROLLER == WP_CONTROLLER
 	char TOPIC_STATE_A[32], TOPIC_MONITOR_A[32];
 #endif
@@ -91,12 +101,12 @@ void subscribe(char *topic)
 
 static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_t event_id, void *event_data)
 	{
-    //ESP_LOGI(TAG, "Event dispatched from event loop base=%s, event_id=%d", base, event_id);
-    esp_mqtt_event_handle_t event = event_data;
-    //esp_mqtt_client_handle_t client = event->client;
     char topic[80], msg[150];
     char **argv;
     int i, argc, ac, q;
+    esp_mqtt_event_handle_t event = event_data;
+    
+    //ESP_LOGI(TAG, "Event dispatched from event loop base=%s, event_id=%d", base, event_id);
 
     switch ((esp_mqtt_event_id_t)event_id)
     	{
@@ -115,6 +125,7 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
 
 			publish_MQTT_client_status();
 			client_connected = 1;
+			get_sta_conf(NULL, &dev_ipinfo);
 			break;
 		case MQTT_EVENT_DISCONNECTED:
 			client_connected = 0;
@@ -221,6 +232,14 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
 					do_ptst(argc, argv);
 					do_hmc(argc, argv);
 #elif ACTIVE_CONTROLLER == FLOOR_HC
+					do_temp(argc, argv);
+					do_act(argc, argv);
+#elif ACTIVE_CONTROLLER == THERMOSTAT
+					if(!strcmp(argv[0], "tconf"))
+						do_conf(argc, argv);
+					else
+						do_temp(argc, argv);					
+#elif ACTIVE_CONTROLLER == DS18B20_ALIGNEMNT
 					do_temp(argc, argv);
 #elif ACTIVE_CONTROLLER == WMON_CONTROLLER
 					do_wmon(argc, argv);
@@ -369,6 +388,8 @@ void create_topics()
 	ESP_LOGI(TAG, "USER_MQTT: %s", USER_MQTT);
 	strcpy(TOPIC_STATE, USER_MQTT);
 	strcat(TOPIC_STATE, "/state");
+	strcpy(TOPIC_ERROR, USER_MQTT);
+	strcat(TOPIC_ERROR, "/error");
 	strcpy(TOPIC_MONITOR, USER_MQTT);
 	strcat(TOPIC_MONITOR, "/monitor");
 	strcpy(TOPIC_CMD, USER_MQTT);
@@ -385,4 +406,10 @@ void create_topics()
 	strcpy(TOPIC_MONITOR_A, TOPIC_MONITOR);
 	strcat(TOPIC_MONITOR_A, "/w");
 #endif
+	}
+int get_MQTT_connection_state(char *id)
+	{
+	if(id)
+		strcpy(id, USER_MQTT);
+	return client_connected;
 	}
