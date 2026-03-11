@@ -8,6 +8,7 @@
 #ifndef MAIN_NTP_SYNC_H_
 #define MAIN_NTP_SYNC_H_
 
+extern int tsync;
 void sync_NTP_time(void);
 
 

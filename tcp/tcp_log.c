@@ -41,11 +41,12 @@
 	#include "btcomm.h"
 #endif
 #include "external_defs.h"
+#include "utils.h"
 #include "tcp_log.h"
 
 static int tcp_log_enable = 0;
 static 	struct sockaddr_in srv_addr;
-static char log_user[32];
+static char log_user[80];
 TaskHandle_t tcp_log_task_handle = NULL;
 QueueHandle_t tcp_log_evt_queue = NULL;
 static void tcp_log_task(void *pvParameters);
@@ -65,12 +66,12 @@ int tcp_log_init()
 	log_server = LOG_SERVER;
 #endif
 #if (COMM_PROTO & MQTT_PROTO) == MQTT_PROTO
-	strcpy(log_user, USER_MQTT);
+	sprintf(log_user, "%s%02d", dev_conf.dev_name, dev_conf.dev_id);
 #else
-	strcpy(log_user, DEV_NAME);
+	strcpy(log_user, PD_USER);
 #endif
 	//printf("\ntcp_log_init %d", console_state);
-	if(console_state == CONSOLE_TCP)
+	if(dev_conf.cs == CONSOLE_TCP)
 		{
 		struct hostent *hent = NULL;
 		bzero((char *) &srv_addr, sizeof(srv_addr));
@@ -82,7 +83,7 @@ int tcp_log_init()
 			srv_addr.sin_addr.s_addr = *(u_long *) hent->h_addr_list[0];
 			}
 		}
-	if(console_state < CONSOLE_TCP)
+	if(dev_conf.cs < CONSOLE_TCP)
 		{
 		if(tcp_log_task_handle)
 			{
@@ -149,14 +150,14 @@ int tcp_log_message(char *message)
 		tcp_log_init();
 	if(tcp_log_enable)
 		{
-		if(console_state == CONSOLE_MQTT)
+		if(dev_conf.cs == CONSOLE_MQTT)
 			xQueueSend(tcp_log_evt_queue, message, ( TickType_t ) 10);
-		else if(console_state == CONSOLE_TCP)
+		else if(dev_conf.cs == CONSOLE_TCP)
 			{
 			char buf[1024];
 			//if !tcp_log_enable try to init first
 			if(!tcp_log_enable)
-				tcp_log_init(TRANSPORT_TCP);
+				tcp_log_init();
 			if(tcp_log_enable)
 				{
 				strcpy(buf, log_user);
@@ -207,7 +208,7 @@ static void tcp_log_task(void *pvParameters)
 			vTaskDelete(NULL);
 			}
 #if (COMM_PROTO & MQTT_PROTO) == MQTT_PROTO
-		if(console_state == CONSOLE_MQTT)
+		if(dev_conf.cs == CONSOLE_MQTT)
 			{
 			publish_MQTT_client_log(buf);
 			}
@@ -215,7 +216,7 @@ static void tcp_log_task(void *pvParameters)
 #endif
 			{
 			if(buf[strlen(buf) - 1] != '\n')
-			strcat(buf, "\n");
+				strcat(buf, "\n");
 			int written = 0;
 			int sent = 0;
 			int retry = 0;

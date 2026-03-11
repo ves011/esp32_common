@@ -8,6 +8,7 @@
 #ifndef ESP32_COMMON_COMM_I2CCOMM_H_
 #define ESP32_COMMON_COMM_I2CCOMM_H_
 
+extern i2c_master_bus_handle_t i2c_bus_handle_0, i2c_bus_handle_1;
 
 int init_i2c(int bus_no);
 int master_transmit(i2c_master_dev_handle_t handle, uint8_t *wr_buf, int size);

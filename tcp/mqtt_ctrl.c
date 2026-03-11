@@ -20,6 +20,7 @@
 #include "external_defs.h"
 #include "cmd_system.h"
 #include "cmd_wifi.h"
+#include "utils.h"
 #include "mqtt_ctrl.h"
 
 #if ACTIVE_CONTROLLER == WMON_CONTROLLER
@@ -66,14 +67,14 @@ char TOPIC_STATE[32], TOPIC_ERROR[32], TOPIC_MONITOR[32], TOPIC_CTRL[32], TOPIC_
 #if ACTIVE_CONTROLLER == WP_CONTROLLER
 	char TOPIC_STATE_A[32], TOPIC_MONITOR_A[32];
 #endif
-char USER_MQTT[32];
+char USER_MQTT[80];
 
-extern const uint8_t client_cert_pem_start[] asm("_binary_client_crt_start");
-extern const uint8_t client_cert_pem_end[] asm("_binary_client_crt_end");
-extern const uint8_t client_key_pem_start[] asm("_binary_client_key_start");
-extern const uint8_t client_key_pem_end[] asm("_binary_client_key_end");
-extern const uint8_t server_cert_pem_start[] asm("_binary_ca_crt_start");
-extern const uint8_t server_cert_pem_end[] asm("_binary_ca_crt_end");
+//extern const uint8_t client_cert_pem_start[] asm("_binary_cl_crt_start");
+//extern const uint8_t client_cert_pem_end[] asm("_binary_cl_crt_end");
+//extern const uint8_t client_key_pem_start[] asm("_binary_client_key_start");
+//extern const uint8_t client_key_pem_end[] asm("_binary_client_key_end");
+//extern const uint8_t server_cert_pem_start[] asm("_binary_ca_crt_start");
+//extern const uint8_t server_cert_pem_end[] asm("_binary_ca_crt_end");
 
 static void create_topics(void);
 
@@ -284,15 +285,22 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
 int mqtt_start(void)
 	{
 	esp_err_t ret = ESP_FAIL;
-	sprintf(USER_MQTT, "%s%02d", PD_USER, CTRL_DEV_ID);
+	//sprintf(USER_MQTT, "%s%02d", PD_USER, CTRL_DEV_ID);
+	sprintf(USER_MQTT, "%s%02d", dev_conf.dev_name, dev_conf.dev_id);
 	const esp_mqtt_client_config_t mqtt_cfg = {
 		    .broker.address.uri = CONFIG_BROKER_URL,
-		    .broker.verification.certificate = (const char *)server_cert_pem_start,
+		    //.broker.verification.certificate = (const char *)server_cert_pem_start,
+			.broker.verification.certificate = (const char *)nvs_ca_crt,
+			.broker.verification.certificate_len = nvs_ca_crt_sz,
 		    .credentials = {
 		      .client_id = USER_MQTT,
 		      .authentication = {
-		        .certificate = (const char *)client_cert_pem_start,
-		        .key = (const char *)client_key_pem_start,
+//		        .certificate = (const char *)client_cert_pem_start,
+		        .certificate = (const char *)nvs_cl_crt,
+		        .certificate_len = nvs_cl_crt_sz,
+		        //.key = (const char *)client_key_pem_start,
+				.key = (const char *)nvs_cl_key,
+				.key_len = nvs_cl_key_sz,
 		      	  },
 		    	},
 			.network.disable_auto_reconnect = false,
@@ -342,13 +350,13 @@ void publish_MQTT_client_status()
 	{
 	time_t now;
 	struct tm timeinfo;
-    char msg[150];
+    char msg[200];
     char strtime[50];
     uint64_t tmsec = esp_timer_get_time();
 	time(&now);
 	localtime_r(&now, &timeinfo);
 	strftime(strtime, sizeof(strtime), "%Y-%m-%d/%H:%M:%S\1", &timeinfo);
-	sprintf(msg, "%s\1%s\1" IPSTR "\1%d\1%s\1%llu",
+	snprintf(msg, 199, "%s\1%s\1" IPSTR "\1%d\1%s\1%llu",
 			USER_MQTT, DEV_NAME, IP2STR(&dev_ipinfo.ip), CTRL_DEV_ID, strtime, tmsec);
 	esp_mqtt_client_publish(client, DEVICE_TOPIC_R, msg, strlen(msg), 0, 0);
 	}

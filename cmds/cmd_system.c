@@ -15,7 +15,7 @@
 
 #include <stdio.h>
 #include <string.h>
-#include <ctype.h>
+//#include <ctype.h>
 #include <unistd.h>
 #include <netdb.h>
 #include <sys/dirent.h>
@@ -26,26 +26,27 @@
 #include "esp_system.h"
 #include "esp_chip_info.h"
 #include "esp_sleep.h"
-#include "spi_flash_mmap.h"
+//#include "spi_flash_mmap.h"
 #include "esp_netif.h"
 #include "driver/rtc_io.h"
+//#include "/dev/esp32/esp-idf-v5.5.2/components/esp_driver_uart/include/driver/uart.h"
 #include "driver/uart.h"
-#include "driver/i2c_master.h"
+//#include "driver/i2c_master.h"
 #include "argtable3/argtable3.h"
-#include "freertos/FreeRTOS.h"
+//#include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_heap_caps.h"
-#include "lwip/sockets.h"
+//#include "lwip/sockets.h"
 #include "lwip/netdb.h"
 #include "freertos/task.h"
 #include <sys/fcntl.h>
-#include "esp_vfs.h"
+//#include "esp_vfs.h"
 #include "esp_spiffs.h"
 #include <dirent.h>
 #include <sys/stat.h>
 #include "ping/ping_sock.h"
-#include "mqtt_client.h"
-#include "esp_flash_partitions.h"
+//#include "mqtt_client.h"
+//#include "esp_flash_partitions.h"
 #include "esp_flash.h"
 #include "esp_partition.h"
 #include "esp_ota_ops.h"
@@ -53,6 +54,7 @@
 #include "esp_psram.h"
 #include "soc/clk_tree_defs.h"
 #include "esp_pm.h"
+#include "driver/gpio.h"
 #include "sdkconfig.h"
 #include "project_specific.h"
 #include "common_defines.h"
@@ -64,8 +66,7 @@
 #include "cmd_system.h"
 #include "cmd_wifi.h"
 #include "tcp_log.h"
-
-
+#include "utils.h"
 
 #ifdef CONFIG_FREERTOS_USE_STATS_FORMATTING_FUNCTIONS
 #define WITH_TASKS_INFO 1
@@ -91,7 +92,7 @@ static void register_deep_sleep(void);
 static void register_light_sleep(void);
 static void register_uptime(void);
 static void register_ls(void);
-static void register_console(void);
+static void register_devconf(void);
 static void register_boot(void);
 static void register_cat(void);
 static void register_rm(void);
@@ -112,7 +113,7 @@ void register_system_common(void)
     register_restart();
     register_uptime();
     register_ls();
-    register_console();
+    register_devconf();
     register_boot();
     register_cat();
     register_rm();
@@ -970,57 +971,105 @@ static void register_uptime(void)
 static struct
 	{
     struct arg_str *op;
+    struct arg_str *arg;
     struct arg_end *end;
-	} console_args;
-int set_console(int argc, char **argv)
+	} devconf_args;
+int set_devconf(int argc, char **argv)
 	{
-	console_state_t cs;
-	int nerrors = arg_parse(argc, argv, (void **)&console_args);
+	dev_config_t dc;
+	bool update = false;
+	dc.cs = dev_conf.cs;
+	dc.dev_id = dev_conf.dev_id;
+	strcpy(dc.dev_name, dev_conf.dev_name);
+	strcpy(dc.sta_ssid, dev_conf.sta_ssid);
+	strcpy(dc.sta_pass, dev_conf.sta_pass);
+	int nerrors = arg_parse(argc, argv, (void **)&devconf_args);
     if (nerrors != 0)
     	{
         //arg_print_errors(stderr, console_args.end, argv[0]);
         my_printf("%s arguments error", argv[0]);
         return 1;
     	}
-    if(console_args.op->count)
+	if(devconf_args.op->count)
     	{
-		if(strcmp(console_args.op->sval[0], "on") == 0)
-			cs = CONSOLE_ON;
-		else if(strcmp(console_args.op->sval[0], "off") == 0)
-			cs = CONSOLE_OFF;
-		else if(strcmp(console_args.op->sval[0], "tcp") == 0)
-			cs = CONSOLE_TCP;
-		else if(strcmp(console_args.op->sval[0], "mqtt") == 0)
-			cs = CONSOLE_MQTT;
-		else if(strcmp(console_args.op->sval[0], "bt") == 0)
-			cs = CONSOLE_BTLE;
-		else
+		if(devconf_args.arg->count)
 			{
-			my_printf("console: unknown option [%s]", console_args.op->sval[0]);
-			return 0;
+			if(strcmp(devconf_args.op->sval[0], "console") == 0)
+				{
+				if(strcmp(devconf_args.arg->sval[0], "on") == 0)
+					dev_conf.cs = CONSOLE_ON;
+				else if(strcmp(devconf_args.arg->sval[0], "off") == 0)
+					dev_conf.cs = CONSOLE_OFF;
+				else if(strcmp(devconf_args.arg->sval[0], "tcp") == 0)
+					dev_conf.cs = CONSOLE_TCP;
+				else if(strcmp(devconf_args.arg->sval[0], "mqtt") == 0)
+					dev_conf.cs = CONSOLE_MQTT;
+				else
+					my_printf("unkown console option");
+				if(dev_conf.cs != dc.cs)
+					update = true;
+				}
+			else if(strcmp(devconf_args.op->sval[0], "name") == 0) 
+				{
+				strcpy(dev_conf.dev_name, devconf_args.arg->sval[0]);
+				update = true;
+				}
+			else if(strcmp(devconf_args.op->sval[0], "id") == 0)
+				{
+				dev_conf.dev_id = atoi(devconf_args.arg->sval[0]);
+				update = true;
+				}
+			else if(strcmp(devconf_args.op->sval[0], "stassid") == 0)
+				{
+				strcpy(dev_conf.sta_ssid, devconf_args.arg->sval[0]);
+				update = true;
+				}
+			else if(strcmp(devconf_args.op->sval[0], "stapass") == 0)
+				{
+				strcpy(dev_conf.sta_pass, devconf_args.arg->sval[0]);
+				update = true;
+				}
 			}
-		if(console_state != cs)
-			rw_console_state(PARAM_WRITE, &cs);
-		console_state = cs;
+		if(update)
+			{
+			if(rw_dev_config(PARAM_WRITE) == ESP_OK)
+				{
 #if (COMM_PROTO & TCP_PROTO) == TCP_PROTO || (COMM_PROTO & MQTT_PROTO) == MQTT_PROTO	
-		if(console_state == CONSOLE_TCP)
-			tcp_log_init();
-#endif		
+				if(dev_conf.cs == CONSOLE_TCP)
+					tcp_log_init();
+#endif					
+				}
+			else // revert to old values
+				{
+				dev_conf.cs = dc.cs;
+				dev_conf.dev_id = dc.dev_id;
+				strcpy(dev_conf.dev_name, dc.dev_name);
+				strcpy(dev_conf.sta_ssid, dc.sta_ssid);
+				strcpy(dev_conf.sta_pass, dc.sta_pass);
+				}
+			}
 		}
 	else
-		my_printf("Console state: %d\n", console_state);
+		{
+		my_printf("Device configuration:");
+		my_printf("            name:%s", dev_conf.dev_name);
+		my_printf("              id:%d", dev_conf.dev_id);
+		my_printf("   console state:%d", dev_conf.cs);
+		}
     return 0;
     }
-static void register_console(void)
+static void register_devconf(void)
 	{
-	console_args.op = arg_str0(NULL, NULL, "on | off | tcp", "console output: enable | disable | send to tcp logserver");
-	console_args.end = arg_end(1);
+	devconf_args.op = arg_str0(NULL, NULL, "console | name | id", "console state | device name | ID");
+	devconf_args.arg = arg_str0(NULL, NULL, NULL, "depends on the prev arg");
+
+	devconf_args.end = arg_end(2);
 	const esp_console_cmd_t cmd = {
-        .command = "console",
-        .help = "Set on/off/tcp console",
+        .command = "devconf",
+        .help = "se device configuration",
         .hint = NULL,
-        .func = &set_console,
-        .argtable = &console_args
+        .func = &set_devconf,
+        .argtable = &devconf_args
 
     	};
     ESP_ERROR_CHECK( esp_console_cmd_register(&cmd) );
@@ -1095,7 +1144,7 @@ static int boot_from(int argc, char **argv)
     		if(np == running)
     			rp = 1;
     		if(np == bootp)
-    			bp = 0;
+    			bp = 1;
     		my_printf("%s\t%06x(%8d)\t%06x(%8d)\t%2d\t%5d", np->label, np->address, np->address, np->size, np->size, bp, rp);
     		}
     	pit = esp_partition_next(pit);
@@ -1135,8 +1184,8 @@ static void register_boot(void)
 void do_system_cmd(int argc, char **argv)
 	{
 	//ESP_LOGI(TAG, "%d, %s", argc, argv[0]);
-	if(!strcmp(argv[0], "console"))
-		set_console(argc, argv);
+	if(!strcmp(argv[0], "devconf"))
+		set_devconf(argc, argv);
 	else if(!strcmp(argv[0], "uptime"))
 		uptime();
 #ifdef CONFIG_FREERTOS_USE_STATS_FORMATTING_FUNCTIONS

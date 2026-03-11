@@ -10,6 +10,7 @@
 #define CMD_WIFI_H__
 
 #include <stdbool.h>
+#include "esp_netif.h"
 #define SCAN_LIST_SIZE 30
 #define JOIN_TIMEOUT_MS (10000)
 
@@ -21,9 +22,11 @@
 	#define APCONF_FILE "apconf.txt"
 	//extern esp_netif_t *esp_netif_ap;
 #endif
-#if WIFI_STA_ON
+//#if WIFI_STA_ON
 //	extern esp_netif_t *esp_netif_sta;
-#endif
+//#endif
+
+extern int restart_in_progress;
 
 typedef struct
 	{

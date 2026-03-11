@@ -14,6 +14,9 @@
 #define LOG_SERVER			"proxy.gnet"
 #define LOG_PORT			8081
 
+#define LOG_SERVER_DEV		"proxy.gnet"
+#define LOG_PORT_DEV		8083
+
 int tcp_log_init();
 int tcp_log_message(char *message);
 int bt_log_message(char *message);

@@ -8,6 +8,12 @@
 #ifndef TCP_MQTT_CTRL_H_
 #define TCP_MQTT_CTRL_H_
 
+extern char USER_MQTT[], TOPIC_STATE[], TOPIC_MONITOR[], TOPIC_CTRL[], TOPIC_CMD[], TOPIC_LOG[], TOPIC_KA[], TOPIC_ERROR[];
+#if ACTIVE_CONTROLLER == WP_CONTROLLER
+	extern char TOPIC_STATE_A[], TOPIC_MONITOR_A[];
+	extern QueueHandle_t water_cmd_q;
+#endif
+
 int mqtt_start(void);
 void register_mqtt(void);
 //void publish_state(char *msg, int qos, int retain);

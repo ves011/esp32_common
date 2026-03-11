@@ -57,11 +57,38 @@ typedef enum
 
 #define BASE_PATH					"/var"
 #define PARTITION_LABEL				"user"
-#define CONSOLE_FILE				"conoff.txt"
+//#define CONSOLE_FILE				"conoff.txt"
+#define DEVCONF_FILE				"devconf.txt"
 #define HISTORY_FILE				"/sys/history.txt"
 #define RGCAL_FILE					"rgcal.txt"
 #define PTST_FILE					"ptst.txt"
 #define SETTINGS_FILE				"settings.txt"
+
+#define CONSOLE_TXT					"console state: "
+#define NAME_TXT					"device name: "
+#define ID_TXT						"device ID: "
+#define STA_SSID_TXT				"STA SSID: "
+#define STA_PWD_TXT					"STA SSID pass: "
+#define AP_SSID_TXT					"AP SSID: "
+#define AP_PWD_TXT					"AP SSID pass: "
+#define AP_HOSTNAME_TXT				"AP hostname: "
+#define AP_IP_TXT					"AP IP :"
+
+
+#define DEFAULT_CONSOLE_STATE		CONSOLE_ON
+#define DEFAULT_DEVICE_NAME			"gnetdev"
+#define DEFAULT_DEVICE_ID			81
+#define DEFAULT_STA_SSID			""
+#define DEFAULT_STA_PASS			""
+#define DEFAULT_AP_SSID				"OTA-dev"
+#define DEFAULT_AP_PASS				"OTA-devpass"
+#define DEFAULT_AP_HOSTNAME			"ota-dev.local"
+#define DEFAULT_AP_A				192
+#define DEFAULT_AP_B				168
+#define DEFAULT_AP_C				253
+#define DEFAULT_AP_D				1
+
+
 #define MAX_NO_FILES				(5)
 #define PARAM_READ					(1)
 #define PARAM_WRITE					(2)
@@ -121,9 +148,6 @@ typedef enum
 #endif
 */
 
-#define LOG_SERVER					"proxy.gnet"
-#define LOG_SERVER_PORT				6001
-
 #define FACTORY_PART_NAME			"ota_0"
 #define OTA_PART_NAME				"ota_1"
 
@@ -182,5 +206,21 @@ typedef struct
 		pump_mon_val_t pv;
 		}p;
 	} socket_message_t;
+	
+typedef struct
+	{
+	console_state_t cs;
+	int dev_id;
+	char dev_name[40];
+	char sta_ssid[40];
+	char sta_pass[40];
+	char ap_hostname[40];
+	char ap_ssid[40];
+	char ap_pass[40];
+	uint8_t ap_a;
+	uint8_t ap_b;
+	uint8_t ap_c;
+	uint8_t ap_d;
+	} dev_config_t;
 	
 #endif /* COMMON_COMMON_DEFINES_H_ */

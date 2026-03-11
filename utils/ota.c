@@ -7,31 +7,32 @@
 
 
 #include <string.h>
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "esp_system.h"
-#include "esp_event.h"
+//#include "freertos/FreeRTOS.h"
+//#include "freertos/task.h"
+//#include "esp_system.h"
+//#include "esp_event.h"
 #include "esp_log.h"
 #include "esp_ota_ops.h"
 #include "esp_http_client.h"
-#include "esp_flash_partitions.h"
+//#include "esp_flash_partitions.h"
 #include "esp_partition.h"
-#include "nvs.h"
-#include "nvs_flash.h"
-#include "wear_levelling.h"
-#include "esp_console.h"
-#include "driver/gpio.h"
-#include "driver/i2c_master.h"
+//#include "nvs.h"
+//#include "nvs_flash.h"
+//#include "wear_levelling.h"
+//#include "esp_console.h"
+//#include "driver/gpio.h"
+//#include "driver/i2c_master.h"
 #include "errno.h"
-#include "spi_flash_mmap.h"
-#include "esp_netif.h"
-#include "esp_spiffs.h"
-#include "esp_vfs_dev.h"
+//#include "spi_flash_mmap.h"
+//#include "esp_netif.h"
+//#include "esp_spiffs.h"
+//#include "esp_vfs_dev.h"
 #include "esp_vfs_fat.h"
 #include "esp_app_format.h"
-#include "mqtt_client.h"
+//#include "mqtt_client.h"
 #include "common_defines.h"
-#include "external_defs.h"
+#include "utils.h"
+//#include "external_defs.h"
 #include "ota.h"
 
 #define BUFFSIZE 1024
@@ -45,12 +46,15 @@
 /*an ota data write buffer ready to write to the flash*/
 static char ota_write_data[BUFFSIZE + 1] = { 0 };
 
-extern const uint8_t client_cert_pem_start[] asm("_binary_client_crt_start");
-extern const uint8_t client_cert_pem_end[] asm("_binary_client_crt_end");
-extern const uint8_t client_key_pem_start[] asm("_binary_client_key_start");
-extern const uint8_t client_key_pem_end[] asm("_binary_client_key_end");
-extern const uint8_t server_cert_pem_start[] asm("_binary_ca_crt_start");
-extern const uint8_t server_cert_pem_end[] asm("_binary_ca_crt_end");
+//extern const uint8_t client_cert_pem_start[] asm("_binary_client_crt_start");
+//extern const uint8_t client_cert_pem_end[] asm("_binary_client_crt_end");
+
+//extern const uint8_t client_cert_pem_start[] asm("_binary_cl_crt_start");
+//extern const uint8_t client_cert_pem_end[] asm("_binary_cl_crt_end");
+//extern const uint8_t client_key_pem_start[] asm("_binary_client_key_start");
+//extern const uint8_t client_key_pem_end[] asm("_binary_client_key_end");
+//extern const uint8_t server_cert_pem_start[] asm("_binary_ca_crt_start");
+//extern const uint8_t server_cert_pem_end[] asm("_binary_ca_crt_end");
 
 static void http_cleanup(esp_http_client_handle_t client)
 	{
@@ -84,7 +88,7 @@ static esp_partition_t *get_updateable_partition()
     	pit = esp_partition_next(pit);
     	}
 	if(np)
-		ESP_LOGI(TAG, "Updateable partition %s @ 0x%0lx", np->label, np->address);
+		ESP_LOGI(TAG, "Updateable partition %s @ 0x%0lx", np->label, (unsigned long)np->address);
 	else
 		ESP_LOGI(TAG, "No updateable partition found");
 	return (esp_partition_t *)np;
@@ -107,7 +111,7 @@ void ota_task(const char *url)
     if (configured != running)
     	{
         ESP_LOGW(TAG, "Configured OTA boot partition at offset 0x%08lx, but running from offset 0x%08lx",
-                 configured->address, running->address);
+                 (unsigned long)configured->address, (unsigned long)running->address);
         ESP_LOGW(TAG, "(This can happen if either the OTA boot data or preferred boot image become corrupted somehow.)");
     	}
 	/*
@@ -118,14 +122,20 @@ void ota_task(const char *url)
     		}
 	*/
     ESP_LOGI(TAG, "Running partition type %d subtype %d (offset 0x%08lx)",
-             running->type, running->subtype, running->address);
+             running->type, running->subtype, (unsigned long)running->address);
 
     esp_http_client_config_t config =
     	{
         .url = url,
-        .cert_pem = (char *)server_cert_pem_start,
-		.client_cert_pem = (char *)client_cert_pem_start,
-		.client_key_pem = (char *)client_key_pem_start,
+        //.cert_pem = (char *)server_cert_pem_start,
+        .cert_pem = nvs_ca_crt,
+        .cert_len = nvs_ca_crt_sz,
+		//.client_cert_pem = (char *)client_cert_pem_start,
+		.client_cert_pem = nvs_cl_crt,
+		.client_cert_len = nvs_cl_crt_sz,
+		//.client_key_pem = (char *)client_key_pem_start,
+		.client_key_pem = nvs_cl_key,
+		.client_key_len = nvs_cl_key_sz,
         .timeout_ms = 10000,
         .keep_alive_enable = true,
     	};
@@ -148,7 +158,7 @@ void ota_task(const char *url)
     //update_partition = esp_ota_get_next_update_partition(NULL);
     //assert(update_partition != NULL);
     ESP_LOGI(TAG, "Writing to partition subtype %d at offset %0lx",
-             update_partition->subtype, update_partition->address);
+             update_partition->subtype, (unsigned long)update_partition->address);
 
     int binary_file_length = 0;
     /*deal with all receive packet*/

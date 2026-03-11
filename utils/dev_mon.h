@@ -8,6 +8,7 @@
 #ifndef ESP32_COMMON_UTILS_DEV_MON_H_
 #define ESP32_COMMON_UTILS_DEV_MON_H_
 
+extern QueueHandle_t dev_mon_queue;
 
 void dev_mon_task(void *pvParameters);
 
