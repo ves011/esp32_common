@@ -1,0 +1,18 @@
+{
+	"folders": [
+		{
+			"path": "../../esp32_ota"
+		}
+	],
+	"settings": {
+		"files.associations": {
+			"*.embeddedhtml": "html",
+			"esp_vfs_fat.h": "c",
+			"utils.h": "c",
+			"cmd_system.h": "c",
+			"ota.h": "c",
+			"common_defines.h": "c",
+			"mqtt_client.h": "c"
+		}
+	}
+}

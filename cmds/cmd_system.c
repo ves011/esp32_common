@@ -1,0 +1,1251 @@
+/* Console example — various system commands
+
+   This example code is in the Public Domain (or CC0 licensed, at your option.)
+
+   Unless required by applicable law or agreed to in writing, this
+   software is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
+   CONDITIONS OF ANY KIND, either express or implied.
+*/
+
+/**
+ * @file cmd_system.c
+ * @brief implements processing functions for "system" commands
+ * @brief register functions: register_...() --> register the specific system command and specifies the arguments
+ */
+
+#include <stdio.h>
+#include <string.h>
+//#include <ctype.h>
+#include <unistd.h>
+#include <netdb.h>
+#include <sys/dirent.h>
+#include "esp_clk_tree.h"
+#include "esp_clk_tree.h"
+#include "esp_err.h"
+#include "esp_log.h"
+#include "esp_console.h"
+#include "esp_system.h"
+#include "esp_chip_info.h"
+#include "esp_sleep.h"
+//#include "spi_flash_mmap.h"
+#include "esp_netif.h"
+#include "driver/rtc_io.h"
+//#include "/dev/esp32/esp-idf-v5.5.2/components/esp_driver_uart/include/driver/uart.h"
+#include "driver/uart.h"
+//#include "driver/i2c_master.h"
+#include "argtable3/argtable3.h"
+//#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "esp_heap_task_info.h"
+#include "esp_heap_caps.h"
+//#include "lwip/sockets.h"
+#include "lwip/netdb.h"
+#include "freertos/task.h"
+#include <sys/fcntl.h>
+//#include "esp_vfs.h"
+#include "esp_spiffs.h"
+#include <dirent.h>
+#include <sys/stat.h>
+#include "ping/ping_sock.h"
+//#include "mqtt_client.h"
+//#include "esp_flash_partitions.h"
+#include "esp_flash.h"
+#include "esp_partition.h"
+#include "esp_ota_ops.h"
+#include "esp_timer.h"
+#include "esp_psram.h"
+#include "soc/clk_tree_defs.h"
+#include "esp_pm.h"
+#include "driver/gpio.h"
+#include "nvs.h"
+#include "sdkconfig.h"
+//#include "project_specific.h"
+#include "common_defines.h"
+#include "external_defs.h"
+	#include "utils.h"
+#ifdef OTA_SUPPORT
+	#include "ota.h"
+#endif
+#include "cmd_system.h"
+#include "cmd_wifi.h"
+#include "tcp_log.h"
+#include "utils.h"
+
+#ifdef CONFIG_FREERTOS_USE_STATS_FORMATTING_FUNCTIONS
+#define WITH_TASKS_INFO 1
+#endif
+
+
+
+struct {
+    struct arg_dbl *timeout;
+    struct arg_dbl *interval;
+    struct arg_int *data_size;
+    struct arg_int *count;
+    struct arg_int *tos;
+    struct arg_str *host;
+    struct arg_end *end;
+} ping_args;
+
+static const char *TAG = "cmd_system";
+
+static void register_free(void);
+static void register_heap(void);
+static void register_version(void);
+static void register_restart(void);
+static void register_deep_sleep(void);
+static void register_light_sleep(void);
+static void register_uptime(void);
+static void register_ls(void);
+//static void register_devconf(void);
+static void register_boot(void);
+static void register_cat(void);
+static void register_rm(void);
+static void register_nvsconf(void);
+
+#ifdef OTA_SUPPORT
+	static int ota_start(int argc, char **argv);
+	static void register_ota(void);
+#endif
+static void register_echo(void);
+#if WITH_TASKS_INFO
+static void register_tasks(void);
+#endif
+
+void register_system_common(void)
+	{
+    register_free();
+    register_heap();
+    register_version();
+    register_restart();
+    register_uptime();
+    register_ls();
+    //register_devconf();
+    register_boot();
+    register_cat();
+    register_rm();
+    register_nvsconf();
+#if CONFIG_HEAP_TASK_TRACKING
+    register_heap_debug();
+#endif
+#ifdef OTA_SUPPORT
+    register_ota();
+#endif
+    register_echo();
+#if WITH_TASKS_INFO
+    register_tasks();
+#endif
+	}
+
+void register_system_sleep(void)
+	{
+    register_deep_sleep();
+    register_light_sleep();
+	}
+
+void register_system(void)
+	{
+    register_system_common();
+    register_system_sleep();
+    register_ping();
+	}
+
+
+static void cmd_ping_on_ping_success(esp_ping_handle_t hdl, void *args)
+	{
+    uint8_t ttl;
+    uint16_t seqno;
+    uint32_t elapsed_time, recv_len;
+    ip_addr_t target_addr;
+    esp_ping_get_profile(hdl, ESP_PING_PROF_SEQNO, &seqno, sizeof(seqno));
+    esp_ping_get_profile(hdl, ESP_PING_PROF_TTL, &ttl, sizeof(ttl));
+    esp_ping_get_profile(hdl, ESP_PING_PROF_IPADDR, &target_addr, sizeof(target_addr));
+    esp_ping_get_profile(hdl, ESP_PING_PROF_SIZE, &recv_len, sizeof(recv_len));
+    esp_ping_get_profile(hdl, ESP_PING_PROF_TIMEGAP, &elapsed_time, sizeof(elapsed_time));
+    my_printf("%d bytes from %s icmp_seq=%d ttl=%d time=%d ms",
+           recv_len, ipaddr_ntoa((ip_addr_t*)&target_addr), seqno, ttl, elapsed_time);
+	}
+
+static void cmd_ping_on_ping_timeout(esp_ping_handle_t hdl, void *args)
+	{
+    uint16_t seqno;
+    ip_addr_t target_addr;
+    esp_ping_get_profile(hdl, ESP_PING_PROF_SEQNO, &seqno, sizeof(seqno));
+    esp_ping_get_profile(hdl, ESP_PING_PROF_IPADDR, &target_addr, sizeof(target_addr));
+    my_printf("From %s icmp_seq=%d timeout",ipaddr_ntoa((ip_addr_t*)&target_addr), seqno);
+	}
+
+static void cmd_ping_on_ping_end(esp_ping_handle_t hdl, void *args)
+	{
+    ip_addr_t target_addr;
+    uint32_t transmitted;
+    uint32_t received;
+    uint32_t total_time_ms;
+    esp_ping_get_profile(hdl, ESP_PING_PROF_REQUEST, &transmitted, sizeof(transmitted));
+    esp_ping_get_profile(hdl, ESP_PING_PROF_REPLY, &received, sizeof(received));
+    esp_ping_get_profile(hdl, ESP_PING_PROF_IPADDR, &target_addr, sizeof(target_addr));
+    esp_ping_get_profile(hdl, ESP_PING_PROF_DURATION, &total_time_ms, sizeof(total_time_ms));
+    uint32_t loss = (uint32_t)((1 - ((float)received) / transmitted) * 100);
+    my_printf("\n--- %s ping statistics ---", inet_ntoa(*ip_2_ip4(&target_addr)));
+
+    my_printf("%d packets transmitted, %d received, %d%% packet loss, time %dms\n",
+           transmitted, received, loss, total_time_ms);
+    // delete the ping sessions, so that we clean up all resources and can create a new ping session
+    // we don't have to call delete function in the callback, instead we can call delete function from other tasks
+    esp_ping_delete_session(hdl);
+	}
+
+static int do_ping_cmd(int argc, char **argv)
+	{
+    esp_ping_config_t config = ESP_PING_DEFAULT_CONFIG();
+
+    int nerrors = arg_parse(argc, argv, (void **)&ping_args);
+    if (nerrors != 0)
+    	{
+        //arg_print_errors(stderr, ping_args.end, argv[0]);
+        my_printf("%s arguments error", argv[0]);
+        return 1;
+    	}
+    //if(!isConnected(sta_ssid))
+    //	{
+    //	ESP_LOGI(TAG, "WiFi not connected or in AP mode");
+    //	return 1;
+    //	}
+    if (ping_args.timeout->count > 0)
+        config.timeout_ms = (uint32_t)(ping_args.timeout->dval[0] * 1000);
+
+    if (ping_args.interval->count > 0)
+        config.interval_ms = (uint32_t)(ping_args.interval->dval[0] * 1000);
+
+    if (ping_args.data_size->count > 0)
+        config.data_size = (uint32_t)(ping_args.data_size->ival[0]);
+
+    if (ping_args.count->count > 0)
+        config.count = (uint32_t)(ping_args.count->ival[0]);
+
+    if (ping_args.tos->count > 0)
+        config.tos = (uint32_t)(ping_args.tos->ival[0]);
+
+    // parse IP address
+    ip_addr_t target_addr;
+    memset(&target_addr, 0, sizeof(target_addr));
+
+    struct addrinfo hint;
+    struct addrinfo *res = NULL;
+    memset(&hint, 0, sizeof(hint));
+    // convert ip4 string or hostname to ip4 or ip6 address
+    if (getaddrinfo(ping_args.host->sval[0], NULL, &hint, &res) != 0)
+    	{
+        my_printf("ping: unknown host %s\n", ping_args.host->sval[0]);
+        return 1;
+        }
+    struct in_addr addr4 = ((struct sockaddr_in *) (res->ai_addr))->sin_addr;
+    inet_addr_to_ip4addr(ip_2_ip4(&target_addr), &addr4);
+    freeaddrinfo(res);
+    config.target_addr = target_addr;
+    config.task_stack_size = 3072;
+
+    // set callback functions
+    esp_ping_callbacks_t cbs =
+    	{
+        .on_ping_success = cmd_ping_on_ping_success,
+        .on_ping_timeout = cmd_ping_on_ping_timeout,
+        .on_ping_end = cmd_ping_on_ping_end,
+        .cb_args = NULL
+    	};
+    esp_ping_handle_t ping;
+    esp_ping_new_session(&config, &cbs, &ping);
+    esp_ping_start(ping);
+
+    return 0;
+	}
+
+void register_ping(void)
+	{
+    ping_args.timeout = arg_dbl0("W", "timeout", "<t>", "Time to wait for a response, in seconds");
+    ping_args.interval = arg_dbl0("i", "interval", "<t>", "Wait interval seconds between sending each packet");
+    ping_args.data_size = arg_int0("s", "size", "<n>", "Specify the number of data bytes to be sent");
+    ping_args.count = arg_int0("c", "count", "<n>", "Stop after sending count packets");
+    ping_args.tos = arg_int0("Q", "tos", "<n>", "Set Type of Service related bits in IP datagrams");
+    ping_args.host = arg_str1(NULL, NULL, "<host>", "Host address");
+    ping_args.end = arg_end(1);
+    const esp_console_cmd_t ping_cmd =
+    	{
+        .command = "ping",
+        .help = "send ICMP ECHO_REQUEST to network hosts",
+        .hint = NULL,
+        .func = &do_ping_cmd,
+        .argtable = &ping_args
+    	};
+    ESP_ERROR_CHECK(esp_console_cmd_register(&ping_cmd));
+	}
+/* 'version' command */
+static int get_version(int argc, char **argv)
+	{
+	const char *model;
+	esp_chip_info_t info;
+	uint32_t flash_size;
+	uint32_t cpu_clk = 0;
+	esp_pm_config_t pm_config;
+	esp_chip_info(&info);
+
+	switch(info.model)
+		{
+		case CHIP_ESP32:
+			model = "ESP32";
+			break;
+		case CHIP_ESP32S2:
+			model = "ESP32-S2";
+			break;
+		case CHIP_ESP32S3:
+			model = "ESP32-S3";
+			break;
+		case CHIP_ESP32C3:
+			model = "ESP32-C3";
+			break;
+		case CHIP_ESP32H2:
+			model = "ESP32-H2";
+			break;
+		case CHIP_ESP32C2:
+			model = "ESP32-C2";
+			break;
+		default:
+			model = "Unknown";
+			break;
+		}
+
+	if(esp_flash_get_size(NULL, &flash_size) != ESP_OK)
+		{
+		printf("Get flash size failed");
+		return 1;
+		}
+	printf("IDF Version:%s\r\n", esp_get_idf_version());
+	printf("Chip info:\r\n");
+	printf("\tmodel:%s\r\n", model);
+	printf("\tcores:%d\r\n", info.cores);
+	printf("\tfeature:%s%s%s%s%"PRIu32"%s%s\r\n",
+		   info.features & CHIP_FEATURE_WIFI_BGN ? "/802.11bgn" : "",
+		   info.features & CHIP_FEATURE_BLE ? "/BLE" : "",
+		   info.features & CHIP_FEATURE_BT ? "/BT" : "",
+		   info.features & CHIP_FEATURE_EMB_FLASH ? "/Embedded-Flash:" : "/External-Flash:",
+		   flash_size / (1024 * 1024), " MB",
+		   info.features & CHIP_FEATURE_EMB_PSRAM ? "/PSRAM" : "/no PSRAM");
+	printf("\trevision number:%d\r\n", info.revision);
+	
+	ESP_LOGI(TAG, "This is %s chip with %d CPU core(s), %s%s%s%s, ",
+           CONFIG_IDF_TARGET,
+           info.cores,
+           (info.features & CHIP_FEATURE_WIFI_BGN) ? "WiFi/" : "",
+           (info.features & CHIP_FEATURE_BT) ? "BT" : "",
+           (info.features & CHIP_FEATURE_BLE) ? "BLE" : "",
+           (info.features & CHIP_FEATURE_IEEE802154) ? ", 802.15.4 (Zigbee/Thread)" : "");
+#if CONFIG_SPIRAM == 1    
+    size_t psram_size = esp_psram_get_size();
+	ESP_LOGI(TAG,"PSRAM size: %d", psram_size);
+#endif
+    unsigned major_rev = info.revision / 100;
+    unsigned minor_rev = info.revision % 100;
+    ESP_LOGI(TAG, "silicon revision v%d.%d, ", major_rev, minor_rev);
+    if(esp_flash_get_size(NULL, &flash_size) != ESP_OK) 
+    	{
+        printf("Get flash size failed");
+        return ESP_FAIL;
+    	}
+
+    ESP_LOGI(TAG, "%" PRIu32 "MB %s flash\n", flash_size / (uint32_t)(1024 * 1024),
+           (info.features & CHIP_FEATURE_EMB_FLASH) ? "embedded" : "external");
+
+    ESP_LOGI(TAG, "Minimum free heap size: %" PRIu32 " bytes\n", esp_get_minimum_free_heap_size());
+    
+    esp_clk_tree_src_get_freq_hz((soc_module_clk_t)SOC_MOD_CLK_CPU, ESP_CLK_TREE_SRC_FREQ_PRECISION_CACHED, &cpu_clk);
+    ESP_LOGI(TAG, "CPU freq: %u", (unsigned int)cpu_clk);
+    esp_clk_tree_src_get_freq_hz((soc_module_clk_t)SOC_MOD_CLK_APB, ESP_CLK_TREE_SRC_FREQ_PRECISION_CACHED, &cpu_clk);
+    ESP_LOGI(TAG, "APB freq: %u", (unsigned int)cpu_clk);
+    esp_clk_tree_src_get_freq_hz((soc_module_clk_t)SOC_MOD_CLK_XTAL, ESP_CLK_TREE_SRC_FREQ_PRECISION_CACHED, &cpu_clk);
+    ESP_LOGI(TAG, "XTAL freq: %u", (unsigned int)cpu_clk);
+    ESP_ERROR_CHECK(esp_pm_get_configuration(&pm_config));
+    ESP_LOGI(TAG, "==== pm configuration ============");
+    ESP_LOGI(TAG, "max freq: %d", pm_config.max_freq_mhz);
+    ESP_LOGI(TAG, "min freq: %d", pm_config.min_freq_mhz);
+    ESP_LOGI(TAG, "light_sleep_enable: %d", pm_config.light_sleep_enable);
+    ESP_LOGI(TAG, "==================================");
+    
+	return 0;
+	}
+
+static void register_version(void)
+{
+    const esp_console_cmd_t cmd = {
+        .command = "version",
+        .help = "Get version of chip and SDK",
+        .hint = NULL,
+        .func = &get_version,
+    };
+    ESP_ERROR_CHECK( esp_console_cmd_register(&cmd) );
+}
+
+/** 'restart' command restarts the program */
+
+static int restart(int argc, char **argv)
+	{
+    ESP_LOGI(TAG, "Restarting");
+    restart_in_progress = 1;
+    my_esp_restart();
+    return 1;
+	}
+
+static void register_restart(void)
+{
+    const esp_console_cmd_t cmd = {
+        .command = "restart",
+        .help = "Software reset of the chip",
+        .hint = NULL,
+        .func = &restart,
+    };
+    ESP_ERROR_CHECK( esp_console_cmd_register(&cmd) );
+}
+
+/** 'free' command prints available heap memory */
+
+static int free_mem(int argc, char **argv)
+{
+    my_printf("%d", esp_get_free_heap_size());
+    return 0;
+}
+
+static void register_free(void)
+{
+    const esp_console_cmd_t cmd = {
+        .command = "free",
+        .help = "Get the current size of free heap memory",
+        .hint = NULL,
+        .func = &free_mem,
+    };
+    ESP_ERROR_CHECK( esp_console_cmd_register(&cmd) );
+}
+
+struct
+	{
+    struct arg_str *path;
+    struct arg_end *end;
+	} ls_args;
+
+struct
+	{
+    struct arg_str *fname;
+    struct arg_end *end;
+	} cat_args;
+
+static int ls_files(int argc, char **argv)
+	{
+	esp_err_t ret;
+	size_t total = 0, used = 0;
+	DIR *dir = NULL;
+	struct stat st;
+	struct dirent *ent;
+	char ftype;
+	char path[64], pfname[64], outputm[300];
+	int nerrors = arg_parse(argc, argv, (void **)&ls_args);
+	if (nerrors != 0)
+    	{
+        //arg_print_errors(stderr, ls_args.end, argv[0]);
+        my_printf("%s arguments error", argv[0]);
+        return 1;
+    	}
+	if(ls_args.path->count  == 1)
+		{
+		strcpy(path, ls_args.path->sval[0]);
+		}
+	else
+		{
+		path[0] = 0;
+		}
+	esp_vfs_spiffs_conf_t conf =
+		{
+		.base_path = BASE_PATH,
+		.partition_label = "user",
+		.max_files = MAX_NO_FILES,
+		.format_if_mount_failed = true
+		};
+
+   	ret = esp_spiffs_info(conf.partition_label, &total, &used);
+	if (ret != ESP_OK)
+		{
+		ESP_LOGI(TAG, "Failed to get SPIFFS partition information (%s). Formatting...", esp_err_to_name(ret));
+		ret = esp_spiffs_format(conf.partition_label);
+		if(ret != ESP_OK)
+			{
+			ESP_LOGI(TAG, "Failed to format SPIFFS partition (%s)", esp_err_to_name(ret));
+			esp_vfs_spiffs_unregister(conf.partition_label);
+			return ret;
+			}
+		ret = esp_spiffs_info(conf.partition_label, &total, &used);
+		if(ret != ESP_OK)
+			{
+			ESP_LOGI(TAG, "Failed to get SPIFFS partition information (%s).", esp_err_to_name(ret));
+			esp_vfs_spiffs_unregister(conf.partition_label);
+			return ret;
+			}
+		}
+	my_printf("Partition name: %s / total size: %-d / used: %-d\n", conf.partition_label, total, used);
+	strcpy(pfname, BASE_PATH);
+	strcat(pfname, path);
+	strcpy(path, pfname);
+	dir = opendir(path);
+	if (!dir)
+		{
+		my_printf("Error opening %s directory\n", path);
+		return ESP_FAIL;
+		}
+	my_printf("%s", path);
+	while ((ent = readdir(dir)) != NULL)
+		{
+		if (ent->d_type == DT_REG)
+			ftype  = '-';
+		else
+			ftype = 'd';
+		strcpy(pfname, path);
+		strcat(pfname, "/");
+		strcat(pfname, ent->d_name);
+		sprintf(outputm, " %c    %-25s   ", ftype, ent->d_name);
+		if(stat(pfname, &st) == 0)
+			{
+			sprintf(pfname, "%6u    ", (unsigned int)(st.st_size));
+			strcat(outputm, pfname);
+			strcat(outputm, ctime (&st.st_mtim.tv_sec));
+			}
+// remove ending \n character, because it is added by fputs()
+		if(outputm[strlen(outputm) - 1] == '\n')
+			outputm[strlen(outputm) - 1] = 0;
+		my_printf("%s", outputm);
+		}
+	my_printf("\n");
+	closedir(dir);
+	return ret;
+	}
+static void register_ls(void)
+	{
+	ls_args.path = arg_str0(NULL, NULL, "path", "path");
+	ls_args.end = arg_end(1);
+	const esp_console_cmd_t cmd =
+		{
+		.command = "ls",
+		.help = "list files in \"user\" partition",
+		.hint = NULL,
+		.func = &ls_files,
+		.argtable = &ls_args,
+		};
+	ESP_ERROR_CHECK( esp_console_cmd_register(&cmd) );
+	}
+
+static int cat_file(int argc, char **argv)
+	{
+	char path[64], outputm[300];
+	struct stat st;
+	int i;
+	int nerrors = arg_parse(argc, argv, (void **)&cat_args);
+	if (nerrors != 0)
+    	{
+        //arg_print_errors(stderr, ls_args.end, argv[0]);
+        my_printf("%s arguments error", argv[0]);
+        return 1;
+    	}
+    strcpy(path, BASE_PATH);
+    strcat(path, "/");
+	strcat(path, cat_args.fname->sval[0]);
+	if (stat(path, &st) != 0)
+		{
+		// file does no exists
+		my_printf("file %s does not exists\n", path);
+		return 0;
+		}
+	else
+		{
+		FILE *f = fopen(path, "r");
+		if (f != NULL)
+			{
+			i = 0;
+			while(!feof(f))
+				{
+				if(fgets(outputm, 298, f))
+					{
+					//if(feof(f))
+					//	break;
+					if(outputm[strlen(outputm) - 1] == '\n')
+						outputm[strlen(outputm) - 1] = 0;
+					my_printf("%s", outputm);
+					i++;
+					}
+				}
+			fclose(f);
+			my_printf("\nEOF %d lines\n", i);
+			}
+		}
+	return 0;
+	}
+static void register_cat(void)
+	{
+	cat_args.fname = arg_str1(NULL, NULL, "<file_name>", "file name");
+	cat_args.end = arg_end(1);
+	const esp_console_cmd_t cmd =
+		{
+		.command = "cat",
+		.help = "show content of file in \"user\" partition",
+		.hint = NULL,
+		.func = &cat_file,
+		.argtable = &cat_args,
+		};
+	ESP_ERROR_CHECK( esp_console_cmd_register(&cmd) );
+	}
+
+static int rm_file(int argc, char **argv)
+	{
+	char path[64];
+	struct stat st;
+	int nerrors = arg_parse(argc, argv, (void **)&cat_args);
+	if (nerrors != 0)
+    	{
+        //arg_print_errors(stderr, ls_args.end, argv[0]);
+        my_printf("%s arguments error", argv[0]);
+        return 1;
+    	}
+    strcpy(path, BASE_PATH);
+    strcat(path, "/");
+	strcat(path, cat_args.fname->sval[0]);
+	if (stat(path, &st) != 0)
+		{
+		// file does no exists
+		my_printf("file %s does not exists", path);
+		return 0;
+		}
+	else
+		{
+		int res = unlink(path);
+		if(res < 0)
+			my_printf("Error deleting file %d", errno);
+		}
+	return 0;
+	}
+static void register_rm(void)
+	{
+	cat_args.fname = arg_str1(NULL, NULL, "<file_name>", "file name");
+	cat_args.end = arg_end(1);
+	const esp_console_cmd_t cmd =
+		{
+		.command = "rm",
+		.help = "remove the file in \"user\" partition",
+		.hint = NULL,
+		.func = &rm_file,
+		.argtable = &cat_args,
+		};
+	ESP_ERROR_CHECK( esp_console_cmd_register(&cmd) );
+	}
+struct
+	{
+    struct arg_str *str;
+    struct arg_str *ot;
+    struct arg_str *fname;
+    struct arg_end *end;
+	} echo_args;
+
+static int echo(int argc, char **argv)
+	{
+	char path[64];
+	FILE *f = NULL;
+	int nerrors = arg_parse(argc, argv, (void **)&echo_args);
+	if (nerrors != 0)
+    	{
+        //arg_print_errors(stderr, ls_args.end, argv[0]);
+        my_printf("%s arguments error", argv[0]);
+        return 1;
+    	}
+	if(echo_args.str->count && echo_args.ot->count && echo_args.fname->count)
+		{
+		strcpy(path, BASE_PATH);
+		strcat(path, "/");
+		strcat(path, echo_args.fname->sval[0]);
+		if(!strcmp(echo_args.ot->sval[0], ">"))
+			f = fopen(path, "w");
+		else if(!strcmp(echo_args.ot->sval[0], ">>"))
+			f = fopen(path, "a");
+		if(f)
+			{
+			char buf[100];
+			strcpy(buf, echo_args.str->sval[0]);
+			strcat(buf, "\n");
+			fputs(buf,f);
+			fclose(f);
+			}
+		else
+			my_printf("Error opening %s file %d", path, errno);
+		}
+	else
+		{
+		my_printf("arguments missing \n -- echo \"str to write\" > [| >>] filename");
+		}
+	return 0;
+	}
+static void register_echo(void)
+	{
+	echo_args.str = arg_str0(NULL, NULL, "str", "<string to be written>");
+	echo_args.ot = arg_str0(NULL, NULL, "> | >>", "write(>) or append(>>)");
+	echo_args.fname = arg_str0(NULL, NULL, "<file_name>", "file name");
+	echo_args.end = arg_end(1);
+	const esp_console_cmd_t cmd =
+		{
+		.command = "echo",
+		.help = "output a string to a file",
+		.hint = NULL,
+		.func = &echo,
+		.argtable = &echo_args,
+		};
+	ESP_ERROR_CHECK( esp_console_cmd_register(&cmd) );
+	}
+
+/* 'heap' command prints minumum heap size */
+static int heap_size(int argc, char **argv)
+	{
+	multi_heap_info_t info;
+    //uint32_t heap_size = heap_caps_get_minimum_free_size(MALLOC_CAP_DEFAULT);
+    //my_printf("min heap size: %u", heap_size);
+    //heap_caps_print_heap_info(MALLOC_CAP_8BIT);
+    
+    heap_caps_get_info(&info, MALLOC_CAP_8BIT);
+
+    my_printf("MALLOC_CAP_8BIT --> free: %d / allocated: %d / min_free: %d / largest_free_block: %d\n", 
+    	info.total_free_bytes, info.total_allocated_bytes, info.minimum_free_bytes, info.largest_free_block);
+    
+    return 0;
+	}
+
+static void register_heap(void)
+	{
+    const esp_console_cmd_t heap_cmd = {
+        .command = "heap",
+        .help = "Get minimum size of free heap memory that was available during program execution",
+        .hint = NULL,
+        .func = &heap_size,
+    	};
+    ESP_ERROR_CHECK( esp_console_cmd_register(&heap_cmd) );
+
+	}
+
+/** 'tasks' command prints the list of tasks and related information */
+#if WITH_TASKS_INFO
+
+static int tasks_info(int argc, char **argv)
+	{
+	char buf[64];
+    const size_t bytes_per_task = 40; /* see vTaskList description */
+    char *task_list_buffer = malloc(uxTaskGetNumberOfTasks() * bytes_per_task);
+    if (task_list_buffer == NULL) 
+    	{
+        ESP_LOGE(TAG, "failed to allocate buffer for vTaskList output");
+        return 1;
+    	}
+    strcpy(buf, "Task Name\tStatus\tPrio\tHWM\tTask#");
+    //my_fputs("Task Name\tStatus\tPrio\tHWM\tTask#", stdout);
+#ifdef CONFIG_FREERTOS_VTASKLIST_INCLUDE_COREID
+    strcat(buf, "\tAffinity");
+#endif
+    my_fputs(buf, stdout);
+    vTaskList(task_list_buffer);
+    my_fputs(task_list_buffer, stdout);
+    free(task_list_buffer);
+    return 0;
+	}
+
+static void register_tasks(void)
+	{
+    const esp_console_cmd_t cmd = {
+        .command = "tasks",
+        .help = "Get information about running tasks",
+        .hint = NULL,
+        .func = &tasks_info,
+    	};
+    ESP_ERROR_CHECK( esp_console_cmd_register(&cmd) );
+	}
+
+#endif // WITH_TASKS_INFO
+
+/** 'deep_sleep' command puts the chip into deep sleep mode */
+
+static struct {
+    struct arg_int *wakeup_time;
+#if SOC_PM_SUPPORT_EXT_WAKEUP
+    struct arg_int *wakeup_gpio_num;
+    struct arg_int *wakeup_gpio_level;
+#endif
+    struct arg_end *end;
+} deep_sleep_args;
+
+
+static int deep_sleep(int argc, char **argv)
+	{
+    int nerrors = arg_parse(argc, argv, (void **) &deep_sleep_args);
+    if (nerrors != 0)
+    	{
+        //arg_print_errors(stderr, deep_sleep_args.end, argv[0]);
+        my_printf("%s arguments error", argv[0]);
+        return 1;
+    	}
+    if (deep_sleep_args.wakeup_time->count)
+    	{
+        uint64_t timeout = 1000ULL * deep_sleep_args.wakeup_time->ival[0];
+        ESP_LOGI(TAG, "Enabling timer wakeup, timeout=%lluus", timeout);
+        ESP_ERROR_CHECK( esp_sleep_enable_timer_wakeup(timeout) );
+    	}
+
+#if SOC_PM_SUPPORT_EXT_WAKEUP
+    if (deep_sleep_args.wakeup_gpio_num->count)
+    	{
+        int io_num = deep_sleep_args.wakeup_gpio_num->ival[0];
+        if (!esp_sleep_is_valid_wakeup_gpio(io_num))
+        	{
+            ESP_LOGE(TAG, "GPIO %d is not an RTC IO", io_num);
+            return 1;
+        	}
+        int level = 0;
+        if (deep_sleep_args.wakeup_gpio_level->count)
+        	{
+            level = deep_sleep_args.wakeup_gpio_level->ival[0];
+            if (level != 0 && level != 1)
+            	{
+                ESP_LOGE(TAG, "Invalid wakeup level: %d", level);
+                return 1;
+            	}
+        	}
+        ESP_LOGI(TAG, "Enabling wakeup on GPIO%d, wakeup on %s level",
+                 io_num, level ? "HIGH" : "LOW");
+
+        ESP_ERROR_CHECK( esp_sleep_enable_ext1_wakeup(1ULL << io_num, level) );
+        ESP_LOGE(TAG, "GPIO wakeup from deep sleep currently unsupported on ESP32-C3");
+    	}
+#endif // SOC_PM_SUPPORT_EXT_WAKEUP
+
+#if CONFIG_IDF_TARGET_ESP32
+    rtc_gpio_isolate(GPIO_NUM_12);
+#endif //CONFIG_IDF_TARGET_ESP32
+
+    esp_deep_sleep_start();
+    return 0;
+	}
+
+static void register_deep_sleep(void)
+	{
+    int num_args = 1;
+    deep_sleep_args.wakeup_time =
+        arg_int0("t", "time", "<t>", "Wake up time, ms");
+#if SOC_PM_SUPPORT_EXT_WAKEUP
+    deep_sleep_args.wakeup_gpio_num =
+        arg_int0(NULL, "io", "<n>",
+                 "If specified, wakeup using GPIO with given number");
+    deep_sleep_args.wakeup_gpio_level =
+        arg_int0(NULL, "io_level", "<0|1>", "GPIO level to trigger wakeup");
+    num_args += 2;
+#endif
+    deep_sleep_args.end = arg_end(num_args);
+
+    const esp_console_cmd_t cmd =
+    	{
+        .command = "deep_sleep",
+        .help = "Enter deep sleep mode. "
+#if SOC_PM_SUPPORT_EXT_WAKEUP
+        "Two wakeup modes are supported: timer and GPIO. "
+#else
+        "Timer wakeup mode is supported. "
+#endif
+        "If no wakeup option is specified, will sleep indefinitely.",
+        .hint = NULL,
+        .func = &deep_sleep,
+        .argtable = &deep_sleep_args
+    	};
+    ESP_ERROR_CHECK( esp_console_cmd_register(&cmd) );
+	}
+
+/** 'light_sleep' command puts the chip into light sleep mode */
+
+static struct {
+    struct arg_int *wakeup_time;
+    struct arg_int *wakeup_gpio_num;
+    struct arg_int *wakeup_gpio_level;
+    struct arg_end *end;
+} light_sleep_args;
+
+static int light_sleep(int argc, char **argv)
+	{
+    int nerrors = arg_parse(argc, argv, (void **) &light_sleep_args);
+    if (nerrors != 0) 
+    	{
+        //arg_print_errors(stderr, light_sleep_args.end, argv[0]);
+        my_printf("%s arguments error", argv[0]);
+        return 1;
+    	}
+    esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_ALL);
+    if (light_sleep_args.wakeup_time->count) 
+    	{
+        uint64_t timeout = 1000ULL * light_sleep_args.wakeup_time->ival[0];
+        ESP_LOGI(TAG, "Enabling timer wakeup, timeout=%lluus", timeout);
+        ESP_ERROR_CHECK( esp_sleep_enable_timer_wakeup(timeout) );
+    	}
+    int io_count = light_sleep_args.wakeup_gpio_num->count;
+    if (io_count != light_sleep_args.wakeup_gpio_level->count) 
+    	{
+        ESP_LOGE(TAG, "Should have same number of 'io' and 'io_level' arguments");
+        return 1;
+    	}
+    for (int i = 0; i < io_count; ++i) 
+    	{
+        int io_num = light_sleep_args.wakeup_gpio_num->ival[i];
+        int level = light_sleep_args.wakeup_gpio_level->ival[i];
+        if (level != 0 && level != 1) 
+        	{
+            ESP_LOGE(TAG, "Invalid wakeup level: %d", level);
+            return 1;
+        	}
+        ESP_LOGI(TAG, "Enabling wakeup on GPIO%d, wakeup on %s level",
+                 io_num, level ? "HIGH" : "LOW");
+
+        ESP_ERROR_CHECK( gpio_wakeup_enable(io_num, level ? GPIO_INTR_HIGH_LEVEL : GPIO_INTR_LOW_LEVEL) );
+    	}
+    if (io_count > 0) 
+        ESP_ERROR_CHECK( esp_sleep_enable_gpio_wakeup() );
+    if (CONFIG_ESP_CONSOLE_UART_NUM >= 0 && CONFIG_ESP_CONSOLE_UART_NUM <= UART_NUM_1) 
+    	{
+        ESP_LOGI(TAG, "Enabling UART wakeup (press ENTER to exit light sleep)");
+        ESP_ERROR_CHECK( uart_set_wakeup_threshold(CONFIG_ESP_CONSOLE_UART_NUM, 3) );
+        ESP_ERROR_CHECK( esp_sleep_enable_uart_wakeup(CONFIG_ESP_CONSOLE_UART_NUM) );
+    	}
+    fflush(stdout);
+    fsync(fileno(stdout));
+    esp_light_sleep_start();
+    esp_sleep_wakeup_cause_t cause = esp_sleep_get_wakeup_cause();
+    const char *cause_str;
+    switch (cause) 
+    	{
+	    case ESP_SLEEP_WAKEUP_GPIO:
+	        cause_str = "GPIO";
+	        break;
+	    case ESP_SLEEP_WAKEUP_UART:
+	        cause_str = "UART";
+	        break;
+	    case ESP_SLEEP_WAKEUP_TIMER:
+	        cause_str = "timer";
+	        break;
+	    default:
+	        cause_str = "unknown";
+	        my_printf("%d\n", cause);
+	    }
+    ESP_LOGI(TAG, "Woke up from: %s", cause_str);
+    return 0;
+	}
+
+static void register_light_sleep(void)
+{
+    light_sleep_args.wakeup_time =
+        arg_int0("t", "time", "<t>", "Wake up time, ms");
+    light_sleep_args.wakeup_gpio_num =
+        arg_intn(NULL, "io", "<n>", 0, 8,
+                 "If specified, wakeup using GPIO with given number");
+    light_sleep_args.wakeup_gpio_level =
+        arg_intn(NULL, "io_level", "<0|1>", 0, 8, "GPIO level to trigger wakeup");
+    light_sleep_args.end = arg_end(3);
+
+    const esp_console_cmd_t cmd = {
+        .command = "light_sleep",
+        .help = "Enter light sleep mode. "
+        "Two wakeup modes are supported: timer and GPIO. "
+        "Multiple GPIO pins can be specified using pairs of "
+        "'io' and 'io_level' arguments. "
+        "Will also wake up on UART input.",
+        .hint = NULL,
+        .func = &light_sleep,
+        .argtable = &light_sleep_args
+    };
+    ESP_ERROR_CHECK( esp_console_cmd_register(&cmd) );
+}
+
+static int uptime()
+	{
+	uint64_t tmsec = esp_timer_get_time() /1000000;
+	uint32_t td, th, tm, ts;
+	td = tmsec / 86400;
+	tmsec = tmsec % 86400;
+	th = tmsec / 3600;
+	tmsec = tmsec % 3600;
+	tm = tmsec / 60;
+	ts = tmsec % 60;
+	my_printf("Uptime: %d days %02u hours %02u min %02u sec since last boot", td, th, tm, ts);
+	return 0;
+	}
+static void register_uptime(void)
+	{
+    const esp_console_cmd_t cmd = {
+        .command = "uptime",
+        .help = "Get uptime duration since last boot",
+        .hint = NULL,
+        .func = &uptime,
+    	};
+    ESP_ERROR_CHECK( esp_console_cmd_register(&cmd) );
+	}
+
+#ifdef OTA_SUPPORT
+static struct
+	{
+    struct arg_str *url;
+    struct arg_end *end;
+	} ota_args;
+
+static int ota_start(int argc, char **argv)
+	{
+	int nerrors = arg_parse(argc, argv, (void **)&ota_args);
+	if (nerrors != 0)
+    	{
+        my_printf("%s arguments error", argv[0]);
+        return 1;
+    	}
+    if(ota_args.url->count)
+    	{
+    	ota_task(ota_args.url->sval[0]);
+    	}
+	return 0;
+	}
+static void register_ota(void)
+	{
+	ota_args.url = arg_str1(NULL, NULL, "<url>", "https://server:port/file_name");
+	ota_args.end = arg_end(1);
+    const esp_console_cmd_t cmd = {
+        .command = "ota",
+        .help = "Perform OTA fw upgrade",
+        .hint = NULL,
+        .func = &ota_start,
+        .argtable = &ota_args
+    	};
+    ESP_ERROR_CHECK( esp_console_cmd_register(&cmd) );
+	}
+#endif
+static struct
+	{
+    struct arg_str *pname;
+    struct arg_end *end;
+	} boot_args;
+static int boot_from(int argc, char **argv)
+	{
+	int nerrors = arg_parse(argc, argv, (void **)&boot_args);
+	if (nerrors != 0)
+		{
+		my_printf("%s arguments error", argv[0]);
+        return 1;
+    	}
+    const esp_partition_t *running = esp_ota_get_running_partition();
+    const esp_partition_t *bootp = esp_ota_get_boot_partition();
+    const esp_partition_t *np = NULL, *sbp = NULL;
+    int bp = 0, rp = 0;
+    esp_partition_iterator_t pit = esp_partition_find(ESP_PARTITION_TYPE_APP, ESP_PARTITION_SUBTYPE_ANY, NULL);
+    my_printf("\nAvailable boot partitions\n");
+    my_printf("name\toffset hex(dec)\t\tsize hex(dec)\t\tboot\t running");
+    my_printf("-------------------------------------------------------------------------");
+    while(pit)
+    	{
+    	np = esp_partition_get(pit);
+    	if(np)
+    		{
+    		if(boot_args.pname->count)
+    			{
+    			if(!strcmp(np->label, boot_args.pname->sval[0]))
+    			sbp = np;
+    			}
+    		bp = 0, rp = 0;
+    		if(np == running)
+    			rp = 1;
+    		if(np == bootp)
+    			bp = 1;
+    		my_printf("%s\t%06x(%8d)\t%06x(%8d)\t%2d\t%5d", np->label, np->address, np->address, np->size, np->size, bp, rp);
+    		}
+    	pit = esp_partition_next(pit);
+    	}
+    my_printf("\n");
+    if(boot_args.pname->count)
+    	{
+		if(sbp)
+			{
+			int err = esp_ota_set_boot_partition(sbp);
+			if(err == ESP_OK)
+				{
+				my_printf("Boot partition set to \"%s\" @ %06x", sbp->label, sbp->address);
+				my_printf("Reboot now to run it\n");
+				}
+			else
+				my_printf("Could not set boot partition to \"%s\" @ %06x", sbp->label, sbp->address);
+			}
+		else
+			my_printf("Partition \"%s\", not found in partition list", boot_args.pname->sval[0]);
+		}
+	return 0;
+	}
+static void register_boot(void)
+	{
+	boot_args.pname = arg_str0(NULL, NULL, "<part_name>", "select boot partition");
+	boot_args.end = arg_end(1);
+    const esp_console_cmd_t cmd = {
+        .command = "boot",
+        .help = "set boot partition = <part_name>",
+        .hint = NULL,
+        .func = &boot_from,
+        .argtable = &boot_args
+    	};
+    ESP_ERROR_CHECK( esp_console_cmd_register(&cmd) );
+	}
+	
+static struct
+	{
+    struct arg_str *key;
+    struct arg_str *val;
+    struct arg_end *end;
+	} nvsc_args;
+	
+static int nvs_conf(int argc, char **argv)
+	{
+	int nerrors = arg_parse(argc, argv, (void **)&nvsc_args);
+	if (nerrors != 0)
+		{
+		my_printf("%s arguments error", argv[0]);
+        return 1;
+    	}
+    //looking into devault "nvs" partition
+    esp_partition_iterator_t pit = esp_partition_find(ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_DATA_NVS, "nvs");
+	if(pit)
+    	{
+		int ret = ESP_OK;
+		nvs_iterator_t it = NULL;
+		nvs_entry_info_t info;
+		nvs_handle_t out_handle;
+		size_t sz;
+		char b[MAXNVSKEYVALEN];
+		const esp_partition_t *np = esp_partition_get(pit);
+		if(nvsc_args.key->count && nvsc_args.val->count)
+			{
+/*
+ * check if key name is defined in common_defines.h
+ * else print an error
+ * if another key will be needed add it first in common_defines.h
+ * and then check it here
+ */				
+			if(		strcmp(nvsc_args.key->sval[0], NVSSTASSID) 		== 0 ||
+					strcmp(nvsc_args.key->sval[0], NVSSTAPASS) 		== 0 ||
+					strcmp(nvsc_args.key->sval[0], NVSDEVID) 		== 0 ||
+					strcmp(nvsc_args.key->sval[0], NVSDEVNAME) 		== 0 ||
+					strcmp(nvsc_args.key->sval[0], NVSCONSTATE) 	== 0 ||
+					strcmp(nvsc_args.key->sval[0], NVSAPHOSTNAME) 	== 0 ||
+					strcmp(nvsc_args.key->sval[0], NVSAPSSID) 		== 0 ||
+					strcmp(nvsc_args.key->sval[0], NVSAPPASS) 		== 0 ||
+					strcmp(nvsc_args.key->sval[0], NVSAPIP) 		== 0)
+				{
+				//const esp_partition_t *np = esp_partition_get(pit);
+				ret = nvs_open(NVS_CFG_NS, NVS_READWRITE, &out_handle);
+				if(ret == ESP_OK)
+					{
+					ret = nvs_set_str(out_handle, nvsc_args.key->sval[0], nvsc_args.val->sval[0]);
+					if(ret == ESP_OK)
+						nvs_commit(out_handle);
+					nvs_close(out_handle);
+					}
+				if(ret != ESP_OK)
+					ESP_LOGI(TAG, "error updating %s - %s (%d)", nvsc_args.key->sval[0], esp_err_to_name(ret), ret);
+				}
+			else
+				ESP_LOGI(TAG, "Invalid key name: %s", nvsc_args.key->sval[0]);
+			}
+		//search keys into NVS_CFG_NS namespace
+		ret = nvs_open(NVS_CFG_NS, NVS_READONLY, &out_handle);
+		if(ret == ESP_OK)
+			{
+ 			esp_err_t res = nvs_entry_find(np->label, NVS_CFG_NS, NVS_TYPE_ANY, &it);
+			while(res == ESP_OK)
+				{
+				nvs_entry_info(it, &info);
+				ret = nvs_get_str(out_handle, info.key, NULL, &sz);
+				if(ret == ESP_OK && sz < sizeof(b))
+					{
+					ret = nvs_get_str(out_handle, info.key, b, &sz);
+					if(ret == ESP_OK)
+						{
+						ESP_LOGI(TAG, "%s set to: \"%s\"", info.key, b);
+						if(strcmp(info.key, NVSCONSTATE) == 0)
+							{	
+							int cs = atoi(b);
+							if(dev_conf.cs != cs)
+								{
+								dev_conf.cs = cs;
+								tcp_log_init(dev_conf.cs);
+								}
+							}
+						}						
+					}
+				res = nvs_entry_next(&it);
+				}
+			nvs_close(out_handle);
+			nvs_release_iterator(it);
+			}
+		}
+	return 0;
+	}
+
+static void register_nvsconf(void)
+	{
+	nvsc_args.key = arg_str0(NULL, NULL, "key name", "key name");
+	nvsc_args.val = arg_str0(NULL, NULL, "key value(str)", "key value");
+	nvsc_args.end = arg_end(1);
+    const esp_console_cmd_t cmd = {
+        .command = "nvsconf",
+        .help = "set/get device configuration to/from NVS",
+        .hint = NULL,
+        .func = &nvs_conf,
+        .argtable = &nvsc_args
+    	};
+    ESP_ERROR_CHECK( esp_console_cmd_register(&cmd) );
+	}
+
+int do_system_cmd(int argc, char **argv)
+	{
+	int ret = 1;
+	if(!argc || !argv || !argv[0])
+		return 0;
+	//ESP_LOGI(TAG, "%d, %s", argc, argv[0]);
+	if(!strcmp(argv[0], "uptime"))
+		uptime();
+	else if(!strcmp(argv[0], "heap"))
+		heap_size(argc, argv);
+	else if(!strcmp(argv[0], "ls"))
+		ls_files(argc, argv);
+	else if(!strcmp(argv[0], "free"))
+		free_mem(argc, argv);
+	else if(!strcmp(argv[0], "restart"))
+		restart(argc, argv);
+	else if(!strcmp(argv[0], "version"))
+		get_version(argc, argv);
+	else if(!strcmp(argv[0], "ping"))
+		do_ping_cmd(argc, argv);
+	else if(!strcmp(argv[0], "boot"))
+		boot_from(argc, argv);
+	else if(!strcmp(argv[0], "cat"))
+		cat_file(argc, argv);
+	else if(!strcmp(argv[0], "rm"))
+		rm_file(argc, argv);
+	else if(!strcmp(argv[0], "nvsconf"))
+		nvs_conf(argc, argv);
+	else if(!strcmp(argv[0], "echo"))
+		echo(argc, argv);
+#ifdef OTA_SUPPORT
+	else if(!strcmp(argv[0], "ota"))
+		ota_start(argc, argv);
+#endif
+#ifdef CONFIG_FREERTOS_USE_STATS_FORMATTING_FUNCTIONS
+	else if(!strcmp(argv[0], "tasks"))
+		tasks_info(argc, argv);
+#endif
+	else
+		ret = 0;
+	return ret;
+	}
+	
