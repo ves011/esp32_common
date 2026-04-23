@@ -18,9 +18,9 @@
 #include "esp_console.h"
 #include "argtable3/argtable3.h"
 #include "esp_rom_sys.h"
-#include "common_defines.h"
+//#include "common_defines.h"
 
-#include "gpios.h"
+//#include "gpios.h"
 #include "spicom.h"
 
 static const char* TAG = "SPI op:";

@@ -59,7 +59,7 @@
 
 #if CONFIG_IDF_TARGET_ESP32C3
     #define PROCESS_MESSAGE_BY_HANDLER 1
-#elif CONFIG_IDF_TARGET_ESP32S3
+#elif CONFIG_IDF_TARGET_ESP32S3 || CONFIG_IDF_TARGET_ESP32
     #define PROCESS_MESSAGE_BY_HANDLER 0
     #include "freertos/idf_additions.h"
     static QueueHandle_t mqtt_rx_queue;

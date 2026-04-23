@@ -4,28 +4,17 @@
  *  Created on: Nov 30, 2023
  *      Author: viorel_serbu
  */
-//#include "freertos/projdefs.h"
-//#include "portmacro.h"
 #include "project_specific.h"
 #ifdef ADC_AD7811
 #include <stdio.h>
 #include <string.h>
 #include "driver/gpio.h"
-#include "soc/gpio_sig_map.h"
-#include "soc/gpio_reg.h"
-#include "soc/dport_access.h"
-#include "driver/spi_master.h"
 #include "driver/gptimer.h"
-#include "rom/ets_sys.h"
+#include "freertos/idf_additions.h"
+//#include "rom/ets_sys.h"
 #include "esp_log.h"
 #include "esp_console.h"
 #include "argtable3/argtable3.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "freertos/semphr.h"
-#include "common_defines.h"
-#include "project_specific.h"
-#include "gpios.h"
 #include "spicom.h"
 #include "ad7811.h"
 
@@ -33,10 +22,7 @@ static const char* TAG = "AD op:";
 static int vref;
 static gptimer_handle_t adc_timer;
 static volatile int sample_count, nr_samples;
-uint16_t pc_samples[NR_SAMPLES_PC];
-uint16_t ps_samples[NR_SAMPLES_PS];
-uint16_t dv_samples[NR_SAMPLES_DV];
-volatile int16_t *samples, *samp_bin;
+volatile int16_t *samples;
 int s_channel;
 static QueueHandle_t adc_evt_queue = NULL;
 SemaphoreHandle_t adcval_mutex;
@@ -57,11 +43,10 @@ static bool IRAM_ATTR adc_timer_callback(gptimer_handle_t ad_timer, const gptime
 	{
     BaseType_t high_task_awoken = pdFALSE;
     int data, d_bin;
-    adc_msg_t msg;
-    samp_bin[sample_count] = samples[sample_count] = 0;
+    adc_msg_t msg = {0};
+    samples[sample_count] = 0;
     if(read_ADmv(s_channel, &data, &d_bin) == ESP_OK)
     	{
-    	samp_bin[sample_count] = d_bin;
     	samples[sample_count++] = data;
 		if(sample_count >= nr_samples)
 			{
@@ -73,8 +58,7 @@ static bool IRAM_ATTR adc_timer_callback(gptimer_handle_t ad_timer, const gptime
     	}
     else
     	{
-    	gptimer_stop(adc_timer);
-		adc_msg_t msg;
+    	gptimer_stop(adc_timer);		
 		msg.source = 1;
 		msg.val = sample_count;
 		xQueueSendFromISR(adc_evt_queue, &msg, NULL);
@@ -107,57 +91,45 @@ int adc_get_data_7911(int chn, int16_t *s_vect, int nr_samp)
 	{
 	int dummy = 0, dbin = 0, ret = ESP_FAIL;
 	adc_msg_t msg;
-	int16_t s_bin[200];
 	nr_samples = nr_samp;
 	sample_count = 0;
 	samples = s_vect;
 	s_channel = chn;
-	int q_wait = (SAMPLE_PERIOD * NR_SAMPLES_PC) / 1000 + 50; // need to wait for max number of samples
-	//if(xSemaphoreTake(adcval_mutex,  q_wait / portTICK_PERIOD_MS ) == pdTRUE)
+	nr_samples = nr_samp;
+	sample_count = 0;
+	samples = s_vect;
+	s_channel = chn;
+	if(read_ADmv(chn, &dummy, &dbin) == ESP_OK)
 		{
-		nr_samples = nr_samp;
-		sample_count = 0;
-		samples = s_vect;
-		samp_bin = s_bin;
-		s_channel = chn;
-		if(read_ADmv(chn, &dummy, &dbin) == ESP_OK)
+		ret = gptimer_start(adc_timer);
+		if(ret != ESP_OK)
 			{
+			ESP_LOGI(TAG, "first start failed %d", ret);
+			gptimer_stop(adc_timer);
 			ret = gptimer_start(adc_timer);
-			if(ret != ESP_OK)
+			}
+		if(ret == ESP_OK)
+			{
+			if(xQueueReceive(adc_evt_queue, &msg, portMAX_DELAY))// q_wait / portTICK_PERIOD_MS)) //wait qwait msec ADC conversion to complete
 				{
-				ESP_LOGI(TAG, "fist start failed %d", ret);
-				gptimer_stop(adc_timer);
-				ret = gptimer_start(adc_timer);
-				}
-			if(ret == ESP_OK)
-				{
-				if(xQueueReceive(adc_evt_queue, &msg, portMAX_DELAY))// q_wait / portTICK_PERIOD_MS)) //wait qwait msec ADC conversion to complete
+				if(msg.source == 1)
 					{
-					if(msg.source == 1)
+					//ESP_LOGI(TAG, "chn: %d / nrs: %d / ret: %d / %d(%d), %d(%d), %d(%d), %d(%d), %d(%d)", chn, nr_samp, nr_samples, s_vect[0], s_bin[0], s_vect[1], s_bin[1], s_vect[2], s_bin[2], s_vect[3], s_bin[3], s_vect[4], s_bin[4]);
+					if(msg.val == nr_samp)
+						ret = ESP_OK;
+					else
 						{
-						//ESP_LOGI(TAG, "chn: %d / nrs: %d / ret: %d / %d(%d), %d(%d), %d(%d), %d(%d), %d(%d)", chn, nr_samp, nr_samples, s_vect[0], s_bin[0], s_vect[1], s_bin[1], s_vect[2], s_bin[2], s_vect[3], s_bin[3], s_vect[4], s_bin[4]);
-						if(msg.val == nr_samp)
-							{
-	
-							ret = ESP_OK;
-							}
-						else
-							{
-							ret = ESP_FAIL;
-							ESP_LOGI(TAG, "Error reading ADC data");
-							}
+						ret = ESP_FAIL;
+						ESP_LOGI(TAG, "Error reading ADC data");
 						}
 					}
-				else
-					ESP_LOGI(TAG, "adc_get_data: timeout");
 				}
 			else
-				ESP_LOGI(TAG, "cannot start ADC timer %d", ret);
+				ESP_LOGI(TAG, "adc_get_data: timeout");
 			}
-		//xSemaphoreGive(adcval_mutex);
+		else
+			ESP_LOGI(TAG, "cannot start ADC timer %d", ret);
 		}
-	//else
-	//	ESP_LOGI(TAG, "cannot take adcval_mutex");
 	return ret;
 	}
 void init_ad7811()
@@ -196,27 +168,9 @@ void init_ad7811()
  * 	CONVST	= 0
  * 	EXTREF	= 1 if EXTERF
  * 			= 0 if INTREF
- * when channel changed the first read if for previous channel: hence 2 reads
+ * when channel changed the first read is for previous channel: hence 2 reads
+ * the first read has to be done when the application changes channel
  */
-uint16_t read_AD(int chnn)
-	{
-	uint16_t cmd, data = 0xffff;
-	cmd = 0x3000 | (chnn << 8);
-#ifdef EXTREF
-	cmd |= 0x0040;
-#endif
-	//requires 2 read
-	// first read returns data for previous channel
-	// second read returns data for current channel
-	if(spiad_rw(cmd, 13, &data) == ESP_OK)
-		if(spiad_rw(cmd, 13, &data) == ESP_OK)
-			{
-			//ESP_LOGI(TAG, "chnn: %d %0x", chnn, data);
-			return data;
-			}
-	return data;
-	}
-
 static int read_AD_simple(int chnn, uint16_t *data)
 	{
 	uint16_t cmd;

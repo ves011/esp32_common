@@ -5,7 +5,7 @@
  *      Author: viorel_serbu
  */
 #include "esp_timer.h"
-#include "portmacro.h"
+//#include "portmacro.h"
 #include "project_specific.h"
 #ifdef ROT_ENCODER
 #include <stdio.h>

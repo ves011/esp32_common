@@ -23,7 +23,10 @@
 #define ECHO_PDU					0x20
 #define ECHO_NONE					0	// no echo back
 #define ECHO_8						1	// echo back first 8 bytes
-#define ECHo_32						2	// echo back first 32 bytes
+#define ECHO_32						2	// echo back first 32 bytes
+
+#define MAX_BLE_DEVICES				20
+#define PDU_SIZE					192
 
 typedef struct
 	{
@@ -47,15 +50,18 @@ typedef struct
 	uint32_t id;
 	uint16_t len;
 	uint16_t flags;
-	uint8_t pdu[192];
+	uint8_t pdu[PDU_SIZE];
 	}bt_raw_data_t;
 	
 extern uint32_t scan_d;
 extern int n_scan_results;
-extern ble_dev_list_t *ble_dev;
+extern ble_dev_list_t ble_dev[MAX_BLE_DEVICES];
 extern QueueHandle_t bt_receive_queue, bt_send_queue;
 extern QueueHandle_t bt_client_receive_queue, bt_client_send_queue;
 extern int btEnabled;
+extern int btConnected;
+extern char btDevName[32];
+extern uint8_t adv_config_done;
 
 int btcomm_init();
 void register_bt();

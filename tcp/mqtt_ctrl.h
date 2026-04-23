@@ -11,7 +11,7 @@
 extern char *TOPIC_STATE, *TOPIC_ERROR, *TOPIC_MONITOR, *TOPIC_CTRL, *TOPIC_LOG, *TOPIC_KA; //TOPIC_CMD[32]*
 #if ACTIVE_CONTROLLER == WP_CONTROLLER
 	extern char *TOPIC_STATE_A, *TOPIC_MONITOR_A;
-	extern QueueHandle_t water_cmd_q;
+//	extern QueueHandle_t water_cmd_q;
 #endif
 
 

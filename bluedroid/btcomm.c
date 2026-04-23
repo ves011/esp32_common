@@ -10,10 +10,10 @@
 #include <string.h>
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
-#include "freertos/projdefs.h"
-#include "freertos/task.h"
-#include "freertos/event_groups.h"
-#include "freertos/queue.h"
+//#include "freertos/projdefs.h"
+//#include "freertos/task.h"
+//#include "freertos/event_groups.h"
+//#include "freertos/queue.h"
 #include "esp_system.h"
 #include "esp_log.h"
 #include "esp_console.h"
@@ -22,7 +22,7 @@
 #include "esp_bt.h"
 #include "esp_gap_ble_api.h"
 #include "esp_gatts_api.h"
-#include "esp_gattc_api.h"
+//#include "esp_gattc_api.h"
 #include "esp_bt_defs.h"
 #include "esp_bt_main.h"
 #include "esp_gatt_common_api.h"
@@ -41,11 +41,21 @@
 
 #if (COMM_PROTO & BLE_PROTO) == BLE_PROTO
 
+#if (BT_ROLE & BLE_SERVER) == BLE_SERVER
+/*
+* server role process message  
+*/
 TaskHandle_t process_message_task_handle = NULL, bt_notify_task_handle = NULL;
-QueueHandle_t bt_receive_queue = NULL, bt_send_queue = NULL;
+QueueHandle_t bt_receive_queue = NULL, bt_send_queue = NULL; 
+#endif
 
+/*
+* client role process message
+*/
+#if (BT_ROLE & BLE_CLIENT) == BLE_CLIENT
 TaskHandle_t client_process_message_task_handle = NULL, bt_client_notify_task_handle = NULL;
 QueueHandle_t bt_client_receive_queue = NULL, bt_client_send_queue = NULL;
+#endif
 
 //static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_if, esp_ble_gatts_cb_param_t *param);
 static int do_bt(int argc, char **argv);
@@ -58,32 +68,9 @@ static char* TAG = "BTComm";
 int btConnected = 0, btEnabled = 0, btRole = 0;
 uint32_t scan_d = 10;
 
-ble_dev_list_t *ble_dev = NULL;
+ble_dev_list_t ble_dev[MAX_BLE_DEVICES] = {0};
 int n_scan_results = 0;
-//char mdata[20];
-/*
-#define PROFILE_NUM					1
-#define PROFILE_A_APP_ID 			0
-#define GATTS_SERVICE_UUID_TEST_A   0x8f00
-#define GATTS_CHAR_UUID_TEST_A      0x8f01
-#define GATTS_DESCR_UUID_TEST_A     0x3333
-#define GATTS_NUM_HANDLE_TEST_A     4
 
-#define GATTS_DEMO_CHAR_VAL_LEN_MAX 0x40
-#define PREPARE_BUF_MAX_SIZE 1024
-*/
-
-//#define DEV_NAME			"pump01"
-/*
-static uint8_t char1_str[] = {0x11,0x22,0x33};
-static esp_gatt_char_prop_t a_property = 0;
-static esp_attr_value_t gatts_demo_char1_val =
-	{
-    .attr_max_len = GATTS_DEMO_CHAR_VAL_LEN_MAX,
-    .attr_len     = sizeof(char1_str),
-    .attr_value   = char1_str,
-	};
-*/
 uint8_t adv_config_done = 0;
 #define adv_config_flag      (1 << 0)
 #define scan_rsp_config_flag (1 << 1)
@@ -103,14 +90,13 @@ static esp_ble_adv_params_t adv_params =
     .adv_int_min        = 0x20,
     .adv_int_max        = 0x40,
     .adv_type           = ADV_TYPE_IND,
-    .own_addr_type      = BLE_ADDR_TYPE_PUBLIC,
-    //.peer_addr            =
-    //.peer_addr_type       =
+    .own_addr_type      = BLE_ADDR_TYPE_RANDOM, //BLE_ADDR_TYPE_PUBLIC, //BLE_ADDR_TYPE_RANDOM
     .channel_map        = ADV_CHNL_ALL,
     .adv_filter_policy = ADV_FILTER_ALLOW_SCAN_ANY_CON_ANY,
 	};
-	
-static void send_data(int len, uint16_t flags);
+
+//not used	
+//static void send_data(int len, uint16_t flags);
 
 static void process_message_task(void *pvParameters)
 	{
@@ -129,7 +115,7 @@ static void process_message_task(void *pvParameters)
 #if (BT_ROLE & BLE_CLIENT) == BLE_CLIENT
 static esp_ble_scan_params_t ble_scan_params = {
     .scan_type              = BLE_SCAN_TYPE_ACTIVE,
-    .own_addr_type          = BLE_ADDR_TYPE_PUBLIC,
+    .own_addr_type          = BLE_ADDR_TYPE_RANDOM,
     .scan_filter_policy     = BLE_SCAN_FILTER_ALLOW_ALL,
     .scan_interval          = 0xa0,
     .scan_window            = 0x60,
@@ -177,11 +163,6 @@ static void gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param
 	        
 		case ESP_GAP_BLE_SCAN_PARAM_SET_COMPLETE_EVT:
 	        //the unit of the duration is second
-			if(ble_dev)
-				{
-	        	free(ble_dev);
-	        	ble_dev = NULL;
-	        	}
 			n_scan_results = 0;
 	        esp_ble_gap_start_scanning(scan_d);
 	        break;
@@ -291,6 +272,7 @@ int btcomm_init()
 	{
 	int ret = ESP_OK;
 	btConnected = 0;
+	esp_bd_addr_t rand_addr;
 	sprintf(btDevName, "%s%02d", DEV_NAME, CTRL_DEV_ID);
 	ESP_ERROR_CHECK(esp_bt_controller_mem_release(ESP_BT_MODE_CLASSIC_BT));
 	esp_bt_controller_config_t bt_cfg = BT_CONTROLLER_INIT_CONFIG_DEFAULT();
@@ -304,7 +286,31 @@ int btcomm_init()
 			if(!ret)
 				{
 				ret = esp_bluedroid_enable();
-				if (ret)
+				if (!ret)
+					{
+// Create a BLE-compliant static random address (top two bits = 11)
+				    ret = esp_ble_gap_addr_create_static(rand_addr);
+				    if(!ret)
+						{
+					    ret = esp_ble_gap_set_rand_addr(rand_addr);
+					    if (!ret) 
+					    	{
+							ESP_LOGI(TAG,
+					        "Using static random BLE address: %02X:%02X:%02X:%02X:%02X:%02X",
+					        rand_addr[0], rand_addr[1], rand_addr[2],
+					        rand_addr[3], rand_addr[4], rand_addr[5]);
+					        ret = esp_ble_gap_register_callback(gap_event_handler);
+					        if(ret)
+					        	ESP_LOGE(TAG, "%s esp_ble_gap_register_callback failed", __func__);
+					        }
+					    else
+					    	ESP_LOGE(TAG, "%s esp_ble_gap_set_rand_addr() failed", __func__);
+						}
+					
+				    else
+				    	ESP_LOGE(TAG, "%s set random address failed", __func__);
+					}
+				else
 					ESP_LOGE(TAG, "%s enable bluetooth failed", __func__);
 				}
 			else
@@ -315,13 +321,6 @@ int btcomm_init()
 		}
 	else
 	    ESP_LOGE(TAG, "%s initialize controller failed", __func__);
-	    
-	ret = esp_ble_gap_register_callback(gap_event_handler);
-	if (ret)
-		{
-		ESP_LOGE(TAG, "gap callback register error, error code = %x", ret);
-		return ESP_FAIL;
-		}
 	    
 	if(!ret)
 		{
@@ -452,10 +451,6 @@ int btcomm_init()
 		    }
 #endif
 		}
-	
-	//esp_err_t scan_ret = esp_ble_gap_set_scan_params(&ble_scan_params);
-	//if (scan_ret)
-	//	ESP_LOGE(TAG, "set scan params error, error code = %x", scan_ret);
 	return ret;
 	}
 
@@ -490,28 +485,38 @@ static int do_bt(int argc, char **argv)
 			esp_bluedroid_deinit();
 			esp_bt_controller_disable();
 			esp_bt_controller_deinit();
+#if (BT_ROLE & BLE_SERVER) == BLE_SERVER			
 			if(bt_notify_task_handle)
 				{
 				vTaskDelete(bt_notify_task_handle);
 				bt_notify_task_handle = NULL;
 				}
-	
 			if(process_message_task_handle)
 				{
 				vTaskDelete(process_message_task_handle);
 				process_message_task_handle = NULL;
 				}
+			if(bt_receive_queue)
+				vQueueDelete(bt_receive_queue);
+			if(bt_send_queue)
+				vQueueDelete(bt_send_queue);
+#endif				
+#if (BT_ROLE & BLE_CLIENT) == BLE_CLIENT				
 			if(bt_client_notify_task_handle)
 				{
 				vTaskDelete(bt_client_notify_task_handle);
 				bt_client_notify_task_handle = NULL;
 				}
-	
 			if(client_process_message_task_handle)
 				{
 				vTaskDelete(client_process_message_task_handle);
 				client_process_message_task_handle = NULL;
 				}
+			if(bt_client_receive_queue)
+				vQueueDelete(bt_client_receive_queue);
+			if(bt_client_send_queue)
+				vQueueDelete(bt_client_send_queue);
+#endif				
 			btEnabled = 0;
 			}
 		}
@@ -594,26 +599,25 @@ int add_ble_dev(uint8_t *bda, esp_ble_addr_type_t bda_type, char *dname)
 	for(i = 0; i < n_scan_results; i++)
 		{
 		if(memcmp(ble_dev[i].dev_bda, bda, 6) == 0)
-			break;
-		}
-	if(i == n_scan_results)
-		{
-		ble_dev = realloc(ble_dev, (n_scan_results + 1) * sizeof(ble_dev_list_t));
-		if(ble_dev)
 			{
-			memcpy(ble_dev[n_scan_results].dev_bda, bda, 6);
-			strncpy(ble_dev[n_scan_results].dnamae, dname, 31);
-			ble_dev[n_scan_results].bda_type = bda_type;
-			ble_dev[n_scan_results].in_use = 0;
-			n_scan_results++;
 			ret = ESP_OK;
+			break;
 			}
 		}
-	else
+	if(i == n_scan_results && n_scan_results < MAX_BLE_DEVICES)
+		{
+		memcpy(ble_dev[n_scan_results].dev_bda, bda, 6);
+		strncpy(ble_dev[n_scan_results].dnamae, dname, 31);
+		ble_dev[n_scan_results].bda_type = bda_type;
+		ble_dev[n_scan_results].in_use = 0;
+		n_scan_results++;
 		ret = ESP_OK;
+		}
 	return ret;
 	}
-	
+/*
+// not used
+//
 static void send_data(int len, uint16_t flags)
 	{
 	bt_raw_data_t btrd;
@@ -621,10 +625,11 @@ static void send_data(int len, uint16_t flags)
 	btrd.id = BT_RAW_PDU;
 	btrd.len = len;
 	btrd.flags = flags;
-	for(int i = 0; i < len; i++)	
+	for(int i = 0; i < len && i < PDU_SIZE; i++)	
 		btrd.pdu[i] = i;
 	xQueueSend(bt_client_send_queue, &btrd, portMAX_DELAY);
 	}
+*/
 void set_advp(int maxint, int minint)
 	{
 	adv_params.adv_int_min = (minint * 1000) / 625;

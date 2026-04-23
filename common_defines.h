@@ -107,7 +107,7 @@ typedef enum
 #define AP_IP_TXT					"AP IP :"
 */
 
-#define DEFAULT_CONSOLE_STATE		CONSOLE_TCP
+#define DEFAULT_CONSOLE_STATE		CONSOLE_ON
 #define DEFAULT_DEVICE_NAME			"gnetdev"
 #define DEFAULT_DEVICE_ID			81
 #define DEFAULT_STA_SSID			""
