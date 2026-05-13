@@ -51,6 +51,7 @@ version\1number of fields in the header\1length of payload\1timestamp\1command\1
 	#define OP_UPLOAD		"upload"
 	#define OP_DOWNLOAD		"download"
 	#define OP_UPDATEKEY	"update key"
+	#define OP_CONFIG		"configuration"
 	
 //Commands
 #define CMD_SETBOOT						"set boot"
