@@ -14,12 +14,44 @@ Application protocol used between ESP32 backend and browser frontend
 ### PAR_PROGRESS
 
 - Value: `progress`
-- Description: Progress indication
+- Description: Progress indication - used by URC_STATUS
 
 ### PAR_ERROR
 
 - Value: `error`
-- Description: Error indication
+- Description: Error indication - used by URC_STATUS
+
+### PAR_APIP
+
+- Value: `ap_ip`
+- Description: AP IP - used by URC_DEVINFO
+
+### PAR_STAIP
+
+- Value: `sta_ip`
+- Description: STA IP or NA - used by URC_DEVINFO
+
+### PAR_STASSID
+
+- Value: `sta_ssid`
+- Description: STA SSID or NA - used by URC_DEVINFO
+
+### PAR_STARSSI
+
+- Value: `sta_rssi`
+- Description: STA RSSI or NA - used by URC_DEVINFO
+
+### PAR_DEVTIME
+
+- Value: `dev_time`
+- Description: device time (retuned by time()) - used by URC_DEVINFO
+
+### PAR_WIFI
+
+- Value: `check_wifi`
+- Description: device internal parameter
+should not really be here
+	  - used to generate WifFi state messages
 
 ## Operations
 
@@ -175,6 +207,15 @@ Application protocol used between ESP32 backend and browser frontend
 - Description: Restart ESP device
 - Payload: `False`
 
+### CMD_SYNCTIME
+
+- Value: `sync_tyme`
+- Description:
+  - request device to synchronize its internal time with frontend
+  - useful when device has no access to internet time
+  - no parameters: embedded side will use [ts] field in the header
+- Payload: `False`
+
 ## Responses
 
 ### RSP_CMD
@@ -202,7 +243,7 @@ Application protocol used between ESP32 backend and browser frontend
 | argument | string | Associated argument |
 | answer | string | Confirmation result |
 
-## Urc
+## Urcs
 
 ### URC_STATUS
 
@@ -212,7 +253,19 @@ Application protocol used between ESP32 backend and browser frontend
 
 | Parameter | Type | Description |
 |---|---|---|
-| operation | string | Operation type |
-| status | string | Status type |
+| operation | string | Operation type: OP_UPLOAD | OP_DOWNLOAD | ... |
+| PAR_PROGRESS | PAR_ERROR | string | type of status |
 | code | int | Error or status code |
 | text | string | Human readable status text |
+
+### URC_DEVINFO
+
+- Value: `urc_devinfo`
+- Description: unsolicited device info message
+- no of header fields: 7
+- Payload: `False`
+
+| Parameter | Type | Description |
+|---|---|---|
+| type of info in params[1] | string |  one of PAR_APIP .. PAR_DEVTIME |
+| info | string | depends on params[0] |

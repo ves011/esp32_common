@@ -77,20 +77,35 @@ c_lines.append(f'#define MAX_PARAMS                {p["max_params"]}')
 c_lines.append(f'#define MAX_TOKENS                {p["max_tokens"]}')
 c_lines.append("")
 
-
+SECTIONS = [
+    "parameters",
+    "operations",
+    "commands",
+    "responses",
+    "URCs"
+]
 def emit_group_c(group_name, group):
     c_lines.append(emit_comment(group_name))
 
     for k, v in group.items():
 
         if "comment" in v:
-            c_lines.append(emit_comment(v["comment"]))
+            comment = v["comment"]
+            # multiline comment
+            if isinstance(comment, list):
+                c_lines.append("/*")
+                for line in comment:
+                    c_lines.append(f" * {line}")
+                c_lines.append(" */")
+            # single line comment
+            else:
+                c_lines.append(f"/* {comment} */")
 
         c_lines.append(emit_define(k, v["value"]))
         c_lines.append("")
 
 
-for sec in ["parameters", "operations", "commands", "responses", "urc"]:
+for sec in SECTIONS:
     if sec in proto:
         emit_group_c(sec.capitalize(), proto[sec])
 
@@ -121,15 +136,23 @@ def emit_group_js(group_name, group):
     js_lines.append(f"// {group_name}")
 
     for k, v in group.items():
-
         if "comment" in v:
-            js_lines.append(f'// {v["comment"]}')
+            comment = v["comment"]
+            # multiline comment
+            if isinstance(comment, list):
+                js_lines.append("/*")
+                for line in comment:
+                    js_lines.append(f" * {line}")
+                js_lines.append(" */")
+            # single line comment
+            else:
+                js_lines.append(f"/* {comment} */")
 
         js_lines.append(emit_js_const(k, v["value"]))
         js_lines.append("")
 
 
-for sec in ["parameters", "operations", "commands", "responses", "urc"]:
+for sec in SECTIONS:
     if sec in proto:
         emit_group_js(sec.capitalize(), proto[sec])
 
@@ -167,8 +190,16 @@ def emit_md_section(title, section):
         md.append(f"- Value: `{v['value']}`")
 
         if "comment" in v:
-            md.append(f"- Description: {v['comment']}")
+            comment = v["comment"]
+            if isinstance(comment, list):
+                md.append("- Description:")
+                for line in comment:
+                    md.append(f"  - {line}")
+            else:
+                md.append(f"- Description: {comment}")
 
+        if "hdr_fields" in v:
+            md.append(f"- no of header fields: {v['hdr_fields']}")
         if "payload" in v:
             md.append(f"- Payload: `{v['payload']}`")
 
@@ -195,7 +226,7 @@ def emit_md_section(title, section):
         md.append("")
 
 
-for sec in ["parameters", "operations", "commands", "responses", "urc"]:
+for sec in SECTIONS:
 
     if sec in proto:
         emit_md_section(sec.capitalize(), proto[sec])

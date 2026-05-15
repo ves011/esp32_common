@@ -12,12 +12,36 @@
 
     "PAR_PROGRESS": {
       "value": "progress",
-      "comment": "Progress indication"
+      "comment": "Progress indication - used by URC_STATUS"
     },
 
     "PAR_ERROR": {
       "value": "error",
-      "comment": "Error indication"
+      "comment": "Error indication - used by URC_STATUS"
+    },
+    "PAR_APIP": {
+      "value": "ap_ip",
+      "comment": "AP IP - used by URC_DEVINFO"
+    },
+    "PAR_STAIP": {
+      "value": "sta_ip",
+      "comment": "STA IP or NA - used by URC_DEVINFO"
+    },
+    "PAR_STASSID": {
+      "value": "sta_ssid",
+      "comment": "STA SSID or NA - used by URC_DEVINFO"
+    },
+    "PAR_STARSSI": {
+      "value": "sta_rssi",
+      "comment": "STA RSSI or NA - used by URC_DEVINFO"
+    },
+    "PAR_DEVTIME": {
+      "value": "dev_time",
+      "comment": "device time (retuned by time()) - used by URC_DEVINFO"
+    },
+    "PAR_WIFI": {
+      "value": "check_wifi",
+      "comment": "device internal parameter\nshould not really be here\n\t  - used to generate WifFi state messages"
     }
   },
 
@@ -251,6 +275,17 @@
       "comment": "Restart ESP device",
       "payload": false,
       "params": []
+    },
+
+    "CMD_SYNCTIME": {
+      "value": "sync_tyme",
+      "comment": [
+          "request device to synchronize its internal time with frontend",
+          "useful when device has no access to internet time",
+          "no parameters: embedded side will use [ts] field in the header"
+        ],
+      "payload": false,
+      "params": []
     }
   },
 
@@ -312,7 +347,7 @@
     }
   },
 
-  "urc": {
+  "URCs": {
 
     "URC_STATUS": {
       "value": "urc_status",
@@ -322,12 +357,12 @@
         {
           "name": "operation",
           "type": "string",
-          "comment": "Operation type"
+          "comment": "Operation type: OP_UPLOAD | OP_DOWNLOAD | ..."
         },
         {
-          "name": "status",
+          "name": "PAR_PROGRESS | PAR_ERROR",
           "type": "string",
-          "comment": "Status type"
+          "comment": "type of status"
         },
         {
           "name": "code",
@@ -338,6 +373,25 @@
           "name": "text",
           "type": "string",
           "comment": "Human readable status text"
+        }
+      ]
+    },
+
+    "URC_DEVINFO": {
+      "value": "urc_devinfo",
+      "comment": "unsolicited device info message",
+      "hdr_fields": "7",
+      "payload": false,
+      "params": [
+        {
+          "name": "type of info in params[1]",
+          "type": "string",
+          "comment": " one of PAR_APIP .. PAR_DEVTIME" 
+        },
+        {
+          "name": "info",
+          "type": "string",
+          "comment": "depends on params[0]"
         }
       ]
     }

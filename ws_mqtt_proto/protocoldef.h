@@ -13,11 +13,31 @@
 #define MAX_TOKENS                32
 
 /* Parameters */
-/* Progress indication */
+/* Progress indication - used by URC_STATUS */
 #define PAR_PROGRESS                 "progress"
 
-/* Error indication */
+/* Error indication - used by URC_STATUS */
 #define PAR_ERROR                    "error"
+
+/* AP IP - used by URC_DEVINFO */
+#define PAR_APIP                     "ap_ip"
+
+/* STA IP or NA - used by URC_DEVINFO */
+#define PAR_STAIP                    "sta_ip"
+
+/* STA SSID or NA - used by URC_DEVINFO */
+#define PAR_STASSID                  "sta_ssid"
+
+/* STA RSSI or NA - used by URC_DEVINFO */
+#define PAR_STARSSI                  "sta_rssi"
+
+/* device time (retuned by time()) - used by URC_DEVINFO */
+#define PAR_DEVTIME                  "dev_time"
+
+/* device internal parameter
+should not really be here
+	  - used to generate WifFi state messages */
+#define PAR_WIFI                     "check_wifi"
 
 /* Operations */
 /* Upload operation status */
@@ -63,6 +83,13 @@
 /* Restart ESP device */
 #define CMD_REBOOT                   "esp_reboot"
 
+/*
+ * request device to synchronize its internal time with frontend
+ * useful when device has no access to internet time
+ * no parameters: embedded side will use [ts] field in the header
+ */
+#define CMD_SYNCTIME                 "sync_tyme"
+
 /* Responses */
 /* Generic command response */
 #define RSP_CMD                      "rsp_cmd"
@@ -70,8 +97,11 @@
 /* Confirmation response */
 #define RSP_CONFIRMATION             "rsp_conf"
 
-/* Urc */
+/* Urcs */
 /* Unsolicited status message */
 #define URC_STATUS                   "urc_status"
+
+/* unsolicited device info message */
+#define URC_DEVINFO                  "urc_devinfo"
 
 #endif /* PROTOCOLDEF_H_ */
