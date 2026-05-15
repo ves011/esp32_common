@@ -1,0 +1,345 @@
+{
+  "protocol": {
+    "name": "app_proto",
+    "version": 1,
+    "separator": "\\u0001",
+    "max_params": 10,
+    "max_tokens": 32,
+    "comment": "Application protocol used between ESP32 backend and browser frontend"
+  },
+
+  "parameters": {
+
+    "PAR_PROGRESS": {
+      "value": "progress",
+      "comment": "Progress indication"
+    },
+
+    "PAR_ERROR": {
+      "value": "error",
+      "comment": "Error indication"
+    }
+  },
+
+  "operations": {
+
+    "OP_UPLOAD": {
+      "value": "upload",
+      "comment": "Upload operation status",
+      "params": [
+        "status",
+        "error_code",
+        "progress_or_text"
+      ]
+    },
+
+    "OP_DOWNLOAD": {
+      "value": "download",
+      "comment": "Download operation status",
+      "params": [
+        "status",
+        "error_code",
+        "progress_or_text"
+      ]
+    },
+
+    "OP_UPDATEKEY": {
+      "value": "update key",
+      "comment": "NVS key update status",
+      "params": [
+        "status",
+        "status_code",
+        "update_identifier"
+      ]
+    },
+
+    "OP_CONFIG": {
+      "value": "configuration",
+      "comment": "Configuration related operation"
+    }
+  },
+
+  "commands": {
+
+    "CMD_SETBOOT": {
+      "value": "set boot",
+      "comment": "Set boot partition",
+      "payload": false,
+      "params": [
+        {
+          "name": "partition",
+          "type": "string",
+          "comment": "Partition label"
+        }
+      ]
+    },
+
+    "CMD_ERASEPART": {
+      "value": "erase partition",
+      "comment": "Erase partition contents",
+      "payload": false,
+      "params": [
+        {
+          "name": "partition",
+          "type": "string",
+          "comment": "Partition label"
+        }
+      ]
+    },
+
+    "CMD_REQCONF": {
+      "value": "request confirmation",
+      "comment": "Request confirmation from frontend",
+      "payload": false,
+      "params": [
+        {
+          "name": "command",
+          "type": "string",
+          "comment": "Command requiring confirmation"
+        },
+        {
+          "name": "argument",
+          "type": "string",
+          "comment": "Associated command argument"
+        }
+      ]
+    },
+
+    "CMD_UPDATEKEYREQ": {
+      "value": "update key req",
+      "comment": "Initialize chunked NVS key update",
+      "payload": false,
+      "params": [
+        {
+          "name": "namespace_id",
+          "type": "int",
+          "comment": "Namespace index"
+        },
+        {
+          "name": "key_id",
+          "type": "int",
+          "comment": "Key index"
+        },
+        {
+          "name": "key_type",
+          "type": "int",
+          "comment": "NVS key type"
+        },
+        {
+          "name": "total_length",
+          "type": "int",
+          "comment": "Total update length"
+        }
+      ]
+    },
+
+    "CMD_UPDATEKEYVAL": {
+      "value": "update key val",
+      "comment": "Transfer one key data chunk",
+      "payload": true,
+      "payload_type": "binary",
+      "params": [
+        {
+          "name": "namespace_id",
+          "type": "int",
+          "comment": "Namespace index"
+        },
+        {
+          "name": "key_id",
+          "type": "int",
+          "comment": "Key index"
+        },
+        {
+          "name": "offset",
+          "type": "int",
+          "comment": "Offset inside destination buffer"
+        },
+        {
+          "name": "chunk_length",
+          "type": "int",
+          "comment": "Chunk length in bytes"
+        }
+      ]
+    },
+
+    "CMD_UPDATEKEY": {
+      "value": "update key",
+      "comment": "Single frame NVS key update",
+      "payload": true,
+      "payload_type": "binary",
+      "params": [
+        {
+          "name": "namespace_id",
+          "type": "int",
+          "comment": "Namespace index"
+        },
+        {
+          "name": "key_id",
+          "type": "int",
+          "comment": "Key index"
+        },
+        {
+          "name": "key_type",
+          "type": "int",
+          "comment": "NVS key type"
+        }
+      ]
+    },
+
+    "CMD_DELTENS": {
+      "value": "delete ns",
+      "comment": "Delete namespace",
+      "payload": false,
+      "params": [
+        {
+          "name": "namespace_name",
+          "type": "string",
+          "comment": "Namespace name"
+        }
+      ]
+    },
+
+    "CMD_DELETEKEY": {
+      "value": "delete key",
+      "comment": "Delete NVS key",
+      "payload": false,
+      "params": [
+        {
+          "name": "namespace_id",
+          "type": "int",
+          "comment": "Namespace index"
+        },
+        {
+          "name": "key_id",
+          "type": "int",
+          "comment": "Key index"
+        }
+      ]
+    },
+
+    "CMD_CREATEKEY": {
+      "value": "create key",
+      "comment": "Create new NVS key",
+      "payload": true,
+      "payload_type": "binary",
+      "params": [
+        {
+          "name": "namespace_name",
+          "type": "string",
+          "comment": "Namespace name"
+        },
+        {
+          "name": "key_name",
+          "type": "string",
+          "comment": "Key name"
+        },
+        {
+          "name": "key_type",
+          "type": "int",
+          "comment": "NVS key type"
+        },
+        {
+          "name": "key_length",
+          "type": "int",
+          "comment": "Key length"
+        }
+      ]
+    },
+
+    "CMD_REBOOT": {
+      "value": "esp_reboot",
+      "comment": "Restart ESP device",
+      "payload": false,
+      "params": []
+    }
+  },
+
+  "responses": {
+
+    "RSP_CMD": {
+      "value": "rsp_cmd",
+      "comment": "Generic command response",
+      "payload": false,
+      "params": [
+        {
+          "name": "command",
+          "type": "string",
+          "comment": "Responded command"
+        },
+        {
+          "name": "argument",
+          "type": "string",
+          "comment": "Primary command argument"
+        },
+        {
+          "name": "error_code",
+          "type": "int",
+          "comment": "ESP-IDF or application error code"
+        },
+        {
+          "name": "error_text",
+          "type": "string",
+          "comment": "Human readable error text"
+        }
+      ]
+    },
+
+    "RSP_CONFIRMATION": {
+      "value": "rsp_conf",
+      "comment": "Confirmation response",
+      "payload": false,
+      "params": [
+        {
+          "name": "command",
+          "type": "string",
+          "comment": "Confirmed command"
+        },
+        {
+          "name": "argument",
+          "type": "string",
+          "comment": "Associated argument"
+        },
+        {
+          "name": "answer",
+          "type": "string",
+          "comment": "Confirmation result",
+          "enum": [
+            "OK",
+            "KO"
+          ]
+        }
+      ]
+    }
+  },
+
+  "urc": {
+
+    "URC_STATUS": {
+      "value": "urc_status",
+      "comment": "Unsolicited status message",
+      "payload": false,
+      "params": [
+        {
+          "name": "operation",
+          "type": "string",
+          "comment": "Operation type"
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "comment": "Status type"
+        },
+        {
+          "name": "code",
+          "type": "int",
+          "comment": "Error or status code"
+        },
+        {
+          "name": "text",
+          "type": "string",
+          "comment": "Human readable status text"
+        }
+      ]
+    }
+  }
+}
