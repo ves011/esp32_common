@@ -17,10 +17,10 @@ extern int restart_in_progress;
 void register_wifi(void);
 bool isConnected(void);
 bool wifi_reconnect();
-bool wifi_join(const char *ssid, const char *pass, int timeout_ms);
+bool wifi_join(const char *ssid, const char *pass, int timeout_ms, bool usenvs);
 //void do_wifi_cmd(int argc, char **argv);
 int do_wifi(int argc, char **argv);
-void initialise_wifi(void);
+void initialise_wifi(bool usenvs);
 bool get_sta_conf(char *ssid, esp_netif_ip_info_t *ipinfo);
 int get_nvs_stacred(char *ssid, char *passwd);
 

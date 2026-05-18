@@ -210,6 +210,7 @@ void get_nvs_conf()
 	strcpy(dev_conf.ap_pass, DEFAULT_AP_PASS);
 	strcpy(dev_conf.ap_hostname, DEFAULT_AP_HOSTNAME);
 	dev_conf.ap_ip = DEFAULT_AP_IP;
+	dev_conf.nvs80211.sta_pass[0] = dev_conf.nvs80211.sta_ssid[0] = 0;
 	if(nvs_open(NVS_CFG_NS, NVS_READONLY, &handle) == ESP_OK)
 		{
 		ret = nvs_get_str(handle, NVSSTASSID, NULL, &sz);
@@ -274,6 +275,27 @@ void get_nvs_conf()
 			ret = nvs_get_str(handle, NVSCONSTATE, b, &sz);
 			if(ret == ESP_OK)
 				dev_conf.cs = atoi(b);
+			}
+		nvs_close(handle);
+		}
+	if(nvs_open("nvs.net80211", NVS_READONLY, &handle) == ESP_OK)
+		{
+		ret = nvs_get_blob(handle, "sta.pswd", NULL, &sz);
+		if(ret == ESP_OK && sz < sizeof(dev_conf.nvs80211.sta_pass) - 1)
+			ret = nvs_get_blob(handle, "sta.pswd", dev_conf.nvs80211.sta_pass, &sz);
+		ret = nvs_get_blob(handle, "sta.ssid", NULL, &sz);
+		if(ret == ESP_OK  && sz < sizeof(dev_conf.nvs80211.sta_ssid) - 1)
+			{
+			ret = nvs_get_blob(handle, "sta.ssid", b, &sz);
+			if(ret == ESP_OK)
+				{
+				size_t s = *(uint32_t *)b;
+				if(s < sizeof(dev_conf.nvs80211.sta_ssid))
+					{
+					memcpy(dev_conf.nvs80211.sta_ssid, b + 4, s);
+					dev_conf.nvs80211.sta_ssid[s] = 0;
+					}
+				}
 			}
 		nvs_close(handle);
 		}

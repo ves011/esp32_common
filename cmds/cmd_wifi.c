@@ -75,7 +75,7 @@ static void wifi_retry_timer_init(void)
 
     ESP_ERROR_CHECK(esp_timer_create(&args, &wifi_retry_timer));
 	}
-
+	
 static void print_auth_mode(int authmode, char *logbuf)
 	{
     switch (authmode) 
@@ -328,7 +328,7 @@ static void wifi_init_ap(void)
 	}
 #endif
 	
-void initialise_wifi(void)
+void initialise_wifi(bool usenvs)
 	{
 #if !WIFI_STA_ON && !WIFI_AP_ON
     return;
@@ -350,6 +350,11 @@ void initialise_wifi(void)
 #endif
 	wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
     ESP_ERROR_CHECK( esp_wifi_init(&cfg) );
+	if(usenvs)
+    	esp_wifi_set_storage(WIFI_STORAGE_FLASH);
+	else
+    	esp_wifi_set_storage(WIFI_STORAGE_RAM);
+
 	wifi_retry_timer_init();
 	
 #if WIFI_STA_ON && WIFI_AP_ON
@@ -378,7 +383,7 @@ void initialise_wifi(void)
 	initialized = true;
 	}
 
-bool wifi_join(const char *ssid, const char *pass, int timeout_ms)
+bool wifi_join(const char *ssid, const char *pass, int timeout_ms, bool usenvs)
 	{
 #if !WIFI_STA_ON
     return false;
@@ -388,30 +393,44 @@ bool wifi_join(const char *ssid, const char *pass, int timeout_ms)
 	int bits = 0, ret;
     wifi_config_t wifi_config = { 0 };
     
-	initialise_wifi();
+	initialise_wifi(usenvs);
 	if(!initialized)
 		return false;
-	if(ssid == NULL)
+	ESP_ERROR_CHECK( esp_wifi_get_config(WIFI_IF_STA, &wifi_config) );
+	/*
+	 * usenvs logic
+	 * 	usenvs == true
+	 * 		take either dev_conf values loaded from NVS, or provided values (ssid, pass) in the function call
+	 * 	usenvs == false
+	 *		take values - if found - in nvs.net802.11 namespace
+	*/
+	if(usenvs)
 		{
-		if (dev_conf.sta_ssid[0] == '\0')
-            return false;
-        strlcpy(use_ssid, dev_conf.sta_ssid, sizeof(use_ssid));
-        strlcpy(use_pass, dev_conf.sta_pass, sizeof(use_pass));
+		if(ssid == NULL)
+			{
+	        strlcpy(use_ssid, dev_conf.sta_ssid, sizeof(use_ssid));
+	        strlcpy(use_pass, dev_conf.sta_pass, sizeof(use_pass));
+			}
+		else
+			{
+			strlcpy(use_ssid, ssid, sizeof(use_ssid));
+	        if (pass)
+	            strlcpy(use_pass, pass, sizeof(use_pass));
+			}
 		}
 	else
 		{
-		strlcpy(use_ssid, ssid, sizeof(use_ssid));
-        if (pass)
-            strlcpy(use_pass, pass, sizeof(use_pass));
+		strlcpy(use_ssid, dev_conf.nvs80211.sta_ssid, sizeof(use_ssid));
+		strlcpy(use_pass, dev_conf.nvs80211.sta_pass, sizeof(use_pass));
 		}
-
-    ESP_LOGI(WIFITAG, "wifi_join(): STA SSID: \"%s\" STA PASS: \"%s\" timeout: %d", use_ssid, use_pass, timeout_ms);
-    ESP_ERROR_CHECK( esp_wifi_get_config(WIFI_IF_STA, &wifi_config) );
-    strlcpy((char *) wifi_config.sta.ssid, use_ssid, sizeof(wifi_config.sta.ssid));
+	if(strlen(use_ssid))
+    	strlcpy((char *) wifi_config.sta.ssid, use_ssid, sizeof(wifi_config.sta.ssid));
 	if (use_pass[0])
-        strlcpy((char *) wifi_config.sta.password, use_pass, sizeof(wifi_config.sta.password));
+       	strlcpy((char *) wifi_config.sta.password, use_pass, sizeof(wifi_config.sta.password));
 	else
 		wifi_config.sta.password[0] = '\0';
+
+    ESP_LOGI(WIFITAG, "wifi_join(): STA SSID: \"%s\" STA PASS: \"%s\" timeout: %d", wifi_config.sta.ssid, wifi_config.sta.password);
     ESP_ERROR_CHECK( esp_wifi_set_config(WIFI_IF_STA, &wifi_config) );
 
     //if(wifi_disconnect() == ESP_OK)
@@ -489,7 +508,7 @@ static int wifi_connect(const char *ssid, const char *pwd, int timeout)
 		}
     ESP_LOGI(__func__, "Connecting to '%s'", ssid);
 
-    bool connected = wifi_join(ssid, pwd,timeout);
+    bool connected = wifi_join(ssid, pwd,timeout, false);
     if (!connected)
     	{
         ESP_LOGW(__func__, "Connection timed out");
@@ -499,14 +518,14 @@ static int wifi_connect(const char *ssid, const char *pwd, int timeout)
     return 0;
 	}
 
-static int wifi_scan()
+static int wifi_scan(bool usenvs)
 	{
 	uint16_t sta_number = 0;
     uint8_t i;
     wifi_ap_record_t *ap_list_buffer;
     char logbuf[256], mac[20];;
 
-    initialise_wifi();
+    initialise_wifi(usenvs);
 
     wifi_ap_record_t ap_info[SCAN_LIST_SIZE];
     memset(ap_info, 0, sizeof(ap_info));
@@ -598,7 +617,7 @@ int do_wifi(int argc, char **argv)
 		}
 	else if(strcmp(wifi_args.op->sval[0], "scan") == 0)
 		{
-		wifi_scan();
+		wifi_scan(0);
 		}
 	return 0;
 	}

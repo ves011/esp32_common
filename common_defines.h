@@ -250,24 +250,24 @@ typedef struct
 		pump_mon_val_t pv;
 		}p;
 	} socket_message_t;
-	
+
+typedef struct
+	{
+	char sta_ssid[64];
+	char sta_pass[64];
+	} nvs80211_t;
 typedef struct
 	{
 	console_state_t cs;
 	int dev_id;
 	char dev_name[40];
-	char sta_ssid[40];
-	char sta_pass[40];
+	char sta_ssid[64];
+	char sta_pass[64];
 	char ap_hostname[40];
-	char ap_ssid[40];
-	char ap_pass[40];
+	char ap_ssid[64];
+	char ap_pass[64];
+	nvs80211_t nvs80211;
 	uint32_t ap_ip;
-	/*
-	uint8_t ap_a;
-	uint8_t ap_b;
-	uint8_t ap_c;
-	uint8_t ap_d;
-	*/
 	} dev_config_t;
 	
 typedef struct
