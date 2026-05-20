@@ -89,24 +89,15 @@ typedef enum
 */
 #define BASE_PATH					"/var"
 #define PARTITION_LABEL				"user"
-//#define CONSOLE_FILE				"conoff.txt"
-//#define DEVCONF_FILE				"devconf.txt"
 #define HISTORY_FILE				"/sys/history.txt"
 #define RGCAL_FILE					"rgcal.txt"
 #define PTST_FILE					"ptst.txt"
 #define SETTINGS_FILE				"settings.txt"
-/*
-#define CONSOLE_TXT					"console state: "
-#define NAME_TXT					"device name: "
-#define ID_TXT						"device ID: "
-#define STA_SSID_TXT				"STA SSID: "
-#define STA_PWD_TXT					"STA SSID pass: "
-#define AP_SSID_TXT					"AP SSID: "
-#define AP_PWD_TXT					"AP SSID pass: "
-#define AP_HOSTNAME_TXT				"AP hostname: "
-#define AP_IP_TXT					"AP IP :"
-*/
 
+/*
+* default configuration values
+* actual values are read from NVS, namespaes: devcfg
+*/
 #define DEFAULT_CONSOLE_STATE		CONSOLE_ON
 #define DEFAULT_DEVICE_NAME			"gnetdev"
 #define DEFAULT_DEVICE_ID			81
@@ -116,10 +107,6 @@ typedef enum
 #define DEFAULT_AP_PASS				"OTA-devpass"
 #define DEFAULT_AP_HOSTNAME			"ota-dev.local"
 #define DEFAULT_AP_IP				(1<<24) | (252 <<16) | (168 << 8) | 192 //192.168.252.1
-//#define DEFAULT_AP_A				192
-//#define DEFAULT_AP_B				168
-//#define DEFAULT_AP_C				253
-//#define DEFAULT_AP_D				1
 
 
 #define MAX_NO_FILES				(5)
@@ -172,25 +159,6 @@ typedef enum
 
 
 #define PI					3.14159265358979
-
-/*
-//definitions moved to project_specific.h
-#if ACTIVE_CONTROLLER  == OTA_CONTROLLER
-	#define DEV_NAME				"OTA"
-#elif ACTIVE_CONTROLLER == AGATE_CONTROLLER
-	#define DEV_NAME				"Poarta Auto"
-#elif ACTIVE_CONTROLLER == PUMP_CONTROLLER
-	#define DEV_NAME				"Pompa Foraj"
-#elif ACTIVE_CONTROLLER == WESTA_CONTROLLER
-	#define DEV_NAME				"Statia meteo"
-#elif ACTIVE_CONTROLLER == WATER_CONTROLLER
-	#define DEV_NAME				"Controler irigatie"
-#elif ACTIVE_CONTROLLER == WP_CONTROLLER
-	#define DEV_NAME				"Pompa & Irigatie"
-#elif ACTIVE_CONTROLLER == ESP32_TEST
-	#define DEV_NAME				"esp32 test"
-#endif
-*/
 
 #define FACTORY_PART_NAME			"ota_0"
 #define OTA_PART_NAME				"ota_1"

@@ -166,6 +166,7 @@ md = []
 md.append(f"# {p.get('name', base)}")
 md.append("")
 md.append(p.get("comment", ""))
+md.append("file automatically generated. !!!do not edit!!!")
 md.append("")
 
 md.append("## Protocol")
@@ -175,6 +176,13 @@ md.append(f"- Separator: `0x01`")
 md.append(f"- Max params: `{p['max_params']}`")
 md.append(f"- Max tokens: `{p['max_tokens']}`")
 md.append("")
+
+md.append("## Format")
+md.append("")
+md.append("`[header]0x01[payload]`")
+md.append("")
+md.append("#### Header format")
+md.append("`[ver]0x01[hdr_fields]0x01[payload_len]0x01[timestamp]0x01[cmd|response]0x01[param_0]0x01[param_1]0x01...0x01[param_n]0x01`")
 
 
 def emit_md_section(title, section):

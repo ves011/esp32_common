@@ -1,6 +1,7 @@
 # app_proto
 
 Application protocol used between ESP32 backend and browser frontend
+file automatically generated. !!!do not edit!!!
 
 ## Protocol
 
@@ -9,6 +10,12 @@ Application protocol used between ESP32 backend and browser frontend
 - Max params: `10`
 - Max tokens: `32`
 
+## Format
+
+`[header]0x01[payload]`
+
+#### Header format
+`[ver]0x01[hdr_fields]0x01[payload_len]0x01[timestamp]0x01[cmd|response]0x01[param_0]0x01[param_1]0x01...0x01[param_n]0x01`
 ## Parameters
 
 ### PAR_PROGRESS

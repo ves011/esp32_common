@@ -61,7 +61,7 @@
 #include "sdkconfig.h"
 //#include "project_specific.h"
 #include "common_defines.h"
-#include "external_defs.h"
+//#include "external_defs.h"
 //#include "utils.h"
 #ifdef OTA_SUPPORT
 	#include "ota.h"
