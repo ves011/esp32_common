@@ -12,6 +12,15 @@
 extern "C" {
 #endif
 
+typedef struct {
+    struct arg_dbl *timeout;
+    struct arg_dbl *interval;
+    struct arg_int *data_size;
+    struct arg_int *count;
+    struct arg_int *tos;
+    struct arg_str *host;
+    struct arg_end *end;
+} ping_args_t;
 // Register all system functions
 void register_system(void);
 

@@ -286,7 +286,7 @@ static void wifi_init_sta(void)
 	}
 #endif
 #if WIFI_AP_ON
-static void wifi_init_ap(void)
+static void wifi_init_ap(bool usenvs)
 	{
 	int ret;
 	esp_netif_t *esp_netif_ap;
@@ -294,7 +294,6 @@ static void wifi_init_ap(void)
         return;
     esp_netif_ap = esp_netif_create_default_wifi_ap();
     assert(esp_netif_ap);
-
     wifi_config_t wifi_config = {
 		.ap =
 			{
@@ -305,14 +304,26 @@ static void wifi_init_ap(void)
 	    	.pmf_cfg = {.required = false,},
 	    	}
 	    };
-	strcpy((char *)(wifi_config.ap.ssid), dev_conf.ap_ssid);
-	strcpy((char *)(wifi_config.ap.password), dev_conf.ap_pass);
+	if(!usenvs)
+		{
+		uint8_t bmac[8] = {0};
+		char assid[32];
+		esp_read_mac(bmac, ESP_MAC_WIFI_SOFTAP);
+		snprintf(assid, sizeof(assid) - 1, "OTA%llx", *(unsigned long long *)bmac);
+		assid[sizeof(assid) - 1] = 0;
+		strcpy((char *)(wifi_config.ap.ssid), assid);
+		wifi_config.ap.ssid_len = strlen(assid);
+		strcpy((char *)(wifi_config.ap.password), DEFAULT_AP_PASS);
+		}
+	else
+		{
+		strcpy((char *)(wifi_config.ap.ssid), dev_conf.ap_ssid);
+		strcpy((char *)(wifi_config.ap.password), dev_conf.ap_pass);
+		}
 	ret = esp_wifi_set_config(WIFI_IF_AP, &wifi_config);
 	if(ret == ESP_OK)
 		{
 		esp_netif_ip_info_t ip_info;
-		//IP4_ADDR(&ip_info.ip, dev_conf.ap_a, dev_conf.ap_b, dev_conf.ap_c, dev_conf.ap_d);
-		//IP4_ADDR(&ip_info.gw, dev_conf.ap_a, dev_conf.ap_b, dev_conf.ap_c, dev_conf.ap_d);
 		ip_info.ip.addr = dev_conf.ap_ip;
 		ip_info.gw.addr = dev_conf.ap_ip; 
 		IP4_ADDR(&ip_info.netmask, 255, 255, 255, 0);
@@ -360,7 +371,7 @@ void initialise_wifi(bool usenvs)
 #if WIFI_STA_ON && WIFI_AP_ON
 	ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_APSTA));
 	wifi_init_sta();
-	wifi_init_ap();
+	wifi_init_ap(usenvs);
 	ESP_ERROR_CHECK(esp_wifi_start());
 #else
 	#if WIFI_STA_ON
@@ -500,7 +511,7 @@ static int wifi_connect(const char *ssid, const char *pwd, int timeout)
 							IP2STR(&ip_info.ip),
 							IP2STR(&ip_info.netmask),
 							IP2STR(&ip_info.gw));
-					ESP_LOGI(WIFITAG, "sta MAC = %02x:%02x:%02x:%02x:%02x:%02x", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+					ESP_LOGI(WIFITAG, "MAC = %02x:%02x:%02x:%02x:%02x:%02x\n", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
 					}
 				} while (netif);
 			}

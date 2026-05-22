@@ -228,10 +228,10 @@ typedef struct
 	{
 	console_state_t cs;
 	int dev_id;
-	char dev_name[40];
+	char dev_name[32];
 	char sta_ssid[64];
 	char sta_pass[64];
-	char ap_hostname[40];
+	char ap_hostname[32];
 	char ap_ssid[64];
 	char ap_pass[64];
 	nvs80211_t nvs80211;
@@ -247,5 +247,7 @@ typedef struct
 		int ival[10];
 		} val;
 	} state_message_t;
+	
+extern int restart_in_progress;
 	
 #endif /* COMMON_COMMON_DEFINES_H_ */

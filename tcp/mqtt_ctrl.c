@@ -1,8 +1,27 @@
-/*
- * mqtt_ctrl.c
+/**
+ * @file mqtt_ctrl.c
+ * @brief MQTT client lifecycle, messaging, and controller dispatch
  *
- *  Created on: Mar 5, 2023
- *      Author: viorel_serbu
+ * This module implements the MQTT communication layer for the device.
+ * It provides:
+ *
+ *  - Secure MQTT client initialization (TLS, certificates from NVS)
+ *  - Dynamic topic creation based on device identity
+ *  - Subscription and publish helpers
+ *  - Connection state tracking via event groups
+ *  - Dispatch of received MQTT commands to controller-specific handlers
+ *
+ * Architecture notes:
+ *  - MQTT connection state is tracked using comm_event_group bits
+ *  - Incoming messages are processed either directly in the event handler
+ *    or via a dedicated RX task, depending on target/platform
+ *  - This module is controller-agnostic and delegates execution via
+ *    controller-specific command handlers
+ *
+ * Threading model:
+ *  - MQTT event callbacks run in the ESP-IDF event loop context
+ *  - Optional mqtt_rx_task runs as a FreeRTOS task
+ *  - No LVGL/UI code is executed here
  */
 
 #include <stdio.h>
@@ -14,15 +33,13 @@
 #include "mqtt_client.h"
 #include "esp_timer.h"
 #include "project_specific.h"
-#include "common_defines.h"
-#include "external_defs.h"
-#include "cmd_system.h"
+//#include "common_defines.h"
+//#include "cmd_system.h"
 #include "cmd_wifi.h"
 #include "utils.h"
 #include "mqtt_ctrl.h"
-
+/*
 #if ACTIVE_CONTROLLER == WMON_CONTROLLER
-	//#include "adc_op.h"
 	#include "wmon.h"
 #endif
 #if ACTIVE_CONTROLLER == PUMP_CONTROLLER
@@ -53,9 +70,7 @@
 #if ACTIVE_CONTROLLER == DS18B20_ALIGNEMNT
 	#include "temps.h"
 #endif
-
-#define CONFIG_BROKER_URL "mqtts://proxy.gnet:1886"
-
+*/
 
 #if CONFIG_IDF_TARGET_ESP32C3
     #define PROCESS_MESSAGE_BY_HANDLER 1
@@ -75,18 +90,15 @@ static const char *TAG = "MQTTClient";
 static esp_netif_ip_info_t dev_ipinfo;
 
 
-char *TOPIC_STATE, *TOPIC_ERROR, *TOPIC_MONITOR, *TOPIC_CTRL, *TOPIC_LOG, *TOPIC_KA; //TOPIC_CMD[32] 
+static char USER_MQTT[USER_MQTT_SIZE];
+char TOPIC_STATE[MQTT_TOPIC_SIZE], TOPIC_ERROR[MQTT_TOPIC_SIZE], TOPIC_MONITOR[MQTT_TOPIC_SIZE]; 
+char TOPIC_CTRL[MQTT_TOPIC_SIZE], TOPIC_LOG[MQTT_TOPIC_SIZE], TOPIC_KA[MQTT_TOPIC_SIZE]; 
 #if ACTIVE_CONTROLLER == WP_CONTROLLER
 	char *TOPIC_STATE_A, *TOPIC_MONITOR_A;
 #endif
-char *USER_MQTT;
+static char USER_MQTT[48];
 
-//extern const uint8_t client_cert_pem_start[] asm("_binary_cl_crt_start");
-//extern const uint8_t client_cert_pem_end[] asm("_binary_cl_crt_end");
-//extern const uint8_t client_key_pem_start[] asm("_binary_client_key_start");
-//extern const uint8_t client_key_pem_end[] asm("_binary_client_key_end");
-//extern const uint8_t server_cert_pem_start[] asm("_binary_ca_crt_start");
-//extern const uint8_t server_cert_pem_end[] asm("_binary_ca_crt_end");
+app_cmd_handler_t app_cmd_handler;
 
 static void create_topics(void);
 
@@ -182,9 +194,8 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
 				ESP_LOGE(TAG, "Cannot allocate memory for local copy of mqtt topic");
 				break;
 				}
-			for(i = 0; i < event->topic_len; i++)
-				topic[i] = event->topic[i];
-			topic[i] = 0;
+			memcpy(topic, event->topic, event->topic_len);
+			topic[event->topic_len] = 0;
 			msg = malloc(event->data_len + 2);
 			if(!msg)
 				{
@@ -195,7 +206,9 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
 			memcpy(msg, event->data, event->data_len);
 			msg[event->data_len] = ' ';
 			msg[event->data_len + 1] = 0;
-
+/*
+ * parse event_data to argc/argv arguments to be passed further  
+*/
 			if(controller_op_registered == 1)
 				{
 				argc = 0;
@@ -222,37 +235,15 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
 					}
 				if(argc == 0)
 					break;
-				if(strcmp(topic, TOPIC_CTRL) == 0)
-					{
-#if ACTIVE_CONTROLLER == WP_CONROLLER
-					do_ad(argc, argv);
-					do_dvop(argc, argv);
-					do_pumpop(argc, argv);
-#elif ACTIVE_CONTROLLER == NAVIGATOR
-					do_nmea(argc, argv);
-					do_mpu(argc, argv);
-					do_ptst(argc, argv);
-					do_hmc(argc, argv);
-#elif ACTIVE_CONTROLLER == PUMP_CONTROLLER
-					do_pumpop(argc, argv);
-#elif ACTIVE_CONTROLLER == FLOOR_HC
-					do_temp(argc, argv);
-					do_act(argc, argv);
-#elif ACTIVE_CONTROLLER == THERMOSTAT
-					do_temp(argc, argv);					
-#elif ACTIVE_CONTROLLER == DS18B20_ALIGNEMNT
-					do_temp(argc, argv);
-#elif ACTIVE_CONTROLLER == WMON_CONTROLLER
-					do_wmon(argc, argv);
-#endif
-					do_system_cmd(argc, argv);
-					do_wifi(argc, argv);
-					}
-				else if(strcmp(topic, DEVICE_TOPIC_Q) == 0)
+				
+				if(strcmp(topic, DEVICE_TOPIC_Q) == 0)
 					{
 					if(argc && !strcmp(argv[0], "reqID"))
 						publish_MQTT_client_status();
 					}
+				else
+					app_cmd_handler(argc, argv);
+				
 				for(i = 0; i < argc; i++)
 					free(argv[i]);
 				free(argv);
@@ -283,18 +274,16 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
     	}
 	}
 
-int mqtt_start(void)
+int mqtt_start(app_cmd_handler_t app_exec_funcion)
 	{
 	esp_err_t ret = ESP_FAIL;
 	xEventGroupClearBits(comm_event_group, MQTT_CONNECTED_BIT);
-	
+	app_cmd_handler = app_exec_funcion;
 	int needed = snprintf(NULL, 0, "%s%02d", dev_conf.dev_name, dev_conf.dev_id);
 	if (needed < 0) 
 		return ESP_FAIL;
-	USER_MQTT = malloc((size_t)needed + 1);
-	if (!USER_MQTT) 
-		return ESP_FAIL;
-	snprintf(USER_MQTT, (size_t)needed + 1, "%s%02d", dev_conf.dev_name, dev_conf.dev_id);
+	snprintf(USER_MQTT, sizeof(USER_MQTT) - 1, "%s%02d", dev_conf.dev_name, dev_conf.dev_id);
+	USER_MQTT[sizeof(USER_MQTT) - 1] = 0;
 	const esp_mqtt_client_config_t mqtt_cfg = {
 		    .broker.address.uri = CONFIG_BROKER_URL,
 		    //.broker.verification.certificate = (const char *)server_cert_pem_start,
@@ -318,44 +307,27 @@ int mqtt_start(void)
 			.task.stack_size = 8192,
 			};
 	create_topics();
-	if(TOPIC_ERROR && TOPIC_CTRL && TOPIC_MONITOR && TOPIC_STATE && TOPIC_LOG && TOPIC_KA)
-		{
-#if ACTIVE_CONTROLLER == WP_CONTROLLER
-		if(TOPIC_MONITOR_A && TOPIC_STATE_A )
-#endif
-			{
-	    	client = esp_mqtt_client_init(&mqtt_cfg);
-	    	if(client)
-		    	{
+   	client = esp_mqtt_client_init(&mqtt_cfg);
+   	if(client)
+    	{
 #if PROCESS_MESSAGE_BY_HANDLER == 1					
-				if(esp_mqtt_client_register_event(client, ESP_EVENT_ANY_ID, mqtt_event_handler, NULL) == ESP_OK)
-					ret = esp_mqtt_client_start(client);
+		if(esp_mqtt_client_register_event(client, ESP_EVENT_ANY_ID, mqtt_event_handler, NULL) == ESP_OK)
+			ret = esp_mqtt_client_start(client);
 #else
-				mqtt_rx_queue = xQueueCreate(8, sizeof(mqtt_rx_msg_t));
-				if(mqtt_rx_queue)
-					{
-					xTaskCreate(mqtt_rx_task, "mqtt_rx", 4096, NULL, USER_TASK_PRIORITY, &mqtt_rx_task_handle);
-					if(mqtt_rx_task_handle)
-						{
-		    			if(esp_mqtt_client_register_event(client, ESP_EVENT_ANY_ID, mqtt_event_handler, NULL) == ESP_OK)
-		    				ret = esp_mqtt_client_start(client);
-						}
-					else
-						vQueueDelete(mqtt_rx_queue);
-					}
+		mqtt_rx_queue = xQueueCreate(8, sizeof(mqtt_rx_msg_t));
+		if(mqtt_rx_queue)
+			{
+			xTaskCreate(mqtt_rx_task, "mqtt_rx", 4096, NULL, USER_TASK_PRIORITY, &mqtt_rx_task_handle);
+			if(mqtt_rx_task_handle)
+				{
+    			if(esp_mqtt_client_register_event(client, ESP_EVENT_ANY_ID, mqtt_event_handler, NULL) == ESP_OK)
+    				ret = esp_mqtt_client_start(client);
+				}
+			else
+				vQueueDelete(mqtt_rx_queue);
+			}
 #endif					
-		    	}
-	    	}
-	    }
-	if(ret != ESP_OK)
-		{
-		free(USER_MQTT); 
-		free(TOPIC_ERROR);	free(TOPIC_CTRL); free(TOPIC_MONITOR);
-		free(TOPIC_STATE); free(TOPIC_KA); free(TOPIC_LOG);
-#if ACTIVE_CONTROLLER == WP_CONTROLLER
-		free(TOPIC_MONITOR_A); free(TOPIC_STATE_A);	
-#endif	    	
-		}
+    	}
     return ret;
     }
 
@@ -398,7 +370,7 @@ void publish_MQTT_client_status()
 	localtime_r(&now, &timeinfo);
 	strftime(strtime, sizeof(strtime), "%Y-%m-%d/%H:%M:%S\1", &timeinfo);
 	snprintf(msg, 199, "%s\1%s\1" IPSTR "\1%d\1%s\1%llu",
-			USER_MQTT, DEV_NAME, IP2STR(&dev_ipinfo.ip), CTRL_DEV_ID, strtime, tmsec);
+			USER_MQTT, DEV_NAME, IP2STR(&dev_ipinfo.ip), dev_conf.dev_id, strtime, tmsec);
 	esp_mqtt_client_publish(client, DEVICE_TOPIC_R, msg, strlen(msg), 0, 0);
 	}
 void publish_MQTT_client_log(char *message)
@@ -414,61 +386,23 @@ void publish_MQTT_client_log(char *message)
 void create_topics()
 	{
 	ESP_LOGI(TAG, "USER_MQTT: %s", USER_MQTT);
-	TOPIC_STATE = malloc(strlen(USER_MQTT) + strlen("/state") + 1);
-	if(TOPIC_STATE)
-		{
-		strcpy(TOPIC_STATE, USER_MQTT);
-		strcat(TOPIC_STATE, "/state");
-		}
-	TOPIC_ERROR = malloc(strlen(USER_MQTT) + strlen("/error") + 1);
-	if(TOPIC_ERROR)
-		{
-		strcpy(TOPIC_ERROR, USER_MQTT);
-		strcat(TOPIC_ERROR, "/error");
-		}
-	TOPIC_MONITOR = malloc(strlen(USER_MQTT) + strlen("/monitor") + 1);
-	if(TOPIC_MONITOR)
-		{
-		strcpy(TOPIC_MONITOR, USER_MQTT);
-		strcat(TOPIC_MONITOR, "/monitor");
-		}
-	TOPIC_CTRL = malloc(strlen(USER_MQTT) + strlen("/ctrl") + 1);
-	if(TOPIC_CTRL)
-		{
-		strcpy(TOPIC_CTRL, USER_MQTT);
-		strcat(TOPIC_CTRL, "/ctrl");
-		}
-	TOPIC_LOG = malloc(strlen(USER_MQTT) + strlen("/log") + 1);
-	if(TOPIC_LOG)
-		{
-		strcpy(TOPIC_LOG, USER_MQTT);
-		strcat(TOPIC_LOG, "/log");
-		}
-	TOPIC_KA = malloc(strlen(USER_MQTT) + strlen("/ka") + 1);
-	if(TOPIC_KA)
-		{
-		strcpy(TOPIC_KA, USER_MQTT);
-		strcat(TOPIC_KA, "/ka");
-		}
+	strcpy(TOPIC_STATE, USER_MQTT);
+	strcat(TOPIC_STATE, "/state");
+	strcpy(TOPIC_ERROR, USER_MQTT);
+	strcat(TOPIC_ERROR, "/error");
+	strcpy(TOPIC_MONITOR, USER_MQTT);
+	strcat(TOPIC_MONITOR, "/monitor");
+	strcpy(TOPIC_CTRL, USER_MQTT);
+	strcat(TOPIC_CTRL, "/ctrl");
+	strcpy(TOPIC_LOG, USER_MQTT);
+	strcat(TOPIC_LOG, "/log");
+	strcpy(TOPIC_KA, USER_MQTT);
+	strcat(TOPIC_KA, "/ka");
 #if ACTIVE_CONTROLLER == WP_CONTROLLER
-	if(TOPIC_STATE)
-		{
-		TOPIC_STATE_A = malloc(strlen(TOPIC_STATE) + strlen("/w") + 1);
-		if(TOPIC_STATE_A)
-			{
-			strcpy(TOPIC_STATE_A, TOPIC_STATE);
-			strcat(TOPIC_STATE_A, "/w");
-			}
-		}
-	if(TOPIC_MONITOR)
-		{
-		TOPIC_MONITOR_A = malloc(strlen(TOPIC_MONITOR) + strlen("/w") + 1);
-		if(TOPIC_MONITOR_A)
-			{
-			strcpy(TOPIC_MONITOR_A, TOPIC_MONITOR);
-			strcat(TOPIC_MONITOR_A, "/w");
-			}
-		}
+	strcpy(TOPIC_STATE_A, TOPIC_STATE);
+	strcat(TOPIC_STATE_A, "/w");
+	strcpy(TOPIC_MONITOR_A, TOPIC_MONITOR);
+	strcat(TOPIC_MONITOR_A, "/w");
 #endif
 	}
 int get_MQTT_connection_state(char *id)

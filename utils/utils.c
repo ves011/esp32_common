@@ -199,7 +199,7 @@ void get_nvs_conf()
 	{
 	size_t sz = 0;
 	nvs_handle handle;
-	char b[120];
+	char b[128];
 	int ret;
 	dev_conf.cs = DEFAULT_CONSOLE_STATE;
 	dev_conf.dev_id = DEFAULT_DEVICE_ID;
@@ -214,63 +214,63 @@ void get_nvs_conf()
 	if(nvs_open(NVS_CFG_NS, NVS_READONLY, &handle) == ESP_OK)
 		{
 		ret = nvs_get_str(handle, NVSSTASSID, NULL, &sz);
-		if(ret == ESP_OK)
+		if(ret == ESP_OK && sz < sizeof(dev_conf.sta_ssid))
 			{
 			ret = nvs_get_str(handle, NVSSTASSID, b, &sz);
 			if(ret == ESP_OK)
 				strcpy(dev_conf.sta_ssid, b);
 			}
 		ret = nvs_get_str(handle, NVSSTAPASS, NULL, &sz);
-		if(ret == ESP_OK)
+		if(ret == ESP_OK && sz < sizeof(dev_conf.sta_pass))
 			{
 			ret = nvs_get_str(handle, NVSSTAPASS, b, &sz);
 			if(ret == ESP_OK)
 				strcpy(dev_conf.sta_pass, b);
 			}
 		ret = nvs_get_str(handle, NVSAPSSID, NULL, &sz);
-		if(ret == ESP_OK)
+		if(ret == ESP_OK && sz < sizeof(dev_conf.ap_ssid))
 			{
 			ret = nvs_get_str(handle, NVSAPSSID, b, &sz);
 			if(ret == ESP_OK)
 				strcpy(dev_conf.ap_ssid, b);
 			}
 		ret = nvs_get_str(handle, NVSAPPASS, NULL, &sz);
-		if(ret == ESP_OK)
+		if(ret == ESP_OK && sz < sizeof(dev_conf.ap_pass))
 			{
 			ret = nvs_get_str(handle, NVSAPPASS, b, &sz);
 			if(ret == ESP_OK)
 				strcpy(dev_conf.ap_pass, b);
 			}
 		ret = nvs_get_str(handle, NVSAPHOSTNAME, NULL, &sz);
-		if(ret == ESP_OK)
+		if(ret == ESP_OK && sz < sizeof(dev_conf.ap_hostname))
 			{
 			ret = nvs_get_str(handle, NVSAPHOSTNAME, b, &sz);
 			if(ret == ESP_OK)
 				strcpy(dev_conf.ap_hostname, b);
 			}
 		ret = nvs_get_str(handle, NVSAPIP, NULL, &sz);
-		if(ret == ESP_OK)
+		if(ret == ESP_OK && sz < 128)
 			{
 			ret = nvs_get_str(handle, NVSAPIP, b, &sz);
 			if(ret == ESP_OK)
 				dev_conf.ap_ip = inet_addr(b);
 			}
 		ret = nvs_get_str(handle, NVSDEVNAME, NULL, &sz);
-		if(ret == ESP_OK)
+		if(ret == ESP_OK && sz < sizeof(dev_conf.dev_name))
 			{
 			ret = nvs_get_str(handle, NVSDEVNAME, b, &sz);
 			if(ret == ESP_OK)
 				strcpy(dev_conf.dev_name, b);
 			}
 		ret = nvs_get_str(handle, NVSDEVID, NULL, &sz);
-		if(ret == ESP_OK)
+		if(ret == ESP_OK && sz < 128)
 			{
 			ret = nvs_get_str(handle, NVSDEVID, b, &sz);
 			if(ret == ESP_OK)
 				dev_conf.dev_id = atoi(b);
 			}
 		ret = nvs_get_str(handle, NVSCONSTATE, NULL, &sz);
-		if(ret == ESP_OK)
+		if(ret == ESP_OK && sz < 128)
 			{
 			ret = nvs_get_str(handle, NVSCONSTATE, b, &sz);
 			if(ret == ESP_OK)

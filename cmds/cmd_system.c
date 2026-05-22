@@ -1,11 +1,4 @@
-/* Console example — various system commands
-
-   This example code is in the Public Domain (or CC0 licensed, at your option.)
-
-   Unless required by applicable law or agreed to in writing, this
-   software is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
-   CONDITIONS OF ANY KIND, either express or implied.
-*/
+/* Console example — various system commands*/
 
 /**
  * @file cmd_system.c
@@ -15,7 +8,6 @@
 
 #include <stdio.h>
 #include <string.h>
-//#include <ctype.h>
 #include <unistd.h>
 #include <netdb.h>
 #include <sys/dirent.h>
@@ -27,65 +19,40 @@
 #include "esp_system.h"
 #include "esp_chip_info.h"
 #include "esp_sleep.h"
-//#include "spi_flash_mmap.h"
-#include "esp_netif.h"
-#include "driver/rtc_io.h"
-//#include "/dev/esp32/esp-idf-v5.5.2/components/esp_driver_uart/include/driver/uart.h"
 #include "driver/uart.h"
-//#include "driver/i2c_master.h"
 #include "argtable3/argtable3.h"
-//#include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "esp_heap_task_info.h"
 #include "esp_heap_caps.h"
-//#include "lwip/sockets.h"
 #include "lwip/netdb.h"
 #include "freertos/task.h"
 #include <sys/fcntl.h>
-//#include "esp_vfs.h"
 #include "esp_spiffs.h"
 #include <dirent.h>
 #include <sys/stat.h>
 #include "ping/ping_sock.h"
-//#include "mqtt_client.h"
-//#include "esp_flash_partitions.h"
 #include "esp_flash.h"
 #include "esp_partition.h"
 #include "esp_ota_ops.h"
 #include "esp_timer.h"
-#include "esp_psram.h"
+#if CONFIG_SPIRAM == 1
+	#include "esp_psram.h"
+#endif
 #include "soc/clk_tree_defs.h"
 #include "esp_pm.h"
 #include "driver/gpio.h"
 #include "nvs.h"
 #include "sdkconfig.h"
-//#include "project_specific.h"
 #include "common_defines.h"
-//#include "external_defs.h"
-//#include "utils.h"
 #ifdef OTA_SUPPORT
 	#include "ota.h"
 #endif
 #include "cmd_system.h"
-#include "cmd_wifi.h"
 #include "tcp_log.h"
 #include "utils.h"
 
 #ifdef CONFIG_FREERTOS_USE_STATS_FORMATTING_FUNCTIONS
 #define WITH_TASKS_INFO 1
 #endif
-
-
-
-struct {
-    struct arg_dbl *timeout;
-    struct arg_dbl *interval;
-    struct arg_int *data_size;
-    struct arg_int *count;
-    struct arg_int *tos;
-    struct arg_str *host;
-    struct arg_end *end;
-} ping_args;
 
 static const char *TAG = "cmd_system";
 
@@ -97,7 +64,6 @@ static void register_deep_sleep(void);
 static void register_light_sleep(void);
 static void register_uptime(void);
 static void register_ls(void);
-//static void register_devconf(void);
 static void register_boot(void);
 static void register_cat(void);
 static void register_rm(void);
@@ -120,7 +86,6 @@ void register_system_common(void)
     register_restart();
     register_uptime();
     register_ls();
-    //register_devconf();
     register_boot();
     register_cat();
     register_rm();
@@ -150,6 +115,15 @@ void register_system(void)
     register_ping();
 	}
 
+static struct {
+    struct arg_dbl *timeout;
+    struct arg_dbl *interval;
+    struct arg_int *data_size;
+    struct arg_int *count;
+    struct arg_int *tos;
+    struct arg_str *host;
+    struct arg_end *end;
+} ping_args;
 
 static void cmd_ping_on_ping_success(esp_ping_handle_t hdl, void *args)
 	{
@@ -202,15 +176,9 @@ static int do_ping_cmd(int argc, char **argv)
     int nerrors = arg_parse(argc, argv, (void **)&ping_args);
     if (nerrors != 0)
     	{
-        //arg_print_errors(stderr, ping_args.end, argv[0]);
         my_printf("%s arguments error", argv[0]);
         return 1;
     	}
-    //if(!isConnected(sta_ssid))
-    //	{
-    //	ESP_LOGI(TAG, "WiFi not connected or in AP mode");
-    //	return 1;
-    //	}
     if (ping_args.timeout->count > 0)
         config.timeout_ms = (uint32_t)(ping_args.timeout->dval[0] * 1000);
 
@@ -279,6 +247,7 @@ void register_ping(void)
     	};
     ESP_ERROR_CHECK(esp_console_cmd_register(&ping_cmd));
 	}
+	
 /* 'version' command */
 static int get_version(int argc, char **argv)
 	{
@@ -374,15 +343,15 @@ static int get_version(int argc, char **argv)
 	}
 
 static void register_version(void)
-{
+	{
     const esp_console_cmd_t cmd = {
         .command = "version",
         .help = "Get version of chip and SDK",
         .hint = NULL,
         .func = &get_version,
-    };
+    	};
     ESP_ERROR_CHECK( esp_console_cmd_register(&cmd) );
-}
+	}
 
 /** 'restart' command restarts the program */
 
@@ -395,42 +364,42 @@ static int restart(int argc, char **argv)
 	}
 
 static void register_restart(void)
-{
+	{
     const esp_console_cmd_t cmd = {
         .command = "restart",
         .help = "Software reset of the chip",
         .hint = NULL,
         .func = &restart,
-    };
+    	};
     ESP_ERROR_CHECK( esp_console_cmd_register(&cmd) );
-}
+	}
 
 /** 'free' command prints available heap memory */
 
 static int free_mem(int argc, char **argv)
-{
+	{
     my_printf("%d", esp_get_free_heap_size());
     return 0;
-}
+	}
 
 static void register_free(void)
-{
+	{
     const esp_console_cmd_t cmd = {
         .command = "free",
         .help = "Get the current size of free heap memory",
         .hint = NULL,
         .func = &free_mem,
-    };
+    	};
     ESP_ERROR_CHECK( esp_console_cmd_register(&cmd) );
-}
+	}
 
-struct
+static struct
 	{
     struct arg_str *path;
     struct arg_end *end;
 	} ls_args;
 
-struct
+static struct
 	{
     struct arg_str *fname;
     struct arg_end *end;
@@ -453,13 +422,10 @@ static int ls_files(int argc, char **argv)
         return 1;
     	}
 	if(ls_args.path->count  == 1)
-		{
 		strcpy(path, ls_args.path->sval[0]);
-		}
 	else
-		{
 		path[0] = 0;
-		}
+	
 	esp_vfs_spiffs_conf_t conf =
 		{
 		.base_path = BASE_PATH,
@@ -640,7 +606,8 @@ static void register_rm(void)
 		};
 	ESP_ERROR_CHECK( esp_console_cmd_register(&cmd) );
 	}
-struct
+	
+static struct
 	{
     struct arg_str *str;
     struct arg_str *ot;
