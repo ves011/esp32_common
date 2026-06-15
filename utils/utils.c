@@ -282,7 +282,10 @@ void get_nvs_conf()
 		{
 		ret = nvs_get_blob(handle, "sta.pswd", NULL, &sz);
 		if(ret == ESP_OK && sz < sizeof(dev_conf.nvs80211.sta_pass) - 1)
+			{
 			ret = nvs_get_blob(handle, "sta.pswd", dev_conf.nvs80211.sta_pass, &sz);
+			dev_conf.nvs80211.sta_pass[sz] = 0;
+			}
 		ret = nvs_get_blob(handle, "sta.ssid", NULL, &sz);
 		if(ret == ESP_OK  && sz < sizeof(dev_conf.nvs80211.sta_ssid) - 1)
 			{

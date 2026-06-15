@@ -18,6 +18,7 @@
 #include "esp_wifi_default.h"
 #include "esp_event.h"
 #include "esp_timer.h"
+#include "esp_chip_info.h"
 #include <nvs.h>
 #include "common_defines.h"
 #include "project_specific.h"
@@ -34,6 +35,7 @@ EventGroupHandle_t comm_event_group;
 
 static esp_timer_handle_t wifi_retry_timer;
 static int retry_delay_ms = 1000;
+static int disconnect_request = 0;
 #define MAX_RETRY_DELAY_MS 30000
 
 
@@ -157,6 +159,7 @@ static int wifi_disconnect()
 		{
 		//restart_in_progress = 1;
 		TickType_t deadline = xTaskGetTickCount() + DISCONNECT_TIMEOUT / portTICK_PERIOD_MS;
+		disconnect_request = 1;
 		esp_wifi_disconnect();
 		while((xEventGroupGetBits(comm_event_group) & WIFI_CONNECTED_BIT) != 0)
 			{
@@ -196,10 +199,13 @@ static void event_handler(void* arg, esp_event_base_t event_base, int32_t event_
 	            ESP_LOGW(WIFITAG, "WIFI_EVENT_STA_DISCONNECTED, reason=%d", reason);
 	            xEventGroupClearBits(comm_event_group, WIFI_CONNECTED_BIT | IP_CONNECTED_BIT);
 	            esp_timer_stop(wifi_retry_timer);
-				ESP_ERROR_CHECK(esp_timer_start_once(wifi_retry_timer, retry_delay_ms * 1000LL));
-				retry_delay_ms += 1000;
-        		if (retry_delay_ms > MAX_RETRY_DELAY_MS)
-            		retry_delay_ms = MAX_RETRY_DELAY_MS;
+	            if(!disconnect_request)
+	            	{
+					ESP_ERROR_CHECK(esp_timer_start_once(wifi_retry_timer, retry_delay_ms * 1000LL));
+					retry_delay_ms += 1000;
+	        		if (retry_delay_ms > MAX_RETRY_DELAY_MS)
+	            		retry_delay_ms = MAX_RETRY_DELAY_MS;
+					}
 	            //ESP_ERROR_CHECK(esp_wifi_connect());
 	            break;
 	        	}
@@ -207,23 +213,7 @@ static void event_handler(void* arg, esp_event_base_t event_base, int32_t event_
 
 #if WIFI_AP_ON
 			case WIFI_EVENT_AP_START:
-		        {
-	            int8_t txpwr;
-	            esp_chip_info_t info;
-	            esp_chip_info(&info);
-		
-				/*
-	            * ESP32-C3 TX power guard
-	            */
-		        if (info.model == CHIP_ESP32C3)
-		            {
-		            if (esp_wifi_set_max_tx_power(40) != ESP_OK)
-		                    ESP_LOGW(WIFITAG, "Failed to set TX power for ESP32-C3");
-		            }
-	            esp_wifi_get_max_tx_power(&txpwr);
-	            ESP_LOGI(WIFITAG, "WIFI_EVENT_AP_START, tx_power=%d", txpwr);
 	            break;
-		        }
 	        case WIFI_EVENT_AP_STOP:
 	            ESP_LOGI(WIFITAG, "WIFI_EVENT_AP_STOP");
 	            break;
@@ -384,6 +374,19 @@ void initialise_wifi(bool usenvs)
 		ESP_ERROR_CHECK(esp_wifi_start());
 	#endif
 #endif
+	int8_t txpwr;
+	esp_chip_info_t info;
+    esp_chip_info(&info);
+	/*
+    * ESP32-C3 TX power guard
+    */
+    if (info.model == CHIP_ESP32C3)
+        {
+        if (esp_wifi_set_max_tx_power(40) != ESP_OK)
+                ESP_LOGW(WIFITAG, "Failed to set TX power for ESP32-C3");
+        }
+    esp_wifi_get_max_tx_power(&txpwr);
+    ESP_LOGI(WIFITAG, "esp_wifi_get_max_tx_power, tx_power=%d", txpwr);
 
 #ifdef MDNS
 	initialise_mdns();
@@ -449,7 +452,7 @@ bool wifi_join(const char *ssid, const char *pass, int timeout_ms, bool usenvs)
     	{
     	wifi_disconnect();
     	}
-
+	disconnect_request = 0;
 	ret = esp_wifi_connect();
 	ESP_LOGI(WIFITAG, "esp_wifi_connect(): %d", ret);
 	bits = xEventGroupWaitBits(comm_event_group, IP_CONNECTED_BIT,
@@ -519,7 +522,7 @@ static int wifi_connect(const char *ssid, const char *pwd, int timeout)
 		}
     ESP_LOGI(__func__, "Connecting to '%s'", ssid);
 
-    bool connected = wifi_join(ssid, pwd,timeout, false);
+    bool connected = wifi_join(ssid, pwd,timeout, true);
     if (!connected)
     	{
         ESP_LOGW(__func__, "Connection timed out");

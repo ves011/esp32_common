@@ -204,16 +204,25 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
 				break;
 				}
 			memcpy(msg, event->data, event->data_len);
-			msg[event->data_len] = ' ';
-			msg[event->data_len + 1] = 0;
+			int ml = event->data_len;
+			while((msg[ml - 1] == '\n' || msg[ml - 1] == '\r') && ml - 1 >= 0)
+					{
+					msg[ml - 1] = 0;
+					ml--;
+					}
+			//if(msg[event->data_len - 1] == '\n')
+			//	msg[event->data_len - 1] = ' ';
+			msg[ml] = ' ';
+			msg[ml + 1] = 0;
 /*
  * parse event_data to argc/argv arguments to be passed further  
 */
 			if(controller_op_registered == 1)
 				{
+				ESP_LOGI(TAG, "mqttctrl msg |%s| - %d", msg, strlen(msg));
 				argc = 0;
 				argv = NULL;
-				char *pchr = strtok(msg, " \n");
+				char *pchr = strtok(msg, " ");
 				while(pchr)
 					{
 					void *tmp = realloc(argv, (argc + 1) * sizeof(char *));
@@ -224,6 +233,7 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
 						if(argv[argc])
 							{
 							strcpy(argv[argc], pchr);
+							ESP_LOGI(TAG, "mqttctrl %d - |%s| - %d", argc, argv[argc], strlen(argv[argc]));
 							argc++;
 							}
 						else

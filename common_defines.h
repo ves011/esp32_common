@@ -222,7 +222,7 @@ typedef struct
 typedef struct
 	{
 	char sta_ssid[64];
-	char sta_pass[64];
+	char sta_pass[72];
 	} nvs80211_t;
 typedef struct
 	{
