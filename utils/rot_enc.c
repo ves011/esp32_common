@@ -6,13 +6,14 @@
  */
 #include "esp_timer.h"
 //#include "portmacro.h"
+#include "freertos/idf_additions.h"
+#include "lcd.h"
 #include "project_specific.h"
 #ifdef ROT_ENCODER
 #include <stdio.h>
 #include <string.h>
 #include "driver/gpio.h"
 #include "hal/gpio_types.h"
-#include "freertos/FreeRTOS.h"
 #include "esp_log.h"
 #include "common_defines.h"
 #include "driver/gptimer.h"
@@ -27,6 +28,9 @@ static int key_count;
 static uint64_t last_key_event_time;
 
 static QueueHandle_t ui_cmd_queue;
+
+static esp_timer_handle_t inactivity_timer;
+static int rot_inactivity_time = 0;
 
 //#define DEBUG_ON
 
@@ -63,6 +67,18 @@ static bool IRAM_ATTR key_timer_callback(gptimer_handle_t c_timer, const gptimer
     return high_task_awoken == pdTRUE; // return whether we need to yield at the end of ISR
 	}
 
+static void inactivity_timer_callback(void* arg)
+	{
+	msg_t msg = {0};
+	rot_inactivity_time++;
+	if(rot_inactivity_time > ROT_INACTIVITY_TIME)
+		{
+		msg.source = ROT_INACTIVITY_TIMER;
+		msg.val = rot_inactivity_time;
+		xQueueSend(cmd_q, &msg, 0);
+		}
+	}
+	
 static void config_key_timer()
 	{
 	key_timer = NULL;
@@ -83,6 +99,16 @@ static void config_key_timer()
 	ESP_ERROR_CHECK(gptimer_set_alarm_action(key_timer, &al_config));
 	ESP_ERROR_CHECK(gptimer_register_event_callbacks(key_timer, &cbs, NULL));
 	ESP_ERROR_CHECK(gptimer_enable(key_timer));
+	}
+static void config_inactivity_timer()
+	{
+	esp_timer_create_args_t inactivity_timer_args = 
+		{
+    	.callback = &inactivity_timer_callback,
+        .name = "inactivity_timer"
+    	};
+    ESP_ERROR_CHECK(esp_timer_create(&inactivity_timer_args, &inactivity_timer));
+    ESP_ERROR_CHECK(esp_timer_start_periodic(inactivity_timer, 1000000));
 	}
 static void init_gpios()
 	{
@@ -119,6 +145,9 @@ static void rot_enc_cmd(void* arg)
     int s1, s2, key;
     key_count = 0;
     last_key_event_time = 0;
+    config_inactivity_timer();
+    rot_inactivity_time = 0;
+    //esp_timer_start_periodic(inactivity_timer, 1000000);
     while(1)
     	{
         if(xQueueReceive(cmd_q, &msgr, portMAX_DELAY))
@@ -127,6 +156,11 @@ static void rot_enc_cmd(void* arg)
         		{
 				s1 = msgr.ifvals.ival[0];
         		s2 = msgr.ifvals.ival[1];
+        		rot_inactivity_time = 0;
+        		if(!esp_timer_is_active(inactivity_timer))
+        			esp_timer_start_periodic(inactivity_timer, 1000000);
+
+        		set_bl_pwm(BL_PWM_HIGH);
         		if(s1 == 1 && s2 == 0)
         			{
 					#ifdef DEBUG_ON
@@ -149,9 +183,14 @@ static void rot_enc_cmd(void* arg)
         	else if(msgr.source == SOURCE_KEY) // key pressed or released
         		{
 				key = msgr.val;
+				rot_inactivity_time = 0;
+        		set_bl_pwm(BL_PWM_HIGH);
+        		if(!esp_timer_is_active(inactivity_timer))
+        			esp_timer_start_periodic(inactivity_timer, 1000000);
+				//key_state has the previous state
         		if(key == KEY_RELEASED)
         			{
-        			if(key_state)
+        			if(key_state == KEY_PRESSED)
         				{
        					gptimer_stop(key_timer);
         				#ifdef DEBUG_ON
@@ -164,7 +203,7 @@ static void rot_enc_cmd(void* arg)
         			}
         		else
         			{
-        			if(!key_state)
+        			if(key_state == KEY_RELEASED)
         				{
         				//always start timer with PUSH_TIME_SHORT;
         				gptimer_alarm_config_t al_config = 	{
@@ -234,7 +273,7 @@ static void rot_enc_cmd(void* arg)
     				//reconfigure timer to count for longlong press
     				gptimer_alarm_config_t al_config = 	{
 									.reload_count = 0,
-									.alarm_count = PUSH_TIME_LONGLONG -PUSH_TIME_LONG,
+									.alarm_count = PUSH_TIME_LONGLONG - PUSH_TIME_LONG,
 									.flags.auto_reload_on_alarm = false,
 									};
     				ESP_ERROR_CHECK(gptimer_set_alarm_action(key_timer, &al_config));
@@ -253,6 +292,12 @@ static void rot_enc_cmd(void* arg)
     				xQueueSend(ui_cmd_queue, &msgs, 0);
     				}
         		}
+        	else if(msgr.source == ROT_INACTIVITY_TIMER)
+        		{
+				xQueueSend(ui_cmd_queue, &msgr, 0);
+				if(esp_timer_is_active(inactivity_timer))
+        			esp_timer_stop(inactivity_timer);
+				}
         	}
     	}
 	}

@@ -205,13 +205,11 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
 				}
 			memcpy(msg, event->data, event->data_len);
 			int ml = event->data_len;
-			while((msg[ml - 1] == '\n' || msg[ml - 1] == '\r') && ml - 1 >= 0)
+			while(ml - 1 >= 0 && (msg[ml - 1] == '\n' || msg[ml - 1] == '\r'))
 					{
 					msg[ml - 1] = 0;
 					ml--;
 					}
-			//if(msg[event->data_len - 1] == '\n')
-			//	msg[event->data_len - 1] = ' ';
 			msg[ml] = ' ';
 			msg[ml + 1] = 0;
 /*

@@ -175,9 +175,11 @@ int parse_app_proto(uint8_t *buf, int len, app_proto_t *out)
     	{
         ret = -3;
         }
-	ESP_LOGI(TAG, "protocol parser result: %d", ret);
-	if(ret == 0)
+    if(ret != 0)
+    	{
+		ESP_LOGI(TAG, "protocol parser result: %d", ret);
 		log_output_proto(out);
+		}
     return ret;
 	}
 

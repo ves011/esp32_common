@@ -11,11 +11,13 @@
 #define SOURCE_ROT			1
 #define SOURCE_KEY			2
 #define SOURCE_TIMER		3
+#define ROT_INACTIVITY_TIMER	4
 
 #define PUSH_TIME_SHORT		  100000			//100 msec
 #define PUSH_TIME_LONG		 2000000			// 2 sec
 #define PUSH_TIME_LONGLONG	10000000			// 10 sec
 #define PUSH_KEY_REPEAT		  500000			// 300 msec
+#define ROT_INACTIVITY_TIME	30			    	//30 sec
 
 
 #define KEY_PRESS_SHORT		1

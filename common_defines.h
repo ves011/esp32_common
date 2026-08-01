@@ -59,7 +59,7 @@ typedef enum
 #define NVSSTASSID					"wifi.stassid"
 #define NVSSTAPASS					"wifi.stapass"
 #define NVSDEVID					"devID"
-#define NVSDEVNAME					"devname"
+#define NVSDEVNAME					"devName"
 #define NVSCONSTATE					"console"
 //#define NVSCACERT					"ca-crt"
 //#define NVSDEVCERT				"client-crt"
@@ -191,12 +191,17 @@ typedef struct
 	
 typedef struct
 	{
-	int state;
-	int status;
-	int pmin;
+	int prun_state;
+	int pop_state;
+	int perror_state;
+	int pump_state;
 	int press;
 	int press_mv;
+	int pmin;
 	int p0offset;
+	int press_state;
+	int wlevel;
+	int w_state;
 	int cmax;
 	int current;
 	int acs_offset;
