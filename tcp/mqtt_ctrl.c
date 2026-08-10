@@ -99,6 +99,7 @@ char TOPIC_CTRL[MQTT_TOPIC_SIZE], TOPIC_LOG[MQTT_TOPIC_SIZE], TOPIC_KA[MQTT_TOPI
 static char USER_MQTT[48];
 
 app_cmd_handler_t app_cmd_handler;
+static int connect_fail_count = 0;
 
 static void create_topics(void);
 
@@ -146,10 +147,22 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
 			get_sta_conf(NULL, &dev_ipinfo);
 			publish_MQTT_client_status();
 			xEventGroupSetBits(comm_event_group, MQTT_CONNECTED_BIT);
+			connect_fail_count = 0;
 			break;
 		case MQTT_EVENT_DISCONNECTED:
 			xEventGroupClearBits(comm_event_group, MQTT_CONNECTED_BIT);
 			ESP_LOGI(TAG, "MQTT_EVENT_DISCONNECTED");
+			connect_fail_count++;
+#if ENABLE_MQTT_FAIL_REBOOT == 1
+			if(connect_fail_count >= MQTT_FAILATTEMPTS)
+				{
+				ESP_LOGE(TAG, "reboot due to MQTT connect failure: heap - free=%u largest=%u min=%u", 
+					heap_caps_get_free_size(MALLOC_CAP_8BIT), heap_caps_get_largest_free_block(MALLOC_CAP_8BIT), esp_get_minimum_free_heap_size());
+				/** Not a good idea to reboot
+				    the thermostat function still works **/
+				//my_esp_restart();
+				}
+#endif			
 			break;
 		case MQTT_EVENT_SUBSCRIBED:
 			ESP_LOGI(TAG, "MQTT_EVENT_SUBSCRIBED, msg_id=%d", event->msg_id);
@@ -217,7 +230,7 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
 */
 			if(controller_op_registered == 1)
 				{
-				ESP_LOGI(TAG, "mqttctrl msg |%s| - %d", msg, strlen(msg));
+				//ESP_LOGI(TAG, "mqttctrl msg |%s| - %d", msg, strlen(msg));
 				argc = 0;
 				argv = NULL;
 				char *pchr = strtok(msg, " ");
@@ -231,7 +244,7 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
 						if(argv[argc])
 							{
 							strcpy(argv[argc], pchr);
-							ESP_LOGI(TAG, "mqttctrl %d - |%s| - %d", argc, argv[argc], strlen(argv[argc]));
+							//ESP_LOGI(TAG, "mqttctrl %d - |%s| - %d", argc, argv[argc], strlen(argv[argc]));
 							argc++;
 							}
 						else
@@ -309,7 +322,7 @@ int mqtt_start(app_cmd_handler_t app_exec_funcion)
 		      	  },
 		    	},
 			.network.disable_auto_reconnect = false,
-			.network.reconnect_timeout_ms = 2000,
+			.network.reconnect_timeout_ms = 10000,
 			.session.message_retransmit_timeout = 500,
 			.session.keepalive = 30,
 			.task.stack_size = 8192,

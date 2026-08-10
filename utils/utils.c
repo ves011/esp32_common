@@ -13,7 +13,7 @@
 #include "esp_spiffs.h"
 #include "nvs.h"
 #include "lwip/inet.h"
-//#include "project_specific.h"
+#include "project_specific.h"
 #include "common_defines.h"
 #include "utils.h"
 

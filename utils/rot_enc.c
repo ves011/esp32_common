@@ -317,7 +317,13 @@ void init_rotenc(QueueHandle_t ui_cmd_q)
 	
 	config_key_timer();
 	//key_timer_state = 0;
-	xTaskCreate(rot_enc_cmd, "rot_enc_cmd", 2048, NULL, 5, &rot_enc_cmd_handle);
+#ifdef DEBUG_ON	
+	int ss = 4096;
+#else
+	int ss = 2048;
+#endif	
+	
+	xTaskCreate(rot_enc_cmd, "rot_enc_cmd", ss, NULL, 5, &rot_enc_cmd_handle);
 	if(!rot_enc_cmd_handle)
 		{
 		ESP_LOGE(TAG, "Unable to start rotary encoder cmd task");

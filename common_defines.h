@@ -122,14 +122,6 @@ typedef enum
 
 
 //sources for UI interface
-#define K_ROT				(0x10)
-#define K_ROT_LEFT			(0x11)
-#define K_ROT_RIGHT			(0x12)
-#define K_KEY				(0x20)
-#define K_PRESS				(0x21)
-#define K_DOWN				(0x22)
-#define K_UP				(0x23)
-#define K_REPEAT			(0x24)
 #define INACT_TIME			(0x40)
 #define CLOCK_TICK_1M		(0x41)
 #define PUMP_VAL_CHANGE		(0x80)

@@ -52,7 +52,7 @@ int tcp_log_init(int level)
 	log_port = LOG_PORT_DEV;
 	log_server = LOG_SERVER_DEV;
 #else
-	log_port = LOG_PORT_DEV;
+	log_port = LOG_PORT;
 	log_server = LOG_SERVER;
 #endif
 	snprintf(log_user, sizeof(log_user), "%s%02d", dev_conf.dev_name, dev_conf.dev_id);
