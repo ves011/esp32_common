@@ -10,7 +10,6 @@
 #include <string.h>
 //#include "freertos/FreeRTOS.h"
 #include "esp_log.h"
-#include "esp_spiffs.h"
 #include "nvs.h"
 #include "lwip/inet.h"
 #include "project_specific.h"
@@ -32,14 +31,6 @@ void my_esp_restart()
 	vTaskDelay(pdMS_TO_TICKS(1000));
 	esp_restart();
 	}
-
-esp_vfs_spiffs_conf_t conf_spiffs =
-	{
-	.base_path = BASE_PATH,
-	.partition_label = PARTITION_LABEL,
-	.max_files = 5,
-	.format_if_mount_failed = true
-	};
 
 int my_log_vprintf(const char *fmt, va_list arguments)
 	{	
@@ -100,11 +91,58 @@ void my_fputs(char *buf, FILE *f)
 		tcp_log_message(buf);
 #endif	
 	}
+#if FILESYSTEM == LITTLEFS
+#include "esp_littlefs.h"
+int littlefs_storage_check()
+	{
+	esp_err_t ret;
+	esp_vfs_littlefs_conf_t conf = {
+        .base_path = BASE_PATH,
+        .partition_label = PARTITION_LABEL,
+        .format_if_mount_failed = true,
+        .dont_mount = false,
+    	};
+	ESP_LOGI(TAG, "littlefs storage check");
+	ret = esp_vfs_littlefs_register(&conf);
+	if (ret == ESP_FAIL)
+		{
+        ESP_LOGE(TAG, "Failed to mount or format filesystem");
+		return ret;
+		}
+    else if (ret == ESP_ERR_NOT_FOUND)
+		{
+        ESP_LOGE(TAG, "Failed to find LittleFS partition");
+		return ret;
+		}
 
+	size_t total = 0, used = 0;
+    ret = esp_littlefs_info(conf.partition_label, &total, &used);
+    if (ret != ESP_OK) 
+		{
+        ESP_LOGE(TAG, "Failed to get LittleFS partition information (%s)", esp_err_to_name(ret));
+        esp_littlefs_format(conf.partition_label);
+    	} 
+	else
+		{
+		ESP_LOGI(TAG, "LITTLEFS_check() successful");
+        ESP_LOGI(TAG, "Partition size: total: %d, used: %d", total, used);
+		}
+	return ret;
+	}
+#elif FILESYSTEM == SPIFFS
+#include "esp_spiffs.h"
 int spiffs_storage_check()
 	{
 	esp_err_t ret;
     size_t total = 0, used = 0;
+    esp_vfs_spiffs_conf_t conf_spiffs =
+		{
+		.base_path = BASE_PATH,
+		.partition_label = PARTITION_LABEL,
+		.max_files = 5,
+		.format_if_mount_failed = true
+		};
+
     ret = esp_vfs_spiffs_register(&conf_spiffs);
     if (ret != ESP_OK)
 		{
@@ -144,6 +182,7 @@ int spiffs_storage_check()
 	ESP_LOGI(TAG, "SPIFFS_check() successful");
     return ESP_OK;
     }
+#endif
 int get_nvs_cert(char * entry_name, char **cert)
 	{
 	char *t = "NVS";

@@ -150,4 +150,11 @@ bool get_sta_conf(char *ssid, esp_netif_ip_info_t *ipinfo);
  */
 int get_nvs_stacred(char *ssid, char *passwd);
 
+/**
+ * @brief Retrieve WIFI connection state
+ *
+ * @return value of comm_event_group
+ */
+TickType_t get_nw_connection_state();
+
 #endif /* CMD_WIFI_H__ */

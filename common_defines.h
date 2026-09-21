@@ -89,7 +89,9 @@ typedef enum
 */
 #define BASE_PATH					"/var"
 #define PARTITION_LABEL				"user"
-#define HISTORY_FILE				"/sys/history.txt"
+#define HISTORY_FILE				"/history.txt"
+#define SPIFFS						1
+#define LITTLEFS					2
 #define RGCAL_FILE					"rgcal.txt"
 #define PTST_FILE					"ptst.txt"
 #define SETTINGS_FILE				"settings.txt"
@@ -180,7 +182,7 @@ typedef struct
 	float longitude;
 	float altitude;
 	} position_t;
-	
+/*	
 typedef struct
 	{
 	int prun_state;
@@ -200,7 +202,8 @@ typedef struct
 	int q1000;
 	int tw1000;
 	} pump_mon_val_t;
-	
+*/
+/*	
 typedef struct
 	{
 	uint64_t ts;
@@ -215,7 +218,7 @@ typedef struct
 		pump_mon_val_t pv;
 		}p;
 	} socket_message_t;
-
+*/
 typedef struct
 	{
 	char sta_ssid[64];

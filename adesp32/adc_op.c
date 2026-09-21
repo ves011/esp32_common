@@ -21,17 +21,12 @@
 #include "esp_adc/adc_cali_scheme.h"
 #include "esp_adc/adc_filter.h"
 #include "hal/adc_types.h"
-//#include "esp_netif.h"
 #include "driver/gptimer.h"
-//#include "esp_wifi.h"
-//#include "esp_spiffs.h"
-//#include "math.h"
 #include "esp_console.h"
 #include "argtable3/argtable3.h"
 #include "common_defines.h"
 #include "project_specific.h"
 #include "utils.h"
-//#include "gpios.h"
 #include "adc_op.h"
 
 //#define DEBUG_ADC
@@ -279,10 +274,12 @@ int adc_get_data(int *chn, int n_chn, int **s_vect, int nr_samp)
 				for(int j = 0; j < nr_samp; j++)
 					{
 					adc_cali_raw_to_voltage(/*adc1_cal_handle[chn[n]]*/adc1_cal_handle[n], *(adc_raw[n] + j), (adc_raw[n] + j));
+					#ifdef BAT_ADC
 					if(chn[n] == BAT_ADC_CHANNEL)
 						{
 						bat_v += *(adc_raw[n] + j);
 						}
+					#endif
 					}
 				}
 			if(bat_v)

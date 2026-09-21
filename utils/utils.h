@@ -22,6 +22,7 @@ int my_log_vprintf(const char *fmt, va_list arguments);
 void my_fputs(char *buf, FILE *f);
 int write_tpdata(int rw, char *bufdata);
 int spiffs_storage_check();
+int littlefs_storage_check();
 int get_nvs_cert(char * entry_name, char **cert);
 int get_all_nvscerts();
 void my_esp_restart();

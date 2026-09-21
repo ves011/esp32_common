@@ -7,7 +7,7 @@
 #include "esp_log.h"
 #include "esp_console.h"
 #include "argtable3/argtable3.h"
-#include <esp_wifi_types_generic.h>
+//#include <esp_wifi_types_generic.h>
 #include "freertos/event_groups.h"
 #include "freertos/idf_additions.h"
 #include "freertos/projdefs.h"
@@ -671,5 +671,9 @@ bool get_sta_conf(char *ssid, esp_netif_ip_info_t *ipinfo)
 			ipinfo->ip.addr = 0;
 		}
 	return ret;
+	}
+TickType_t get_nw_connection_state()
+	{
+	return xEventGroupGetBits(comm_event_group);
 	}
 #endif

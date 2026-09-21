@@ -34,7 +34,7 @@
 #include "esp_timer.h"
 #include "project_specific.h"
 //#include "common_defines.h"
-//#include "cmd_system.h"
+#include "cmd_system.h"
 #include "cmd_wifi.h"
 #include "utils.h"
 #include "mqtt_ctrl.h"
@@ -133,17 +133,15 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
     	{
 		case MQTT_EVENT_CONNECTED:
 			ESP_LOGI(TAG, "MQTT_EVENT_CONNECTED");
-#ifdef ACTIVE_CONTROLLER
-			//subscribe(TOPIC_CMD);
 			subscribe(TOPIC_CTRL);
 			subscribe(DEVICE_TOPIC_Q);
-	#if ACTIVE_CONTROLLER == WATER_CONTROLLER
+/*
+#if ACTIVE_CONTROLLER == WATER_CONTROLLER
 			subscribe(DEVICE_TOPIC_R);
 			subscribe(WATER_PUMP_DESC"/monitor");
 			subscribe(WATER_PUMP_DESC"/state");
-	#endif
 #endif
-
+*/
 			get_sta_conf(NULL, &dev_ipinfo);
 			publish_MQTT_client_status();
 			xEventGroupSetBits(comm_event_group, MQTT_CONNECTED_BIT);
@@ -158,9 +156,10 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
 				{
 				ESP_LOGE(TAG, "reboot due to MQTT connect failure: heap - free=%u largest=%u min=%u", 
 					heap_caps_get_free_size(MALLOC_CAP_8BIT), heap_caps_get_largest_free_block(MALLOC_CAP_8BIT), esp_get_minimum_free_heap_size());
-				/** Not a good idea to reboot
-				    the thermostat function still works **/
-				//my_esp_restart();
+				/** Not a good idea to reboot in a thermostat context, the thermostat function still works 
+					However if MQTT_FAILATTEMPS is large enough a reboot triggered will help 
+					Especially usefull with C3 version of esp32 with low RAM **/
+				my_esp_restart();
 				}
 #endif			
 			break;
@@ -322,7 +321,7 @@ int mqtt_start(app_cmd_handler_t app_exec_funcion)
 		      	  },
 		    	},
 			.network.disable_auto_reconnect = false,
-			.network.reconnect_timeout_ms = 10000,
+			.network.reconnect_timeout_ms = MQTT_RECONNECT_TIMEOUT_MS,
 			.session.message_retransmit_timeout = 500,
 			.session.keepalive = 30,
 			.task.stack_size = 8192,
@@ -470,40 +469,13 @@ static void mqtt_rx_task(void *arg)
     	{
         if (xQueueReceive(mqtt_rx_queue, &msg, portMAX_DELAY) == pdTRUE) 
         	{
-			ESP_LOGI(TAG, "STACK: mqtt_rx free stack 1: %u\n", uxTaskGetStackHighWaterMark(NULL));
 			if(controller_op_registered)
 				{
 				argc = parse_argv(msg.payload, &argv);
 			    if(argc)
 			    	{
     				if (strcmp(msg.topic, TOPIC_CTRL) == 0) 
-    					{
-				        do_system_cmd(argc, argv);
-				        do_wifi(argc, argv);
-				        
-#if ACTIVE_CONTROLLER == WP_CONROLLER
-				        do_ad(argc, argv);
-				        do_dvop(argc, argv);
-				        do_pumpop(argc, argv);
-#elif ACTIVE_CONTROLLER == NAVIGATOR
-				        do_nmea(argc, argv);
-				        do_mpu(argc, argv);
-				        do_ptst(argc, argv);
-				        do_hmc(argc, argv);
-#elif ACTIVE_CONTROLLER == PUMP_CONTROLLER
-				        do_pumpop(argc, argv);
-#elif ACTIVE_CONTROLLER == FLOOR_HC
-				        do_temp(argc, argv);
-				        do_act(argc, argv);
-#elif ACTIVE_CONTROLLER == THERMOSTAT
-				        do_temp(argc, argv);
-#elif ACTIVE_CONTROLLER == DS18B20_ALIGNEMNT
-				        do_temp(argc, argv);
-#elif ACTIVE_CONTROLLER == WMON_CONTROLLER
-				        do_wmon(argc, argv);
-#endif
-
-				    	}
+						app_cmd_handler(argc, argv);
     				else if (strcmp(msg.topic, DEVICE_TOPIC_Q) == 0) 
     					{
         				if (argc && !strcmp(argv[0], "reqID"))
@@ -516,7 +488,6 @@ static void mqtt_rx_task(void *arg)
     			}
 	        free(msg.topic);
     	    free(msg.payload);
-    	    ESP_LOGI(TAG, "STACK: mqtt_rx free stack 2: %u\n", uxTaskGetStackHighWaterMark(NULL));
     	    }
     	}
 	}

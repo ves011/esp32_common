@@ -26,7 +26,6 @@
 #include "lwip/netdb.h"
 #include "freertos/task.h"
 #include <sys/fcntl.h>
-#include "esp_spiffs.h"
 #include <dirent.h>
 #include <sys/stat.h>
 #include "ping/ping_sock.h"
@@ -34,6 +33,7 @@
 #include "esp_partition.h"
 #include "esp_ota_ops.h"
 #include "esp_timer.h"
+#include "errno.h"
 #if CONFIG_SPIRAM == 1
 	#include "esp_psram.h"
 #endif
@@ -43,6 +43,13 @@
 #include "nvs.h"
 #include "sdkconfig.h"
 #include "common_defines.h"
+#include "project_specific.h"
+#if FILESYSTEM == SPIFFS
+	#include "esp_spiffs.h"
+#elif FILESYSTEM == LITTLEFS
+	#include "esp_littlefs.h"
+#endif
+
 #ifdef OTA_SUPPORT
 	#include "ota.h"
 #endif
@@ -64,6 +71,7 @@ static void register_deep_sleep(void);
 static void register_light_sleep(void);
 static void register_uptime(void);
 static void register_ls(void);
+static void register_mkdir(void);
 static void register_boot(void);
 static void register_cat(void);
 static void register_rm(void);
@@ -86,6 +94,7 @@ void register_system_common(void)
     register_restart();
     register_uptime();
     register_ls();
+	register_mkdir();
     register_boot();
     register_cat();
     register_rm();
@@ -401,13 +410,62 @@ static struct
 
 static struct
 	{
+    struct arg_str *path;
+    struct arg_end *end;
+	} rm_args;
+
+static struct
+	{
     struct arg_str *fname;
     struct arg_end *end;
 	} cat_args;
-
+static int mk_dir(int argc, char **argv)
+	{
+	int nerrors = arg_parse(argc, argv, (void **)&rm_args);
+	if (nerrors != 0)
+    	{
+        my_printf("%s arguments error", argv[0]);
+        return 1;
+    	}
+#if FILESYSTEM == SPIFFS
+	ESP_LOGI(TAG, "no directory support for SPIFFS");
+#elif FILESYSTEM == LITTLEFS
+	struct stat st = {0};
+	int ret = ESP_OK;
+	char path[FILENAME_MAX];
+	strcpy(path, BASE_PATH);
+    strcat(path, "/");
+	strcat(path, cat_args.fname->sval[0]);
+	if(stat(rm_args.path->sval[0], &st) == -1)
+		{
+		ret = mkdir(rm_args.path->sval[0], 0777);
+		if(ret == -1)
+			ESP_LOGI(TAG, "cannot create directory. errno = %d", errno);
+		else
+			ESP_LOGI(TAG, "%s created", rm_args.path->sval[0]);
+		}
+#else
+	ESP_LOGI(TAG, "unknown filesystem type");
+#endif	
+	return 0;
+	}
+static void register_mkdir(void)
+	{
+	rm_args.path = arg_str1(NULL, NULL, "path", "path");
+	rm_args.end = arg_end(1);
+	const esp_console_cmd_t cmd =
+		{
+		.command = "mkdir",
+		.help = "create a directory in "BASE_PATH,
+		.hint = NULL,
+		.func = &mk_dir,
+		.argtable = &rm_args,
+		};
+	ESP_ERROR_CHECK( esp_console_cmd_register(&cmd) );
+	}
 static int ls_files(int argc, char **argv)
 	{
-	esp_err_t ret;
+	esp_err_t ret = ESP_OK;
 	size_t total = 0, used = 0;
 	DIR *dir = NULL;
 	struct stat st;
@@ -421,11 +479,18 @@ static int ls_files(int argc, char **argv)
         my_printf("%s arguments error", argv[0]);
         return 1;
     	}
+	strcpy(path, "/");
 	if(ls_args.path->count  == 1)
-		strcpy(path, ls_args.path->sval[0]);
-	else
-		path[0] = 0;
+		{
+		if(ls_args.path->sval[0][0] == '/')
+			strcat(path, ls_args.path->sval[0] + 1);
+		else
+			strcat(path, ls_args.path->sval[0]);
+		}
+
 	
+	
+#if FILESYSTEM == SPIFFS
 	esp_vfs_spiffs_conf_t conf =
 		{
 		.base_path = BASE_PATH,
@@ -433,25 +498,23 @@ static int ls_files(int argc, char **argv)
 		.max_files = MAX_NO_FILES,
 		.format_if_mount_failed = true
 		};
-
    	ret = esp_spiffs_info(conf.partition_label, &total, &used);
+#elif FILESYSTEM == LITTLEFS
+	esp_vfs_littlefs_conf_t conf =
+		{
+		.base_path = BASE_PATH,
+		.partition_label = "user",
+		.format_if_mount_failed = true
+		};
+	ret = esp_littlefs_info(conf.partition_label, &total, &used);
+#else
+	ESP_LOGI(TAG, "Undefine file system type");
+	return ESP_FAIL;
+#endif
 	if (ret != ESP_OK)
 		{
-		ESP_LOGI(TAG, "Failed to get SPIFFS partition information (%s). Formatting...", esp_err_to_name(ret));
-		ret = esp_spiffs_format(conf.partition_label);
-		if(ret != ESP_OK)
-			{
-			ESP_LOGI(TAG, "Failed to format SPIFFS partition (%s)", esp_err_to_name(ret));
-			esp_vfs_spiffs_unregister(conf.partition_label);
-			return ret;
-			}
-		ret = esp_spiffs_info(conf.partition_label, &total, &used);
-		if(ret != ESP_OK)
-			{
-			ESP_LOGI(TAG, "Failed to get SPIFFS partition information (%s).", esp_err_to_name(ret));
-			esp_vfs_spiffs_unregister(conf.partition_label);
-			return ret;
-			}
+		ESP_LOGI(TAG, "Failed to get filesystem partition information (%s)", esp_err_to_name(ret));
+		return ESP_FAIL;
 		}
 	my_printf("Partition name: %s / total size: %-d / used: %-d\n", conf.partition_label, total, used);
 	strcpy(pfname, BASE_PATH);
@@ -556,7 +619,7 @@ static void register_cat(void)
 	const esp_console_cmd_t cmd =
 		{
 		.command = "cat",
-		.help = "show content of file in \"user\" partition",
+		.help = "show content of file in"BASE_PATH,
 		.hint = NULL,
 		.func = &cat_file,
 		.argtable = &cat_args,
@@ -568,16 +631,15 @@ static int rm_file(int argc, char **argv)
 	{
 	char path[64];
 	struct stat st;
-	int nerrors = arg_parse(argc, argv, (void **)&cat_args);
+	int nerrors = arg_parse(argc, argv, (void **)&rm_args);
 	if (nerrors != 0)
     	{
-        //arg_print_errors(stderr, ls_args.end, argv[0]);
         my_printf("%s arguments error", argv[0]);
         return 1;
     	}
     strcpy(path, BASE_PATH);
     strcat(path, "/");
-	strcat(path, cat_args.fname->sval[0]);
+	strcat(path, rm_args.path->sval[0]);
 	if (stat(path, &st) != 0)
 		{
 		// file does no exists
@@ -586,23 +648,27 @@ static int rm_file(int argc, char **argv)
 		}
 	else
 		{
-		int res = unlink(path);
+		int res;
+		if(S_ISREG(st.st_mode) > 0)
+			res = remove(path);
+		else
+			res = rmdir(path);
 		if(res < 0)
-			my_printf("Error deleting file %d", errno);
+			my_printf("Error deleting file/directory %d", errno);
 		}
 	return 0;
 	}
 static void register_rm(void)
 	{
-	cat_args.fname = arg_str1(NULL, NULL, "<file_name>", "file name");
-	cat_args.end = arg_end(1);
+	rm_args.path = arg_str1(NULL, NULL, "path", "path");
+	rm_args.end = arg_end(1);
 	const esp_console_cmd_t cmd =
 		{
 		.command = "rm",
 		.help = "remove the file in \"user\" partition",
 		.hint = NULL,
 		.func = &rm_file,
-		.argtable = &cat_args,
+		.argtable = &rm_args,
 		};
 	ESP_ERROR_CHECK( esp_console_cmd_register(&cmd) );
 	}
@@ -622,7 +688,6 @@ static int echo(int argc, char **argv)
 	int nerrors = arg_parse(argc, argv, (void **)&echo_args);
 	if (nerrors != 0)
     	{
-        //arg_print_errors(stderr, ls_args.end, argv[0]);
         my_printf("%s arguments error", argv[0]);
         return 1;
     	}
@@ -715,9 +780,11 @@ static int tasks_info(int argc, char **argv)
 #ifdef CONFIG_FREERTOS_VTASKLIST_INCLUDE_COREID
     strcat(buf, "\tAffinity");
 #endif
-    my_fputs(buf, stdout);
+    //my_fputs(buf, stdout);
+	ESP_LOGI(TAG, "%s", buf);
     vTaskList(task_list_buffer);
-    my_fputs(task_list_buffer, stdout);
+    //my_fputs(task_list_buffer, stdout);
+	ESP_LOGI(TAG, "%s", task_list_buffer);
     free(task_list_buffer);
     return 0;
 	}
@@ -932,7 +999,7 @@ static void register_light_sleep(void)
     ESP_ERROR_CHECK( esp_console_cmd_register(&cmd) );
 }
 
-static int uptime()
+static int uptime(int argc, char **argv)
 	{
 	uint64_t tmsec = esp_timer_get_time() /1000000;
 	uint32_t td, th, tm, ts;
@@ -1180,11 +1247,13 @@ int do_system_cmd(int argc, char **argv)
 		return 0;
 	//ESP_LOGI(TAG, "%d, %s", argc, argv[0]);
 	if(!strcmp(argv[0], "uptime"))
-		uptime();
+		uptime(argc, argv);
 	else if(!strcmp(argv[0], "heap"))
 		heap_size(argc, argv);
 	else if(!strcmp(argv[0], "ls"))
 		ls_files(argc, argv);
+	else if(!strcmp(argv[0], "mkdir"))
+		mk_dir(argc, argv);
 	else if(!strcmp(argv[0], "free"))
 		free_mem(argc, argv);
 	else if(!strcmp(argv[0], "restart"))
