@@ -159,7 +159,7 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
 				/** Not a good idea to reboot in a thermostat context, the thermostat function still works 
 					However if MQTT_FAILATTEMPS is large enough a reboot triggered will help 
 					Especially usefull with C3 version of esp32 with low RAM **/
-				my_esp_restart();
+				RESTART("MQTT_FAILATTEMPTS");
 				}
 #endif			
 			break;
@@ -337,7 +337,7 @@ int mqtt_start(app_cmd_handler_t app_exec_funcion)
 		mqtt_rx_queue = xQueueCreate(8, sizeof(mqtt_rx_msg_t));
 		if(mqtt_rx_queue)
 			{
-			xTaskCreate(mqtt_rx_task, "mqtt_rx", 4096, NULL, USER_TASK_PRIORITY, &mqtt_rx_task_handle);
+			xTaskCreate(mqtt_rx_task, "mqtt_rx", 8192, NULL, USER_TASK_PRIORITY, &mqtt_rx_task_handle);
 			if(mqtt_rx_task_handle)
 				{
     			if(esp_mqtt_client_register_event(client, ESP_EVENT_ANY_ID, mqtt_event_handler, NULL) == ESP_OK)

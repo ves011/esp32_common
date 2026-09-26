@@ -25,7 +25,7 @@ int spiffs_storage_check();
 int littlefs_storage_check();
 int get_nvs_cert(char * entry_name, char **cert);
 int get_all_nvscerts();
-void my_esp_restart();
+void my_esp_restart(backtr_t backt, const char *reason);
 void get_nvs_conf();
 
 #endif /* MAIN_UTILS_H_ */

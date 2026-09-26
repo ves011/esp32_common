@@ -38,7 +38,7 @@ static void tcp_log_task(void *pvParameters);
 static int reconnect(int *sock);
 static int log_level = 1;
 #define MSG_QUEUE_SIZE		5
-#define MAX_LOG_LINE_SIZE	512
+
 // Control marker for terminating the task (first 2 bytes)
 #define TCP_LOG_CTL0 0x01
 #define TCP_LOG_CTL1 0x02
@@ -113,11 +113,15 @@ int tcp_log_init(int level)
 							// Larger stacks (>~2300 bytes) cause ESP-MQTT disconnects
 							// due to scheduling/keepalive timing interactions.
 							// Logging is console-triggered only (low frequency).
+#if CONFIG_IDF_TARGET_ESP32C3							
 	#ifdef WITH_CONSOLE
 		#define SSIZE		2048
 	#else
-		#define SSIZE		4098
-	#endif						
+		#define SSIZE		4096
+	#endif
+#else
+	#define SSIZE			4096
+#endif						
 							xTaskCreate(tcp_log_task, "TCP_log_task", SSIZE, NULL, USER_TASK_PRIORITY, &tcp_log_task_handle);
 							if(tcp_log_task_handle)
 								{
@@ -168,7 +172,7 @@ void tcp_log_message(const char *message)
 
 static void tcp_log_task(void *pvParameters)
 	{
-	char buf[MAX_LOG_LINE_SIZE];
+	static char buf[MAX_LOG_LINE_SIZE];
 	int sendsock = -1;
 
 	while(1)
@@ -201,7 +205,6 @@ static void tcp_log_task(void *pvParameters)
 			size_t written = 0;
 			int sent = 0;
 			size_t total = strnlen(buf, sizeof(buf));
-			
 			while (written < total)
 				{
 			    sent = send(sendsock, buf + written, total - written, 0);

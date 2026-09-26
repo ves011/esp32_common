@@ -9,6 +9,7 @@
 #define COMMON_COMMON_DEFINES_H_
 
 /** @brief control devices type */
+#include "esp_system.h"
 #include <stdint.h>
 
 // device states
@@ -141,6 +142,12 @@ typedef enum
 #define DEVICE_TOPIC_L				"gnetdev/log"
 
 
+#if CONFIG_IDF_TARGET_ESP32C3
+	#define MAX_LOG_LINE_SIZE	512
+#else
+	#define MAX_LOG_LINE_SIZE	1024
+#endif
+
 /* -------------------------------------------------
  * Connectivity bits in event group
  *  -------------------------------------------------*/
@@ -156,6 +163,18 @@ typedef enum
 
 #define FACTORY_PART_NAME			"ota_0"
 #define OTA_PART_NAME				"ota_1"
+
+#define CRASH_MAGIC 0x43525348  // "CRSH"
+
+typedef struct	
+	{
+	const char *file;
+	const char *func;
+	int line;
+	} backtr_t;
+
+//#define BT ((backtr_t){__FILE__, __func__, __LINE__})
+#define RESTART(reason) my_esp_restart((backtr_t){__FILE__, __func__, __LINE__}, reason)
 
 typedef struct
 		{

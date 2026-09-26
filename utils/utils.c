@@ -8,7 +8,6 @@
 
 #include <stdio.h>
 #include <string.h>
-//#include "freertos/FreeRTOS.h"
 #include "esp_log.h"
 #include "nvs.h"
 #include "lwip/inet.h"
@@ -26,8 +25,11 @@ size_t nvs_cl_crt_sz, nvs_ca_crt_sz, nvs_cl_key_sz;
 
 static const char *TAG = "SPIFFS_RW";
 
-void my_esp_restart()
+void my_esp_restart(backtr_t backt, const char *reason)
 	{
+	ESP_LOGI("SYSTEM", "Restart triggered by SW: %s", reason);
+	ESP_LOGI("---->", "%s - %s line %d", backt.file, backt.func, backt.line);
+	restart_in_progress = 1;
 	vTaskDelay(pdMS_TO_TICKS(1000));
 	esp_restart();
 	}
@@ -45,8 +47,8 @@ int my_log_vprintf(const char *fmt, va_list arguments)
         case CONSOLE_TCP:
         case CONSOLE_MQTT:
         	{
-			char buf[512];
-			vsnprintf(buf, sizeof(buf), fmt, arguments);
+			static char buf[MAX_LOG_LINE_SIZE];
+			int n = vsnprintf(buf, sizeof(buf), fmt, arguments);
     		buf[sizeof(buf) - 1] = '\0';
 #if (COMM_PROTO & TCP_PROTO) == TCP_PROTO || (COMM_PROTO & MQTT_PROTO) == MQTT_PROTO
             // best‑effort forward; no buffering
@@ -63,7 +65,7 @@ int my_log_vprintf(const char *fmt, va_list arguments)
 
 int my_printf(char *format, ...)
 	{
-	char buf[512];
+	static char buf[MAX_LOG_LINE_SIZE];
 	va_list args;
 	va_start( args, format );
 	vsnprintf( buf, sizeof(buf) - 1, format, args );
@@ -109,7 +111,7 @@ int littlefs_storage_check()
         ESP_LOGE(TAG, "Failed to mount or format filesystem");
 		return ret;
 		}
-    else if (ret == ESP_ERR_NOT_FOUND)
+	else if (ret == ESP_ERR_NOT_FOUND)
 		{
         ESP_LOGE(TAG, "Failed to find LittleFS partition");
 		return ret;
@@ -117,7 +119,7 @@ int littlefs_storage_check()
 
 	size_t total = 0, used = 0;
     ret = esp_littlefs_info(conf.partition_label, &total, &used);
-    if (ret != ESP_OK) 
+	if (ret != ESP_OK) 
 		{
         ESP_LOGE(TAG, "Failed to get LittleFS partition information (%s)", esp_err_to_name(ret));
         esp_littlefs_format(conf.partition_label);
@@ -152,7 +154,7 @@ int spiffs_storage_check()
             ESP_LOGE(TAG, "Failed to find SPIFFS partition");
         else
             ESP_LOGE(TAG, "Failed to initialize SPIFFS (%s)", esp_err_to_name(ret));
-        my_esp_restart();
+        RESTART("Failed to initialize SPIFFS");
 		}
     ret = esp_spiffs_info(conf_spiffs.partition_label, &total, &used);
     if (ret != ESP_OK)
