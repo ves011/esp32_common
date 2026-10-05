@@ -9,7 +9,7 @@
 #define COMMON_COMMON_DEFINES_H_
 
 /** @brief control devices type */
-#include "esp_system.h"
+//#include "esp_system.h"
 #include <stdint.h>
 
 // device states
@@ -266,6 +266,14 @@ typedef struct
 		int ival[10];
 		} val;
 	} state_message_t;
+
+typedef struct
+    {
+    int led_pin;
+    int flash_tick;
+    volatile int state;
+    } led_state_t;
+
 	
 extern int restart_in_progress;
 	

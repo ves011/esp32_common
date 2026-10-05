@@ -12,6 +12,10 @@
 #include <stdio.h>
 #include "common_defines.h"
 
+#define SHORT_FLASH         2
+#define LONG_FLASH          16 
+#define NO_FLASH_LEDS       5 
+
 extern dev_config_t dev_conf;
 extern char *nvs_cl_crt, *nvs_cl_key, *nvs_ca_crt;
 extern size_t nvs_cl_crt_sz, nvs_ca_crt_sz, nvs_cl_key_sz;
@@ -27,5 +31,6 @@ int get_nvs_cert(char * entry_name, char **cert);
 int get_all_nvscerts();
 void my_esp_restart(backtr_t backt, const char *reason);
 void get_nvs_conf();
+int set_flash_led(int led_no, int led_state, int tick);
 
 #endif /* MAIN_UTILS_H_ */

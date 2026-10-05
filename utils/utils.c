@@ -11,8 +11,11 @@
 #include "esp_log.h"
 #include "nvs.h"
 #include "lwip/inet.h"
+#include "esp_timer.h"
+#include "driver/gpio.h"
 #include "project_specific.h"
 #include "common_defines.h"
+#include "crash_handler.h"
 #include "utils.h"
 
 dev_config_t dev_conf;
@@ -24,6 +27,7 @@ size_t nvs_cl_crt_sz, nvs_ca_crt_sz, nvs_cl_key_sz;
 #endif
 
 static const char *TAG = "SPIFFS_RW";
+static led_state_t led_st[NO_FLASH_LEDS] = {0};
 
 void my_esp_restart(backtr_t backt, const char *reason)
 	{
@@ -345,3 +349,132 @@ void get_nvs_conf()
 		}
 	}
 	
+
+// Include target-specific headers automatically based on the active build target
+#if defined(CONFIG_IDF_TARGET_ESP32)
+	#include "hal/gpio_hal.h"
+	#include "soc/io_mux_reg.h"
+#else
+	#include "hal/gpio_ll.h"
+	#include "soc/gpio_struct.h"
+#endif
+
+static esp_timer_handle_t flash_timer = NULL;
+static uint32_t tick_count = 0;
+/**
+ * @brief Helper function to round up any integer to the next power of 2.
+ *        e.g., 3 -> 4, 5 -> 8, 8 -> 8.
+ */
+static inline uint32_t next_power_of_2(uint32_t n) 
+	{
+    if (n == 0) return 0; 
+	n--;
+    n |= n >> 1; n |= n >> 2; n |= n >> 4; n |= n >> 8; n |= n >> 16;
+    return n + 1;
+	}
+static void flash_timer_callback(void* arg)
+    {
+	tick_count++;
+    for(int i = 0; i < NO_FLASH_LEDS; i++)
+		{
+		if(led_st[i].led_pin && led_st[i].flash_tick )
+			{
+			if((tick_count & led_st[i].flash_tick) == 0)
+				{
+				gpio_set_level(led_st[i].led_pin, led_st[i].state);
+				led_st[i].state = !led_st[i].state;
+				//ESP_LOGI("flash_timer_callback", "led %d state %d", led_st[i].led_pin, led_st[i].state);
+				}
+			}
+		}
+    }
+/**
+ * @brief Checks if a GPIO pin is currently configured as an output at run time.
+ *        Works on ESP32, ESP32-S3, ESP32-C3, and ESP32-C6.
+ */
+bool is_gpio_output(gpio_num_t gpio_num)
+	{
+#if defined(CONFIG_IDF_TARGET_ESP32)
+    // Classic ESP32 uses split enable banks handled via legacy HAL structures
+    gpio_dev_t *hw = GPIO_HAL_GET_HW(GPIO_PORT_0);
+    if (gpio_num < 32)
+        return (hw->enable >> gpio_num) & 0x1;
+    else
+        return (hw->enable1.data >> (gpio_num - 32)) & 0x1;
+#else
+    // ESP32-S3, C3, and C6 can all leverage the unified Low-Level (LL) API safely
+	gpio_io_config_t io_conf = {0};	
+    gpio_ll_get_io_config(&GPIO, gpio_num, &io_conf);
+    return io_conf.oe;
+#endif
+	}
+
+/**
+ * @brief Checks if a GPIO pin is currently configured as an input at run time.
+ */
+bool is_gpio_input(gpio_num_t gpio_num)
+	{
+#if defined(CONFIG_IDF_TARGET_ESP32)
+	uint32_t pin_param = REG_READ(GPIO_PIN_MUX_REG[gpio_num]);
+    return (pin_param & FUN_IE) ? true : false;
+#else
+	gpio_io_config_t io_conf = {0};
+    gpio_ll_get_io_config(&GPIO, gpio_num, &io_conf);
+    return io_conf.ie;
+#endif
+	}
+
+int set_flash_led(int led_no, int led_state, int tick)
+	{
+	int i, ret = ESP_FAIL;
+	// Normalize the input tick to the nearest power of 2, then calculate mask
+    uint32_t normalized_tick = next_power_of_2(tick);
+	for(i = 0; i < NO_FLASH_LEDS; i++)
+		{
+		if(led_st[i].led_pin == led_no)
+			{
+			//led_st[i].led_pin = led_no;
+			led_st[i].flash_tick = normalized_tick;
+			led_st[i].state = led_state;
+			gpio_set_level(led_st[i].led_pin, led_st[i].state);
+			return ESP_OK;
+			}
+		if(led_st[i].led_pin == 0)
+			break;
+		}
+	if(i < NO_FLASH_LEDS)
+		{
+		if(is_gpio_output(led_no))
+			{
+			led_st[i].led_pin = led_no;
+			led_st[i].flash_tick = normalized_tick;
+			led_st[i].state = led_state;
+			gpio_set_level(led_st[i].led_pin, led_st[i].state);
+			ESP_LOGI("set_flash_led", "led %d added to flash vector (index: %d)", led_no, i);
+			ret = ESP_OK;
+			}
+		else
+			{
+			ESP_LOGI("set_flash_led", "led %d is not configured for output", led_no);
+			ret = ESP_ERR_INVALID_ARG;
+			}
+		}
+	else 
+		{
+		ESP_LOGI("set_flash_led", "no more free slots for led %d / max slots = %d", led_no, NO_FLASH_LEDS);
+		ret = ESP_FAIL;
+		}
+	if(flash_timer == NULL)
+		{
+		esp_timer_create_args_t timer_args = 
+			{
+	    	.callback = &flash_timer_callback,
+	        .name = "flash_timer"
+	    	};
+	    CRASH_ERROR_CHECK(esp_timer_create(&timer_args, &flash_timer));
+	    CRASH_ERROR_CHECK(esp_timer_start_periodic(flash_timer, 100000));
+		ESP_LOGI("set_flash_led", "flash_timer started");
+		}	
+	return ret;
+	}
+

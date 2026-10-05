@@ -285,8 +285,8 @@ esp_err_t onewire_new_bus_rmt(const onewire_bus_config_t *bus_config, const onew
         .gpio_num = bus_config->bus_gpio_num,
         .mem_block_symbols = ONEWIRE_RMT_DEFAULT_MEM_BLOCK_SYMBOLS,
         .trans_queue_depth = ONEWIRE_RMT_DEFAULT_TRANS_QUEUE_SIZE,
-        .flags.io_loop_back = true, // make tx channel coexist with rx channel on the same gpio pin
-        .flags.io_od_mode = true,   // enable open-drain mode for 1-wire bus
+        //.flags.io_loop_back = true, // make tx channel coexist with rx channel on the same gpio pin
+        //.flags.io_od_mode = true,   // enable open-drain mode for 1-wire bus
     };
     ESP_GOTO_ON_ERROR(rmt_new_tx_channel(&onewire_tx_channel_cfg, &bus_rmt->tx_channel),
                       err, TAG, "create rmt tx channel failed");

@@ -77,6 +77,7 @@ static void register_boot(void);
 static void register_cat(void);
 static void register_rm(void);
 static void register_nvsconf(void);
+static void register_flashled(void);
 
 #ifdef OTA_SUPPORT
 	static int ota_start(int argc, char **argv);
@@ -100,6 +101,7 @@ void register_system_common(void)
     register_cat();
     register_rm();
     register_nvsconf();
+	register_flashled();
 #if CONFIG_HEAP_TASK_TRACKING
     register_heap_debug();
 #endif
@@ -1289,3 +1291,35 @@ int do_system_cmd(int argc, char **argv)
 	return ret;
 	}
 	
+static struct
+	{
+    struct arg_int *led_no;
+	struct arg_int *tick;
+    struct arg_end *end;
+	} flashled_args;
+
+static int do_flashled(int argc, char **argv)
+	{
+	int nerrors = arg_parse(argc, argv, (void **)&flashled_args);
+	if (nerrors != 0)
+    	{
+        my_printf("%s arguments error", argv[0]);
+        return 1;
+    	}
+   	set_flash_led(flashled_args.led_no->ival[0], 1, flashled_args.tick->ival[0]);
+	return 0;
+	}
+static void register_flashled(void)
+	{
+	flashled_args.led_no = arg_int1(NULL, NULL, "led-no", "led io pin");
+	flashled_args.tick = arg_int1(NULL, NULL, "#", "100 msec tick count");
+	flashled_args.end = arg_end(1);
+    const esp_console_cmd_t cmd = {
+        .command = "flashled",
+        .help = "flash a led attached to the pin",
+        .hint = NULL,
+        .func = &do_flashled,
+        .argtable = &flashled_args
+    	};
+    ESP_ERROR_CHECK( esp_console_cmd_register(&cmd) );
+	}

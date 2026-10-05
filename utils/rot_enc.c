@@ -309,10 +309,8 @@ void init_rotenc(QueueHandle_t ui_cmd_q)
 	press_time = PUSH_TIME_SHORT;
 	cmd_q = xQueueCreate(10, sizeof(msg_t));
 	if(!cmd_q)
-		{
-		ESP_LOGE(TAG, "Unable to create rotary encoder cmd queue");
-		my_esp_restart();
-		}
+		RESTART("Unable to create rotary encoder cmd queue");
+
 	ui_cmd_queue = ui_cmd_q;
 	
 	config_key_timer();
@@ -325,9 +323,7 @@ void init_rotenc(QueueHandle_t ui_cmd_q)
 	
 	xTaskCreate(rot_enc_cmd, "rot_enc_cmd", ss, NULL, 5, &rot_enc_cmd_handle);
 	if(!rot_enc_cmd_handle)
-		{
-		ESP_LOGE(TAG, "Unable to start rotary encoder cmd task");
-		my_esp_restart();
-		}
+		RESTART("Unable to start rotary encoder cmd task");
+
 	}
 #endif
