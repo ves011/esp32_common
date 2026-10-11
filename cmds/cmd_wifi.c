@@ -34,7 +34,7 @@ EventGroupHandle_t comm_event_group;
 
 
 static esp_timer_handle_t wifi_retry_timer;
-static int retry_delay_ms = 1000;
+static int retry_delay_ms = 5000;
 static int disconnect_request = 0;
 #define MAX_RETRY_DELAY_MS 30000
 
@@ -59,10 +59,25 @@ static struct
     struct arg_end *end;
 	} wifi_args;
 
+static const char* wifi_reason_to_str(uint8_t reason) 
+	{
+	if(reason >=200 && reason <= 204)
+		{
+		switch (reason) 
+			{
+			case 200: return "WIFI_REASON_BEACON_TIMEOUT";
+			case 201: return "WIFI_REASON_NO_AP_FOUND";
+			case 202: return "WIFI_REASON_AUTH_FAIL";
+			case 203: return "WIFI_REASON_ASSOC_FAIL";
+			case 204: return "WIFI_REASON_HANDSHAKE_TIMEOUT";
+			}
+		}
+	return esp_err_to_name(reason);;
+	}
 
 static void wifi_retry_cb(void *arg)
 	{
-    ESP_LOGI(WIFITAG, "Retrying WiFi connection...");
+    //ESP_LOGI(WIFITAG, "Retrying WiFi connection...");
     esp_wifi_connect();
 	}
 
@@ -143,6 +158,7 @@ static int wifi_disconnect()
 	{
 	esp_err_t err;
 	wifi_mode_t mode;
+	EventBits_t bits;
 	ESP_LOGI(WIFITAG, "WIFI STA disconnecting");
 	err  = esp_wifi_get_mode(&mode);
 	if(err != ESP_OK)
@@ -153,25 +169,31 @@ static int wifi_disconnect()
 			err = ESP_OK;
 			}
 		else
-			ESP_LOGE(WIFITAG, "%s", esp_err_to_name(err));
+			ESP_LOGE(WIFITAG, "%s", wifi_reason_to_str(err));
 		}
 	else
 		{
-		//restart_in_progress = 1;
-		TickType_t deadline = xTaskGetTickCount() + DISCONNECT_TIMEOUT / portTICK_PERIOD_MS;
-		disconnect_request = 1;
-		esp_wifi_disconnect();
-		while((xEventGroupGetBits(comm_event_group) & WIFI_CONNECTED_BIT) != 0)
+		bits = xEventGroupGetBits(comm_event_group);
+		if(bits & WIFI_CONNECTED_BIT)
 			{
-			if (xTaskGetTickCount() >= deadline)
+			xEventGroupClearBits(comm_event_group, WIFI_STATE_COMPLETED);
+			disconnect_request = 1;
+			esp_wifi_disconnect();
+			bits = xEventGroupWaitBits(comm_event_group, WIFI_STATE_COMPLETED,
+									pdFALSE, pdTRUE, pdMS_TO_TICKS(DISCONNECT_TIMEOUT));
+			if(bits & WIFI_CONNECTED_BIT)
 				{
+				ESP_LOGW(WIFITAG, "WiFi disconnect timeout");
 				err = ESP_FAIL;
-				ESP_LOGE(WIFITAG, "timeout on disconnect request");
-            	break;
-            	}
-			vTaskDelay(pdMS_TO_TICKS(10));
+				}
+			else
+				{
+				ESP_LOGI(WIFITAG, "WiFi disconnected");
+				err = ESP_OK;
+				}
 			}
-    	//restart_in_progress = 0;
+		else
+			err = ESP_OK;
 		}
 	return err;
 	}
@@ -188,7 +210,7 @@ static void event_handler(void* arg, esp_event_base_t event_base, int32_t event_
             	//esp_wifi_connect();
             	break;
 	        case WIFI_EVENT_STA_CONNECTED:
-	        	xEventGroupSetBits(comm_event_group, WIFI_CONNECTED_BIT);
+	        	xEventGroupSetBits(comm_event_group, WIFI_CONNECTED_BIT | WIFI_STATE_COMPLETED);
 	            ESP_LOGI(WIFITAG, "WIFI_EVENT_STA_CONNECTED");
 	            break;
 	        case WIFI_EVENT_STA_DISCONNECTED:
@@ -196,8 +218,9 @@ static void event_handler(void* arg, esp_event_base_t event_base, int32_t event_
 	            wifi_event_sta_disconnected_t *evt =
 	                (wifi_event_sta_disconnected_t *)event_data;
 	            int reason = evt ? evt->reason : -1;
-	            ESP_LOGW(WIFITAG, "WIFI_EVENT_STA_DISCONNECTED, reason=%d", reason);
+	            ESP_LOGW(WIFITAG, "WIFI_EVENT_STA_DISCONNECTED, reason = %s (%d)", wifi_reason_to_str(reason), reason);
 	            xEventGroupClearBits(comm_event_group, WIFI_CONNECTED_BIT | IP_CONNECTED_BIT);
+				xEventGroupSetBits(comm_event_group, WIFI_STATE_COMPLETED);
 	            esp_timer_stop(wifi_retry_timer);
 	            if(!disconnect_request)
 	            	{
@@ -205,8 +228,8 @@ static void event_handler(void* arg, esp_event_base_t event_base, int32_t event_
 					retry_delay_ms += 1000;
 	        		if (retry_delay_ms > MAX_RETRY_DELAY_MS)
 	            		retry_delay_ms = MAX_RETRY_DELAY_MS;
+					ESP_LOGI(WIFITAG, "Retrying WiFi connection...");
 					}
-	            //ESP_ERROR_CHECK(esp_wifi_connect());
 	            break;
 	        	}
 #endif /* WIFI_STA_ON */
@@ -270,8 +293,10 @@ static void wifi_init_sta(void)
         }
 	assert(esp_netif_create_default_wifi_sta());
     wifi_config_t wifi_config = { 0 };
+	wifi_config.sta.scan_method = WIFI_ALL_CHANNEL_SCAN;
     wifi_config.sta.sort_method = WIFI_CONNECT_AP_BY_SIGNAL;
     ESP_ERROR_CHECK( esp_wifi_set_config(WIFI_IF_STA, &wifi_config) );
+	xEventGroupSetBits(comm_event_group, WIFI_STATE_COMPLETED);
     sta_init = true;
 	}
 #endif
@@ -444,21 +469,45 @@ bool wifi_join(const char *ssid, const char *pass, int timeout_ms, bool usenvs)
 	else
 		wifi_config.sta.password[0] = '\0';
 
-    ESP_LOGI(WIFITAG, "wifi_join(): STA SSID: \"%s\" STA PASS: \"%s\" timeout: %d", wifi_config.sta.ssid, wifi_config.sta.password);
-    ESP_ERROR_CHECK( esp_wifi_set_config(WIFI_IF_STA, &wifi_config) );
-
     //if(wifi_disconnect() == ESP_OK)
+	esp_timer_stop(wifi_retry_timer);
     if((xEventGroupGetBits(comm_event_group) & WIFI_CONNECTED_BIT) != 0)
     	{
     	wifi_disconnect();
     	}
-	disconnect_request = 0;
-	ret = esp_wifi_connect();
-	ESP_LOGI(WIFITAG, "esp_wifi_connect(): %d", ret);
-	bits = xEventGroupWaitBits(comm_event_group, IP_CONNECTED_BIT,
-                               pdFALSE, pdTRUE, timeout_ms / portTICK_PERIOD_MS);
-	ESP_LOGI(WIFITAG, "connect to %s return %x %x", use_ssid, ret, bits);
-	return (bits & IP_CONNECTED_BIT) != 0;
+	ESP_LOGI(WIFITAG, "wifi_join(): STA SSID: \"%s\" STA PASS: \"%s\" timeout: %d", wifi_config.sta.ssid, wifi_config.sta.password);
+	bits = xEventGroupWaitBits(comm_event_group, WIFI_STATE_COMPLETED,
+                               pdFALSE, pdTRUE, DISCONNECT_TIMEOUT / portTICK_PERIOD_MS);
+	if(bits & WIFI_STATE_COMPLETED)
+		{
+		xEventGroupClearBits(comm_event_group, WIFI_STATE_COMPLETED);
+		ret = esp_wifi_set_config(WIFI_IF_STA, &wifi_config);
+		if(ret != ESP_OK)
+			{
+			xEventGroupSetBits(comm_event_group, WIFI_STATE_COMPLETED);
+			ESP_LOGW(WIFITAG, "esp_wifi_set_config failed: %s", esp_err_to_name(ret));
+			return false;
+			}
+		disconnect_request = 0;
+		
+		ret = esp_wifi_connect();
+		ESP_LOGI(WIFITAG, "esp_wifi_connect(): %d", ret);
+		if (ret != ESP_OK)
+			{
+			xEventGroupSetBits(comm_event_group, WIFI_STATE_COMPLETED);
+			ESP_LOGW(WIFITAG, "esp_wifi_connect failed: %s", esp_err_to_name(ret));
+			return false;
+			}
+		bits = xEventGroupWaitBits(comm_event_group, IP_CONNECTED_BIT,
+				pdFALSE, pdTRUE, timeout_ms / portTICK_PERIOD_MS);
+		ESP_LOGI(WIFITAG, "connect to %s return %x %x", use_ssid, ret, bits);
+		return (bits & IP_CONNECTED_BIT) != 0;
+		}
+	else
+		{
+		ESP_LOGI(WIFITAG, "not ready to connect in 1 sec");
+		return false;
+		}
 	}
 
 bool isConnected()
@@ -495,7 +544,7 @@ static int wifi_connect(const char *ssid, const char *pwd, int timeout)
 				}
 			else
 				{
-				ESP_LOGI(WIFITAG, "%s", esp_err_to_name(err));
+				ESP_LOGI(WIFITAG, "%s", wifi_reason_to_str(err));
 				//return 0;
 				}
 

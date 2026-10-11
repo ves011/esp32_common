@@ -22,6 +22,7 @@
 
 #include <freertos/FreeRTOS.h>
 #include <freertos/queue.h>
+#include <mqtt5_client.h>
 
 /* -------------------------------------------------------------
  * MQTT topic declarations
@@ -78,6 +79,8 @@ extern char TOPIC_MONITOR_A[MQTT_TOPIC_SIZE];
 extern QueueHandle_t water_cmd_q;
 
 #endif /* ACTIVE_CONTROLLER == WP_CONTROLLER */
+
+extern esp_mqtt_client_handle_t mqtt_client_handle;
 
 /**
  * @brief app specific function prototype to execute received commands on TOPI_CTRL topic 

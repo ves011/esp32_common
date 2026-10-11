@@ -1033,6 +1033,7 @@ static void register_uptime(void)
 static struct
 	{
     struct arg_str *url;
+	struct arg_str *pname;
     struct arg_end *end;
 	} ota_args;
 
@@ -1046,13 +1047,14 @@ static int ota_start(int argc, char **argv)
     	}
     if(ota_args.url->count)
     	{
-    	ota_task(ota_args.url->sval[0]);
+    	ota_task(ota_args.url->sval[0], ota_args.pname->sval[0]);
     	}
 	return 0;
 	}
 static void register_ota(void)
 	{
 	ota_args.url = arg_str1(NULL, NULL, "<url>", "https://server:port/file_name");
+	ota_args.pname = arg_str1(NULL, NULL, "<part_name>", "name of the partition to be flashed");
 	ota_args.end = arg_end(1);
     const esp_console_cmd_t cmd = {
         .command = "ota",

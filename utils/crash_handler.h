@@ -78,7 +78,8 @@ do {                                               \
 #define RECOVERY_PART_NAME			"ota_1"
 	
 #define CRASH_RTC_SIZE  0x100
-#define CRASH_RTC_END   SOC_RTC_DATA_HIGH
+#define CRASH_RTC_PLATFORM_RESERVED_SIZE 0x18
+#define CRASH_RTC_END   (SOC_RTC_DATA_HIGH - CRASH_RTC_PLATFORM_RESERVED_SIZE)
 #define CRASH_RTC_START (CRASH_RTC_END - CRASH_RTC_SIZE)
 
 #define HEALTH_BOOT_TIME	10000000	// 10 seconds

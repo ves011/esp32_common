@@ -32,8 +32,9 @@
 #include "esp_netif_types.h"
 #include "mqtt_client.h"
 #include "esp_timer.h"
+#include "esp_ota_ops.h"
 #include "project_specific.h"
-//#include "common_defines.h"
+#include "common_defines.h"
 #include "cmd_system.h"
 #include "cmd_wifi.h"
 #include "utils.h"
@@ -72,7 +73,7 @@
 	#include "temps.h"
 #endif
 */
-
+/*
 #if CONFIG_IDF_TARGET_ESP32C3
     #define PROCESS_MESSAGE_BY_HANDLER 1
 #elif CONFIG_IDF_TARGET_ESP32S3 || CONFIG_IDF_TARGET_ESP32
@@ -85,8 +86,18 @@
 #else
     #define PROCESS_MESSAGE_BY_HANDLER 0
 #endif
+*/
 
-esp_mqtt_client_handle_t client;
+#define PROCESS_MESSAGE_BY_HANDLER 0
+
+#include "freertos/idf_additions.h"
+    static QueueHandle_t mqtt_rx_queue;
+    static TaskHandle_t mqtt_rx_task_handle;
+    static void mqtt_rx_task(void *arg);
+	static int parse_argv(char *payload, char ***argv_out);
+
+
+esp_mqtt_client_handle_t mqtt_client_handle;
 static const char *TAG = "MQTTClient";
 static esp_netif_ip_info_t dev_ipinfo;
 
@@ -112,11 +123,11 @@ static void log_error_if_nonzero(const char *message, int error_code)
 
 void subscribe(char *topic)
 	{
-	if(!client)
+	if(!mqtt_client_handle)
 		ESP_LOGE(TAG, "Client not connected");
 	else
 		{
-		if(esp_mqtt_client_subscribe(client, topic, 0) == -1)
+		if(esp_mqtt_client_subscribe(mqtt_client_handle, topic, 0) == -1)
 			{
 			ESP_LOGE(TAG, "cannot subscribe to %s", topic);
 			//esp_restart();
@@ -151,7 +162,9 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
 		case MQTT_EVENT_DISCONNECTED:
 			xEventGroupClearBits(comm_event_group, MQTT_CONNECTED_BIT);
 			ESP_LOGI(TAG, "MQTT_EVENT_DISCONNECTED");
-			connect_fail_count++;
+			int con_state = get_nw_connection_state();
+			if(con_state & IP_CONNECTED_BIT )
+				connect_fail_count++;
 #if ENABLE_MQTT_FAIL_REBOOT == 1
 			if(connect_fail_count >= MQTT_FAILATTEMPTS)
 				{
@@ -299,7 +312,8 @@ int mqtt_start(app_cmd_handler_t app_exec_funcion)
 	{
 	esp_err_t ret = ESP_FAIL;
 	xEventGroupClearBits(comm_event_group, MQTT_CONNECTED_BIT);
-	app_cmd_handler = app_exec_funcion;
+	if(app_exec_funcion)
+		app_cmd_handler = app_exec_funcion;
 	int needed = snprintf(NULL, 0, "%s%02d", dev_conf.dev_name, dev_conf.dev_id);
 	if (needed < 0) 
 		return ESP_FAIL;
@@ -307,20 +321,17 @@ int mqtt_start(app_cmd_handler_t app_exec_funcion)
 	USER_MQTT[sizeof(USER_MQTT) - 1] = 0;
 	const esp_mqtt_client_config_t mqtt_cfg = {
 		    .broker.address.uri = CONFIG_BROKER_URL,
-		    //.broker.verification.certificate = (const char *)server_cert_pem_start,
 			.broker.verification.certificate = (const char *)nvs_ca_crt,
 			.broker.verification.certificate_len = nvs_ca_crt_sz,
-		    .credentials = {
-		      .client_id = USER_MQTT,
-		      .authentication = {
-//		        .certificate = (const char *)client_cert_pem_start,
-		        .certificate = (const char *)nvs_cl_crt,
-		        .certificate_len = nvs_cl_crt_sz,
-		        //.key = (const char *)client_key_pem_start,
-				.key = (const char *)nvs_cl_key,
-				.key_len = nvs_cl_key_sz,
-		      	  },
-		    	},
+			.credentials = {
+				.client_id = USER_MQTT,
+				.authentication = {
+					.certificate = (const char *)nvs_cl_crt,
+					.certificate_len = nvs_cl_crt_sz,
+					.key = (const char *)nvs_cl_key,
+					.key_len = nvs_cl_key_sz,
+					},
+				},
 			.network.disable_auto_reconnect = false,
 			.network.reconnect_timeout_ms = MQTT_RECONNECT_TIMEOUT_MS,
 			.session.message_retransmit_timeout = 500,
@@ -328,24 +339,30 @@ int mqtt_start(app_cmd_handler_t app_exec_funcion)
 			.task.stack_size = 8192,
 			};
 	create_topics();
-   	client = esp_mqtt_client_init(&mqtt_cfg);
-   	if(client)
+   	mqtt_client_handle = esp_mqtt_client_init(&mqtt_cfg);
+   	if(mqtt_client_handle)
     	{
 #if PROCESS_MESSAGE_BY_HANDLER == 1					
-		if(esp_mqtt_client_register_event(client, ESP_EVENT_ANY_ID, mqtt_event_handler, NULL) == ESP_OK)
-			ret = esp_mqtt_client_start(client);
+		if(esp_mqtt_client_register_event(mqtt_client_handle, ESP_EVENT_ANY_ID, mqtt_event_handler, NULL) == ESP_OK)
+			ret = esp_mqtt_client_start(mqtt_client_handle);
 #else
-		mqtt_rx_queue = xQueueCreate(8, sizeof(mqtt_rx_msg_t));
+		if(!mqtt_rx_queue)
+			mqtt_rx_queue = xQueueCreate(8, sizeof(mqtt_rx_msg_t));
 		if(mqtt_rx_queue)
 			{
-			xTaskCreate(mqtt_rx_task, "mqtt_rx", 8192, NULL, USER_TASK_PRIORITY, &mqtt_rx_task_handle);
+			//xTaskCreate(mqtt_rx_task, "mqtt_rx", 8192, NULL, USER_TASK_PRIORITY, &mqtt_rx_task_handle);
+			if(!mqtt_rx_task_handle)
+				xTaskCreate(mqtt_rx_task, "mqtt_rx", 4096, NULL, USER_TASK_PRIORITY, &mqtt_rx_task_handle);
 			if(mqtt_rx_task_handle)
 				{
-    			if(esp_mqtt_client_register_event(client, ESP_EVENT_ANY_ID, mqtt_event_handler, NULL) == ESP_OK)
-    				ret = esp_mqtt_client_start(client);
+    			if(esp_mqtt_client_register_event(mqtt_client_handle, ESP_EVENT_ANY_ID, mqtt_event_handler, NULL) == ESP_OK)
+    				ret = esp_mqtt_client_start(mqtt_client_handle);
 				}
 			else
+				{
 				vQueueDelete(mqtt_rx_queue);
+				mqtt_rx_queue = NULL;
+				}
 			}
 #endif					
     	}
@@ -354,8 +371,8 @@ int mqtt_start(app_cmd_handler_t app_exec_funcion)
 
 void publish_reqID()
 	{
-	if(client)
-		esp_mqtt_client_publish(client, DEVICE_TOPIC_Q, "reqID", 5, 0,0);
+	if(mqtt_client_handle)
+		esp_mqtt_client_publish(mqtt_client_handle, DEVICE_TOPIC_Q, "reqID", 5, 0,0);
 	}
 void publish_topic(char * topic, char * msg, int qos, int retain)
 	{
@@ -363,7 +380,7 @@ void publish_topic(char * topic, char * msg, int qos, int retain)
 #if MQTT_PUBLISH == 0
 	return;
 #endif
-	if(!client)
+	if(!mqtt_client_handle)
 		ESP_LOGE(TAG, "Client not connected");
 	else
 		{
@@ -374,7 +391,7 @@ void publish_topic(char * topic, char * msg, int qos, int retain)
 		if(pmsg)
 			{
 			snprintf(pmsg, (size_t)needed + 1, "%llu\1%s\1%s", tmsec, USER_MQTT, msg);
-			esp_mqtt_client_publish(client, topic, pmsg, strlen(pmsg), qos, retain);
+			esp_mqtt_client_publish(mqtt_client_handle, topic, pmsg, strlen(pmsg), qos, retain);
 			free(pmsg);
 			}
 		}
@@ -384,15 +401,16 @@ void publish_MQTT_client_status()
 	{
 	time_t now;
 	struct tm timeinfo;
-    char msg[200];
+    char msg[512];
     char strtime[50];
     uint64_t tmsec = esp_timer_get_time();
 	time(&now);
 	localtime_r(&now, &timeinfo);
-	strftime(strtime, sizeof(strtime), "%Y-%m-%d/%H:%M:%S\1", &timeinfo);
-	snprintf(msg, 199, "%s\1%s\1" IPSTR "\1%d\1%s\1%llu",
-			USER_MQTT, DEV_NAME, IP2STR(&dev_ipinfo.ip), dev_conf.dev_id, strtime, tmsec);
-	esp_mqtt_client_publish(client, DEVICE_TOPIC_R, msg, strlen(msg), 0, 0);
+	strftime(strtime, sizeof(strtime), "%Y-%m-%d/%H:%M:%S", &timeinfo);
+	snprintf(msg, sizeof(msg) - 1, "%s\1%s\1" IPSTR "\1%d\1%s\1%llu\1%s\1%s\1%s\1%s\1",
+			USER_MQTT, DEV_NAME, IP2STR(&dev_ipinfo.ip), dev_conf.dev_id, strtime, tmsec, 
+			bpart_desc.project_name, bpart_desc.version, bpart_desc.date, bpart_desc.time);
+	esp_mqtt_client_publish(mqtt_client_handle, DEVICE_TOPIC_R, msg, strlen(msg), 0, 0);
 	}
 void publish_MQTT_client_log(char *message)
 	{
@@ -401,7 +419,7 @@ void publish_MQTT_client_log(char *message)
 		return;
 	if(message[sz - 1] == '\n')
 		message[sz - 1] = 0;
-	esp_mqtt_client_publish(client, TOPIC_LOG, message, strlen(message), 0, 0);
+	esp_mqtt_client_publish(mqtt_client_handle, TOPIC_LOG, message, strlen(message), 0, 0);
 	}
 
 void create_topics()
@@ -466,6 +484,7 @@ static void mqtt_rx_task(void *arg)
     mqtt_rx_msg_t msg;
 	static char **argv;
 	int argc;
+	ESP_LOGI(TAG, "mqtt_rx_task started");
     for (;;) 
     	{
         if (xQueueReceive(mqtt_rx_queue, &msg, portMAX_DELAY) == pdTRUE) 
@@ -476,7 +495,10 @@ static void mqtt_rx_task(void *arg)
 			    if(argc)
 			    	{
     				if (strcmp(msg.topic, TOPIC_CTRL) == 0) 
-						app_cmd_handler(argc, argv);
+						{
+						if(app_cmd_handler)
+							app_cmd_handler(argc, argv);
+						}
     				else if (strcmp(msg.topic, DEVICE_TOPIC_Q) == 0) 
     					{
         				if (argc && !strcmp(argv[0], "reqID"))

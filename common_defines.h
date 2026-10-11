@@ -5,12 +5,15 @@
  *      Author: viorel_serbu
  */
 
+
 #ifndef COMMON_COMMON_DEFINES_H_
 #define COMMON_COMMON_DEFINES_H_
 
 /** @brief control devices type */
 //#include "esp_system.h"
 #include <stdint.h>
+#include <esp_ota_ops.h>
+
 
 // device states
 #define WIFI_CONNECTED					0x0001
@@ -62,9 +65,6 @@ typedef enum
 #define NVSDEVID					"devID"
 #define NVSDEVNAME					"devName"
 #define NVSCONSTATE					"console"
-//#define NVSCACERT					"ca-crt"
-//#define NVSDEVCERT				"client-crt"
-//#define NVSDEVKEY					"client-key"
 #define NVSAPHOSTNAME				"ap.hostname"
 #define NVSAPSSID					"ap.ssid"
 #define NVSAPPASS					"ap.pass"
@@ -84,10 +84,7 @@ typedef enum
 #define TIMER_DIVIDER         		(80)  //  Hardware timer clock divider -> 1us resolution
 #define TIMER_BASE_CLK				(APB_CLK_FREQ)
 #define TIMER_SCALE           		(TIMER_BASE_CLK / TIMER_DIVIDER /1000)  // convert counter value to mseconds
-/*
-#define CLIENT_CONNECT_WDOG_G		(TIMER_GROUP_0)
-#define CLIENT_CONNECT_WDOG_I		(TIMER_0)
-*/
+
 #define BASE_PATH					"/var"
 #define PARTITION_LABEL				"user"
 #define HISTORY_FILE				"/history.txt"
@@ -157,6 +154,8 @@ typedef enum
 #define IP_CONNECTED_BIT    BIT1
 /** Event group bit indicating MQTT connection established */
 #define MQTT_CONNECTED_BIT  BIT2
+/** Event group bit indicating WiFi operation (connect/disconnect) is completed  */
+#define WIFI_STATE_COMPLETED  BIT3
 
 
 #define PI					3.14159265358979
@@ -201,6 +200,7 @@ typedef struct
 	float longitude;
 	float altitude;
 	} position_t;
+	
 /*	
 typedef struct
 	{
@@ -276,5 +276,6 @@ typedef struct
 
 	
 extern int restart_in_progress;
+extern esp_app_desc_t bpart_desc;
 	
 #endif /* COMMON_COMMON_DEFINES_H_ */

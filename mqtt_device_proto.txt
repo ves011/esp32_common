@@ -1,0 +1,31 @@
+# MQTT application level protocol  overview
+#  each device connected to mqtt broker subscribe and publish to dedicated topics
+#	each topic has a prefix = device name separated by '/' followed by specific dedicated names 
+#		device short name is unique = string name + 2 digits ID (westa01, thermos12, ..) it is sized as char[USER_MQTT_SIZE] (48)
+#		/ctrl - subscribe: topic to receive commands for device
+#		/monitor - publish: topic where device publish timely based information
+#		/state - publish: topic where device publish information in respose to some commands received on /ctrl topic
+# e.g. 
+#		wetsta01/ctrl - subscribe topic where a "westa" device with id = 1 receive commands
+#		thermos12/monitor - publish topic where a "thermos" device with id = 12 publish timely based information
+#
+# x....x/ctrl topic accepts a string which is interpreted as command on device side
+#		e.g. "wifi connect"
+#
+# x....x/monitor topic publish string format
+#		it includes several fields separated by '\1' separator
+#		field 1 & 2 are prefixed on device by function publish_topic()
+#		field 1: device time stamp = microseconds from boot at publish time
+#		field 2: device short name
+#		field 3...: function specific
+
+# exception are 2 topics used for device discovery
+#		gnetdev/query -  topic where MQTT clients queries if any connected client (including itself)
+#       gnetdev/respose - topic where each connected client publish its id in response of "queryID" token received on gnetdev/query
+#		gnetdev/response format:
+#			device short name
+#			device long name
+#			IP V4 address
+#			device id (which is the last part of device short name)
+#			date/time on device
+#			time stamp (microseconds from boot) on device at publish time

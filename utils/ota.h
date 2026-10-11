@@ -14,6 +14,6 @@ extern TaskHandle_t ota_task_handle;;
 #define NOT_FOUND_TAG "404 Not Found"
 
 void print_sha256 (const uint8_t *image_hash, const char *label);
-void ota_task(const char *url);
+int ota_task(const char *url, const char *pname);
 
 #endif /* COMMON_UTILS_OTA_H_ */
