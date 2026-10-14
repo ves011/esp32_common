@@ -25,7 +25,7 @@ size_t nvs_cl_crt_sz, nvs_ca_crt_sz, nvs_cl_key_sz;
 
 const common_app_desc_t common_app_desc
     __attribute__((section(".rodata_custom_desc"))) = {
-        .magic = "COMMON",
+        .magic = COMMON_APP_DESC_MAGIC,
         .common_version = COMMON_REPO_VERSION,
     	};
 

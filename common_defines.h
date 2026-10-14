@@ -116,6 +116,7 @@ typedef enum
 #define DEFAULT_LOG_PORT			8081
 #define DEFAULT_FR_NAME				"unnamed device"
 
+#define COMMON_APP_DESC_MAGIC		"COMMON"
 
 #define MAX_NO_FILES				(5)
 #define PARAM_READ					(1)
