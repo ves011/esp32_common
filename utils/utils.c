@@ -23,6 +23,12 @@ dev_config_t dev_conf;
 char *nvs_cl_crt, *nvs_cl_key, *nvs_ca_crt;
 size_t nvs_cl_crt_sz, nvs_ca_crt_sz, nvs_cl_key_sz;
 
+const common_app_desc_t common_app_desc
+    __attribute__((section(".rodata_custom_desc"))) = {
+        .magic = "COMMON",
+        .common_version = COMMON_REPO_VERSION,
+    	};
+
 #if (COMM_PROTO & TCP_PROTO) == TCP_PROTO || (COMM_PROTO & MQTT_PROTO) == MQTT_PROTO
 	#include "tcp_log.h"
 #endif
@@ -78,7 +84,7 @@ int my_printf(char *format, ...)
 	buf[sizeof(buf) - 1] = '\0';
 	
 	if(dev_conf.cs == CONSOLE_ON)
-		return puts(buf);
+		return printf("%s", buf);
 #if (COMM_PROTO & TCP_PROTO) == TCP_PROTO || (COMM_PROTO & MQTT_PROTO) == MQTT_PROTO	
 	else if(dev_conf.cs == CONSOLE_TCP || dev_conf.cs == CONSOLE_MQTT)
 		{
@@ -257,6 +263,7 @@ void get_nvs_conf()
 	strcpy(dev_conf.ap_hostname, DEFAULT_AP_HOSTNAME);
 	strcpy(dev_conf.broker_url, DEFAULT_MQTT_BROKER);
 	strcpy(dev_conf.log_server, DEFAULT_LOG_SERVER);
+	strcpy(dev_conf.friendly_name, DEFAULT_FR_NAME);
 	dev_conf.ap_ip = DEFAULT_AP_IP;
 	dev_conf.log_port = DEFAULT_LOG_PORT;
 	dev_conf.nvs80211.sta_pass[0] = dev_conf.nvs80211.sta_ssid[0] = 0;
@@ -336,11 +343,10 @@ void get_nvs_conf()
 			}
 		else
 			{
-			char buf[32];
 			ip4_addr_t ip;
 			ip.addr = dev_conf.ap_ip;
-			sprintf(buf, IPSTR, IP2STR(&ip));
-			ret = nvs_set_str(handle, NVSAPIP, buf);
+			sprintf(b, IPSTR, IP2STR(&ip));
+			ret = nvs_set_str(handle, NVSAPIP, b);
 			if(ret == ESP_OK)
 				nvs_commit(handle);
 			}
@@ -366,9 +372,8 @@ void get_nvs_conf()
 			}
 		else
 			{
-			char buf[32];
-			itoa(dev_conf.dev_id, buf, 10);
-			ret = nvs_set_str(handle, NVSDEVID, buf);
+			itoa(dev_conf.dev_id, b, 10);
+			ret = nvs_set_str(handle, NVSDEVID, b);
 			if(ret == ESP_OK)
 				nvs_commit(handle);
 			}
@@ -381,9 +386,8 @@ void get_nvs_conf()
 			}
 		else
 			{
-			char buf[32];
-			itoa(dev_conf.cs, buf, 10);
-			ret = nvs_set_str(handle, NVSCONSTATE, buf);
+			itoa(dev_conf.cs, b, 10);
+			ret = nvs_set_str(handle, NVSCONSTATE, b);
 			if(ret == ESP_OK)
 				nvs_commit(handle);
 			}
@@ -422,9 +426,21 @@ void get_nvs_conf()
 			}
 		else
 			{
-			char buf[32];
-			itoa(dev_conf.log_port, buf, 10);
-			ret = nvs_set_str(handle, NVSLOGPORT, buf);
+			itoa(dev_conf.log_port, b, 10);
+			ret = nvs_set_str(handle, NVSLOGPORT, b);
+			if(ret == ESP_OK)
+				nvs_commit(handle);
+			}
+		ret = nvs_get_str(handle, NVSFRIENDLYN, NULL, &sz);
+		if(ret == ESP_OK && sz < 128)
+			{
+			ret = nvs_get_str(handle, NVSFRIENDLYN, b, &sz);
+			if(ret == ESP_OK)
+				strcpy(dev_conf.friendly_name, b);
+			}
+		else
+			{
+			ret = nvs_set_str(handle, NVSFRIENDLYN, DEFAULT_FR_NAME);
 			if(ret == ESP_OK)
 				nvs_commit(handle);
 			}

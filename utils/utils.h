@@ -19,6 +19,7 @@
 extern dev_config_t dev_conf;
 extern char *nvs_cl_crt, *nvs_cl_key, *nvs_ca_crt;
 extern size_t nvs_cl_crt_sz, nvs_ca_crt_sz, nvs_cl_key_sz;
+extern const common_app_desc_t common_app_desc;
 
 
 int my_printf(char *format, ...);

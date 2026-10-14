@@ -72,6 +72,7 @@ typedef enum
 #define NVSMQTTBROKER				"mqtt.broker.url"
 #define NVSLOGSERVER				"log.server"
 #define NVSLOGPORT					"log.port"
+#define NVSFRIENDLYN				"friendlyName"
 #define MAXNVSKEYVALEN				32
 
 //NVS certificates entries
@@ -113,6 +114,7 @@ typedef enum
 #define DEFAULT_MQTT_BROKER			"mqtts://proxy.gnet:1886"
 #define DEFAULT_LOG_SERVER			"proxy.gnet"
 #define DEFAULT_LOG_PORT			8081
+#define DEFAULT_FR_NAME				"unnamed device"
 
 
 #define MAX_NO_FILES				(5)
@@ -264,6 +266,7 @@ typedef struct
 	char broker_url[32];
 	char log_server[32];
 	uint32_t log_port;
+	char friendly_name[64];
 	} dev_config_t;
 	
 typedef struct
@@ -283,7 +286,13 @@ typedef struct
     volatile int state;
     } led_state_t;
 
-	
+
+typedef struct 
+	{
+    char magic[8];       // Identify the descriptor
+    char common_version[32];
+	} common_app_desc_t;
+
 extern int restart_in_progress;
 extern esp_app_desc_t bpart_desc;
 	

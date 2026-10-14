@@ -297,60 +297,65 @@ static int get_version(int argc, char **argv)
 
 	if(esp_flash_get_size(NULL, &flash_size) != ESP_OK)
 		{
-		printf("Get flash size failed");
+		my_printf("Get flash size failed");
 		return 1;
 		}
-	printf("IDF Version:%s\r\n", esp_get_idf_version());
-	printf("Chip info:\r\n");
-	printf("\tmodel:%s\r\n", model);
-	printf("\tcores:%d\r\n", info.cores);
-	printf("\tfeature:%s%s%s%s%"PRIu32"%s%s\r\n",
+	my_printf("IDF Version:%s\r\n", esp_get_idf_version());
+	my_printf("Chip info:\r\n");
+	my_printf("\tmodel:%s\r\n", model);
+	my_printf("\tcores:%d\r\n", info.cores);
+	my_printf("\tfeature:%s%s%s%s%"PRIu32"%s%s\r\n",
 		   info.features & CHIP_FEATURE_WIFI_BGN ? "/802.11bgn" : "",
 		   info.features & CHIP_FEATURE_BLE ? "/BLE" : "",
 		   info.features & CHIP_FEATURE_BT ? "/BT" : "",
 		   info.features & CHIP_FEATURE_EMB_FLASH ? "/Embedded-Flash:" : "/External-Flash:",
 		   flash_size / (1024 * 1024), " MB",
 		   info.features & CHIP_FEATURE_EMB_PSRAM ? "/PSRAM" : "/no PSRAM");
-	printf("\trevision number:%d\r\n", info.revision);
-	
-	ESP_LOGI(TAG, "This is %s chip with %d CPU core(s), %s%s%s%s, ",
+	my_printf("\trevision number:%d\r\n", info.revision);
+/*	
+	my_printf("This is %s chip with %d CPU core(s), %s%s%s%s, \n",
            CONFIG_IDF_TARGET,
            info.cores,
            (info.features & CHIP_FEATURE_WIFI_BGN) ? "WiFi/" : "",
            (info.features & CHIP_FEATURE_BT) ? "BT" : "",
            (info.features & CHIP_FEATURE_BLE) ? "BLE" : "",
            (info.features & CHIP_FEATURE_IEEE802154) ? ", 802.15.4 (Zigbee/Thread)" : "");
-#if CONFIG_SPIRAM == 1    
-    size_t psram_size = esp_psram_get_size();
-	ESP_LOGI(TAG,"PSRAM size: %d", psram_size);
-#endif
+*/		
+
     unsigned major_rev = info.revision / 100;
     unsigned minor_rev = info.revision % 100;
-    ESP_LOGI(TAG, "silicon revision v%d.%d, ", major_rev, minor_rev);
+    my_printf("\tsilicon revision v%d.%d\n", major_rev, minor_rev);
     if(esp_flash_get_size(NULL, &flash_size) != ESP_OK) 
     	{
         printf("Get flash size failed");
         return ESP_FAIL;
     	}
 
-    ESP_LOGI(TAG, "%" PRIu32 "MB %s flash\n", flash_size / (uint32_t)(1024 * 1024),
+    my_printf("\t%" PRIu32 "MB %s flash\n", flash_size / (uint32_t)(1024 * 1024),
            (info.features & CHIP_FEATURE_EMB_FLASH) ? "embedded" : "external");
 
-    ESP_LOGI(TAG, "Minimum free heap size: %" PRIu32 " bytes\n", esp_get_minimum_free_heap_size());
-    
+#if CONFIG_SPIRAM == 1    
+    size_t psram_size = esp_psram_get_size();
+	my_printf("\tPSRAM size: %d\n", psram_size);
+#endif
+
     esp_clk_tree_src_get_freq_hz((soc_module_clk_t)SOC_MOD_CLK_CPU, ESP_CLK_TREE_SRC_FREQ_PRECISION_CACHED, &cpu_clk);
-    ESP_LOGI(TAG, "CPU freq: %u", (unsigned int)cpu_clk);
+    my_printf("\tCPU freq:  %12u\n", (unsigned int)cpu_clk);
     esp_clk_tree_src_get_freq_hz((soc_module_clk_t)SOC_MOD_CLK_APB, ESP_CLK_TREE_SRC_FREQ_PRECISION_CACHED, &cpu_clk);
-    ESP_LOGI(TAG, "APB freq: %u", (unsigned int)cpu_clk);
+    my_printf("\tAPB freq:  %12u\n", (unsigned int)cpu_clk);
     esp_clk_tree_src_get_freq_hz((soc_module_clk_t)SOC_MOD_CLK_XTAL, ESP_CLK_TREE_SRC_FREQ_PRECISION_CACHED, &cpu_clk);
-    ESP_LOGI(TAG, "XTAL freq: %u", (unsigned int)cpu_clk);
+    my_printf("\tXTAL freq: %12u\n", (unsigned int)cpu_clk);
     ESP_ERROR_CHECK(esp_pm_get_configuration(&pm_config));
-    ESP_LOGI(TAG, "==== pm configuration ============");
-    ESP_LOGI(TAG, "max freq: %d", pm_config.max_freq_mhz);
-    ESP_LOGI(TAG, "min freq: %d", pm_config.min_freq_mhz);
-    ESP_LOGI(TAG, "light_sleep_enable: %d", pm_config.light_sleep_enable);
-    ESP_LOGI(TAG, "==================================");
-    
+    my_printf("\t==== pm configuration ============\n");
+    my_printf("\t\tmax freq: %12d\n", pm_config.max_freq_mhz);
+    my_printf("\t\tmin freq: %12d\n", pm_config.min_freq_mhz);
+    my_printf("\t\tlight_sleep_enable: %d\n", pm_config.light_sleep_enable);
+    my_printf("\t==================================\n");
+    my_printf("\n");
+	my_printf("Software version info\n");
+	my_printf("\tRunning app     : %s\n", bpart_desc.project_name);
+	my_printf("\tRunning app ver : %s\n", bpart_desc.version);
+	my_printf("\tesp32_common ver: %s\n", common_app_desc.common_version);
 	return 0;
 	}
 

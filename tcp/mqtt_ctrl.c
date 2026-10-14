@@ -407,9 +407,9 @@ void publish_MQTT_client_status()
 	time(&now);
 	localtime_r(&now, &timeinfo);
 	strftime(strtime, sizeof(strtime), "%Y-%m-%d/%H:%M:%S", &timeinfo);
-	snprintf(msg, sizeof(msg) - 1, "%s\1%s\1" IPSTR "\1%d\1%s\1%llu\1%s\1%s\1%s\1%s\1",
-			USER_MQTT, DEV_NAME, IP2STR(&dev_ipinfo.ip), dev_conf.dev_id, strtime, tmsec, 
-			bpart_desc.project_name, bpart_desc.version, bpart_desc.date, bpart_desc.time);
+	snprintf(msg, sizeof(msg) - 1, "%s\1%s\1" IPSTR "\1%d\1%s\1%llu\1%s\1%s<br>%s\1%s\1%s\1",
+			USER_MQTT, dev_conf.friendly_name, IP2STR(&dev_ipinfo.ip), dev_conf.dev_id, strtime, tmsec, 
+			bpart_desc.project_name, bpart_desc.version, common_app_desc.common_version, bpart_desc.date, bpart_desc.time);
 	esp_mqtt_client_publish(mqtt_client_handle, DEVICE_TOPIC_R, msg, strlen(msg), 0, 0);
 	}
 void publish_MQTT_client_log(char *message)
