@@ -50,8 +50,9 @@ static int log_level = 1;
 int tcp_log_init(int level)
 	{
 	int ret = ESP_FAIL;
-	int log_port;
-	char *log_server;
+	int log_port = dev_conf.log_port;
+	char *log_server = dev_conf.log_server;
+/*	
 #if TEST_BUILD == 1
 	log_port = LOG_PORT_DEV;
 	log_server = LOG_SERVER_DEV;
@@ -59,6 +60,7 @@ int tcp_log_init(int level)
 	log_port = LOG_PORT;
 	log_server = LOG_SERVER;
 #endif
+*/
 	//esp_rom_printf("caller=%s hwm=%u\n", pcTaskGetName(NULL), uxTaskGetStackHighWaterMark(NULL));
 	snprintf(log_user, sizeof(log_user), "%s%02d", dev_conf.dev_name, dev_conf.dev_id);
 	if(level >= CONSOLE_OFF && level <= CONSOLE_MQTT)

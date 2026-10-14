@@ -320,7 +320,7 @@ int mqtt_start(app_cmd_handler_t app_exec_funcion)
 	snprintf(USER_MQTT, sizeof(USER_MQTT) - 1, "%s%02d", dev_conf.dev_name, dev_conf.dev_id);
 	USER_MQTT[sizeof(USER_MQTT) - 1] = 0;
 	const esp_mqtt_client_config_t mqtt_cfg = {
-		    .broker.address.uri = CONFIG_BROKER_URL,
+		    .broker.address.uri = dev_conf.broker_url,
 			.broker.verification.certificate = (const char *)nvs_ca_crt,
 			.broker.verification.certificate_len = nvs_ca_crt_sz,
 			.credentials = {

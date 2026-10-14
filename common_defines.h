@@ -69,6 +69,9 @@ typedef enum
 #define NVSAPSSID					"ap.ssid"
 #define NVSAPPASS					"ap.pass"
 #define NVSAPIP						"ap.ip"
+#define NVSMQTTBROKER				"mqtt.broker.url"
+#define NVSLOGSERVER				"log.server"
+#define NVSLOGPORT					"log.port"
 #define MAXNVSKEYVALEN				32
 
 //NVS certificates entries
@@ -107,6 +110,9 @@ typedef enum
 #define DEFAULT_AP_PASS				"OTA-devpass"
 #define DEFAULT_AP_HOSTNAME			"ota-dev.local"
 #define DEFAULT_AP_IP				(1<<24) | (252 <<16) | (168 << 8) | 192 //192.168.252.1
+#define DEFAULT_MQTT_BROKER			"mqtts://proxy.gnet:1886"
+#define DEFAULT_LOG_SERVER			"proxy.gnet"
+#define DEFAULT_LOG_PORT			8081
 
 
 #define MAX_NO_FILES				(5)
@@ -255,6 +261,9 @@ typedef struct
 	char ap_pass[64];
 	nvs80211_t nvs80211;
 	uint32_t ap_ip;
+	char broker_url[32];
+	char log_server[32];
+	uint32_t log_port;
 	} dev_config_t;
 	
 typedef struct

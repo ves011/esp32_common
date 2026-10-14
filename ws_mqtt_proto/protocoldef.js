@@ -29,6 +29,12 @@ const PAR_STARSSI = "sta_rssi";
 /* device time (retuned by time()) - used by URC_DEVINFO */
 const PAR_DEVTIME = "dev_time";
 
+/* device ID = dev_conf.dev_name +  dev_conf.dev_id */
+const PAR_DEVID = "dev_id";
+
+/* AP SSID = WiFi SSID broadcasted by AP */
+const PAR_APSSID = "ap_ssid";
+
 /* device internal parameter
 should not really be here
 	  - used to generate WifFi state messages */

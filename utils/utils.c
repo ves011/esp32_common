@@ -13,6 +13,7 @@
 #include "lwip/inet.h"
 #include "esp_timer.h"
 #include "driver/gpio.h"
+#include "esp_netif.h"
 #include "project_specific.h"
 #include "common_defines.h"
 #include "crash_handler.h"
@@ -254,9 +255,12 @@ void get_nvs_conf()
 	strcpy(dev_conf.ap_ssid, DEFAULT_AP_SSID);
 	strcpy(dev_conf.ap_pass, DEFAULT_AP_PASS);
 	strcpy(dev_conf.ap_hostname, DEFAULT_AP_HOSTNAME);
+	strcpy(dev_conf.broker_url, DEFAULT_MQTT_BROKER);
+	strcpy(dev_conf.log_server, DEFAULT_LOG_SERVER);
 	dev_conf.ap_ip = DEFAULT_AP_IP;
+	dev_conf.log_port = DEFAULT_LOG_PORT;
 	dev_conf.nvs80211.sta_pass[0] = dev_conf.nvs80211.sta_ssid[0] = 0;
-	if(nvs_open(NVS_CFG_NS, NVS_READONLY, &handle) == ESP_OK)
+	if(nvs_open(NVS_CFG_NS, NVS_READWRITE, &handle) == ESP_OK)
 		{
 		ret = nvs_get_str(handle, NVSSTASSID, NULL, &sz);
 		if(ret == ESP_OK && sz < sizeof(dev_conf.sta_ssid))
@@ -265,12 +269,24 @@ void get_nvs_conf()
 			if(ret == ESP_OK)
 				strcpy(dev_conf.sta_ssid, b);
 			}
+		else
+			{
+			ret = nvs_set_str(handle, NVSSTASSID, DEFAULT_STA_SSID);
+			if(ret == ESP_OK)
+				nvs_commit(handle);
+			}
 		ret = nvs_get_str(handle, NVSSTAPASS, NULL, &sz);
 		if(ret == ESP_OK && sz < sizeof(dev_conf.sta_pass))
 			{
 			ret = nvs_get_str(handle, NVSSTAPASS, b, &sz);
 			if(ret == ESP_OK)
 				strcpy(dev_conf.sta_pass, b);
+			}
+		else
+			{
+			ret = nvs_set_str(handle, NVSSTAPASS, DEFAULT_STA_PASS);
+			if(ret == ESP_OK)
+				nvs_commit(handle);
 			}
 		ret = nvs_get_str(handle, NVSAPSSID, NULL, &sz);
 		if(ret == ESP_OK && sz < sizeof(dev_conf.ap_ssid))
@@ -279,12 +295,24 @@ void get_nvs_conf()
 			if(ret == ESP_OK)
 				strcpy(dev_conf.ap_ssid, b);
 			}
+		else
+			{
+			ret = nvs_set_str(handle, NVSAPSSID, DEFAULT_AP_SSID);
+			if(ret == ESP_OK)
+				nvs_commit(handle);
+			}
 		ret = nvs_get_str(handle, NVSAPPASS, NULL, &sz);
 		if(ret == ESP_OK && sz < sizeof(dev_conf.ap_pass))
 			{
 			ret = nvs_get_str(handle, NVSAPPASS, b, &sz);
 			if(ret == ESP_OK)
 				strcpy(dev_conf.ap_pass, b);
+			}
+		else
+			{
+			ret = nvs_set_str(handle, NVSAPPASS, DEFAULT_AP_PASS);
+			if(ret == ESP_OK)
+				nvs_commit(handle);
 			}
 		ret = nvs_get_str(handle, NVSAPHOSTNAME, NULL, &sz);
 		if(ret == ESP_OK && sz < sizeof(dev_conf.ap_hostname))
@@ -293,12 +321,28 @@ void get_nvs_conf()
 			if(ret == ESP_OK)
 				strcpy(dev_conf.ap_hostname, b);
 			}
+		else
+			{
+			ret = nvs_set_str(handle, NVSAPHOSTNAME, DEFAULT_AP_HOSTNAME);
+			if(ret == ESP_OK)
+				nvs_commit(handle);
+			}
 		ret = nvs_get_str(handle, NVSAPIP, NULL, &sz);
 		if(ret == ESP_OK && sz < 128)
 			{
 			ret = nvs_get_str(handle, NVSAPIP, b, &sz);
 			if(ret == ESP_OK)
 				dev_conf.ap_ip = inet_addr(b);
+			}
+		else
+			{
+			char buf[32];
+			ip4_addr_t ip;
+			ip.addr = dev_conf.ap_ip;
+			sprintf(buf, IPSTR, IP2STR(&ip));
+			ret = nvs_set_str(handle, NVSAPIP, buf);
+			if(ret == ESP_OK)
+				nvs_commit(handle);
 			}
 		ret = nvs_get_str(handle, NVSDEVNAME, NULL, &sz);
 		if(ret == ESP_OK && sz < sizeof(dev_conf.dev_name))
@@ -307,6 +351,12 @@ void get_nvs_conf()
 			if(ret == ESP_OK)
 				strcpy(dev_conf.dev_name, b);
 			}
+		else
+			{
+			ret = nvs_set_str(handle, NVSDEVNAME, DEFAULT_DEVICE_NAME);
+			if(ret == ESP_OK)
+				nvs_commit(handle);
+			}
 		ret = nvs_get_str(handle, NVSDEVID, NULL, &sz);
 		if(ret == ESP_OK && sz < 128)
 			{
@@ -314,12 +364,69 @@ void get_nvs_conf()
 			if(ret == ESP_OK)
 				dev_conf.dev_id = atoi(b);
 			}
+		else
+			{
+			char buf[32];
+			itoa(dev_conf.dev_id, buf, 10);
+			ret = nvs_set_str(handle, NVSDEVID, buf);
+			if(ret == ESP_OK)
+				nvs_commit(handle);
+			}
 		ret = nvs_get_str(handle, NVSCONSTATE, NULL, &sz);
 		if(ret == ESP_OK && sz < 128)
 			{
 			ret = nvs_get_str(handle, NVSCONSTATE, b, &sz);
 			if(ret == ESP_OK)
 				dev_conf.cs = atoi(b);
+			}
+		else
+			{
+			char buf[32];
+			itoa(dev_conf.cs, buf, 10);
+			ret = nvs_set_str(handle, NVSCONSTATE, buf);
+			if(ret == ESP_OK)
+				nvs_commit(handle);
+			}
+		ret = nvs_get_str(handle, NVSMQTTBROKER, NULL, &sz);
+		if(ret == ESP_OK && sz < 128)
+			{
+			ret = nvs_get_str(handle, NVSMQTTBROKER, b, &sz);
+			if(ret == ESP_OK)
+				strcpy(dev_conf.broker_url, b);
+			}
+		else
+			{
+			ret = nvs_set_str(handle, NVSMQTTBROKER, DEFAULT_MQTT_BROKER);
+			if(ret == ESP_OK)
+				nvs_commit(handle);
+			}
+		ret = nvs_get_str(handle, NVSLOGSERVER, NULL, &sz);
+		if(ret == ESP_OK && sz < 128)
+			{
+			ret = nvs_get_str(handle, NVSLOGSERVER, b, &sz);
+			if(ret == ESP_OK)
+				strcpy(dev_conf.log_server, b);
+			}
+		else
+			{
+			ret = nvs_set_str(handle, NVSLOGSERVER, DEFAULT_LOG_SERVER);
+			if(ret == ESP_OK)
+				nvs_commit(handle);
+			}
+		ret = nvs_get_str(handle, NVSLOGPORT, NULL, &sz);
+		if(ret == ESP_OK && sz < 128)
+			{
+			ret = nvs_get_str(handle, NVSLOGPORT, b, &sz);
+			if(ret == ESP_OK)
+				dev_conf.log_port = atoi(b);
+			}
+		else
+			{
+			char buf[32];
+			itoa(dev_conf.log_port, buf, 10);
+			ret = nvs_set_str(handle, NVSLOGPORT, buf);
+			if(ret == ESP_OK)
+				nvs_commit(handle);
 			}
 		nvs_close(handle);
 		}

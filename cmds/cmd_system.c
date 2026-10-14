@@ -1181,7 +1181,10 @@ static int nvs_conf(int argc, char **argv)
 					strcmp(nvsc_args.key->sval[0], NVSAPHOSTNAME) 	== 0 ||
 					strcmp(nvsc_args.key->sval[0], NVSAPSSID) 		== 0 ||
 					strcmp(nvsc_args.key->sval[0], NVSAPPASS) 		== 0 ||
-					strcmp(nvsc_args.key->sval[0], NVSAPIP) 		== 0)
+					strcmp(nvsc_args.key->sval[0], NVSAPIP) 		== 0 ||
+					strcmp(nvsc_args.key->sval[0], NVSMQTTBROKER)	== 0 ||
+					strcmp(nvsc_args.key->sval[0], NVSLOGSERVER) 	== 0 ||
+					strcmp(nvsc_args.key->sval[0], NVSLOGPORT) 		== 0)
 				{
 				//const esp_partition_t *np = esp_partition_get(pit);
 				ret = nvs_open(NVS_CFG_NS, NVS_READWRITE, &out_handle);
