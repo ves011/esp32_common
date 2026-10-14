@@ -475,7 +475,7 @@ bool wifi_join(const char *ssid, const char *pass, int timeout_ms, bool usenvs)
     	{
     	wifi_disconnect();
     	}
-	ESP_LOGI(WIFITAG, "wifi_join(): STA SSID: \"%s\" STA PASS: \"%s\" timeout: %d", wifi_config.sta.ssid, wifi_config.sta.password);
+	ESP_LOGI(WIFITAG, "wifi_join(): STA SSID: \"%s\" timeout: %d", wifi_config.sta.ssid, timeout_ms);
 	bits = xEventGroupWaitBits(comm_event_group, WIFI_STATE_COMPLETED,
                                pdFALSE, pdTRUE, DISCONNECT_TIMEOUT / portTICK_PERIOD_MS);
 	if(bits & WIFI_STATE_COMPLETED)
