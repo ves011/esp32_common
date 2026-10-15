@@ -352,7 +352,7 @@ int mqtt_start(app_cmd_handler_t app_exec_funcion)
 			{
 			//xTaskCreate(mqtt_rx_task, "mqtt_rx", 8192, NULL, USER_TASK_PRIORITY, &mqtt_rx_task_handle);
 			if(!mqtt_rx_task_handle)
-				xTaskCreate(mqtt_rx_task, "mqtt_rx", 4096, NULL, USER_TASK_PRIORITY, &mqtt_rx_task_handle);
+				xTaskCreate(mqtt_rx_task, "mqtt_rx", 8192, NULL, USER_TASK_PRIORITY, &mqtt_rx_task_handle);
 			if(mqtt_rx_task_handle)
 				{
     			if(esp_mqtt_client_register_event(mqtt_client_handle, ESP_EVENT_ANY_ID, mqtt_event_handler, NULL) == ESP_OK)
