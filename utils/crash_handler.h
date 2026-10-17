@@ -13,10 +13,8 @@
 #include "esp_private/panic_internal.h"
 #include "esp_system.h"
 #include <stdint.h>
-//#include "bootloader_common.h"
-//#include "heap_memory_layout.h"
-//#include "sdkconfig.h"
 #include "soc/soc.h"
+#include "time.h"
 
 typedef enum 
 	{
@@ -32,7 +30,10 @@ typedef struct
 	{
     uint32_t magic;
     uint32_t boot_count;
-    uint64_t boot_time_us;
+    time_t crash_time;
+    time_t boot_time;
+    uint32_t crash_hb;
+    uint32_t boot_hb;
     esp_reset_reason_t reset_reason;
     esp_err_t err;
     crash_type_t  crash_type;
@@ -56,6 +57,16 @@ do {                                               \
     esp_err_t __err = (x);                         \
     if (__err != ESP_OK)                           \
     	{                                          \
+        g_crash->reset_reason = 0;                 \
+		g_crash->task[0] = 0;                      \
+		g_crash->panic_exception = 0;              \
+		g_crash->panic_addr = 0;                   \
+		g_crash->panic_core = 0;                   \
+		g_crash->panic_pseudo_excause = 0;         \
+		g_crash->panic_reason[0] = 0;              \
+		g_crash->panic_description[0] = 0;         \
+        g_crash->crash_time = g_crash->boot_time;  \
+	    g_crash->crash_hb = g_crash->boot_hb;      \
     	g_crash->crash_type = CRASH_ABORT;         \
         g_crash->err = __err;                      \
         g_crash->line = __LINE__;                  \
@@ -84,12 +95,12 @@ do {                                               \
 
 #define HEALTH_BOOT_TIME	10000000	// 10 seconds
 
-//_Static_assert(sizeof(crash_record_t) <= CRASH_RTC_SIZE,
-//               "crash_record_t does not fit in reserved RTC memory");
-	
 #define g_crash ((volatile crash_record_t *)CRASH_RTC_START)	
-	
+
+void init_crash_info(bool force);
+void clear_crash_info();	
 void checkLastCrash();
-void getCrashInfo();
+void logCrashInfo();
+
 
 #endif /* ESP32_COMMON_UTILS_CRASH_HANDLER_H_ */

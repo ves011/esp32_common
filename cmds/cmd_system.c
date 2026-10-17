@@ -57,6 +57,7 @@
 #include "cmd_system.h"
 #include "tcp_log.h"
 #include "utils.h"
+#include "crash_handler.h"
 
 #ifdef CONFIG_FREERTOS_USE_STATS_FORMATTING_FUNCTIONS
 #define WITH_TASKS_INFO 1
@@ -78,6 +79,7 @@ static void register_cat(void);
 static void register_rm(void);
 static void register_nvsconf(void);
 static void register_flashled(void);
+static void register_get_crash_info(void);
 
 #ifdef OTA_SUPPORT
 	static int ota_start(int argc, char **argv);
@@ -102,6 +104,7 @@ void register_system_common(void)
     register_rm();
     register_nvsconf();
 	register_flashled();
+	register_get_crash_info();
 #if CONFIG_HEAP_TASK_TRACKING
     register_heap_debug();
 #endif
@@ -1256,51 +1259,6 @@ static void register_nvsconf(void)
     ESP_ERROR_CHECK( esp_console_cmd_register(&cmd) );
 	}
 
-int do_system_cmd(int argc, char **argv)
-	{
-	int ret = 1;
-	if(!argc || !argv || !argv[0])
-		return 0;
-	//ESP_LOGI(TAG, "%d, %s", argc, argv[0]);
-	if(!strcmp(argv[0], "uptime"))
-		uptime(argc, argv);
-	else if(!strcmp(argv[0], "heap"))
-		heap_size(argc, argv);
-	else if(!strcmp(argv[0], "ls"))
-		ls_files(argc, argv);
-	else if(!strcmp(argv[0], "mkdir"))
-		mk_dir(argc, argv);
-	else if(!strcmp(argv[0], "free"))
-		free_mem(argc, argv);
-	else if(!strcmp(argv[0], "restart"))
-		restart(argc, argv);
-	else if(!strcmp(argv[0], "version"))
-		get_version(argc, argv);
-	else if(!strcmp(argv[0], "ping"))
-		do_ping_cmd(argc, argv);
-	else if(!strcmp(argv[0], "boot"))
-		boot_from(argc, argv);
-	else if(!strcmp(argv[0], "cat"))
-		cat_file(argc, argv);
-	else if(!strcmp(argv[0], "rm"))
-		rm_file(argc, argv);
-	else if(!strcmp(argv[0], "nvsconf"))
-		nvs_conf(argc, argv);
-	else if(!strcmp(argv[0], "echo"))
-		echo(argc, argv);
-#ifdef OTA_SUPPORT
-	else if(!strcmp(argv[0], "ota"))
-		ota_start(argc, argv);
-#endif
-#ifdef CONFIG_FREERTOS_USE_STATS_FORMATTING_FUNCTIONS
-	else if(!strcmp(argv[0], "tasks"))
-		tasks_info(argc, argv);
-#endif
-	else
-		ret = 0;
-	return ret;
-	}
-	
 static struct
 	{
     struct arg_int *led_no;
@@ -1333,3 +1291,70 @@ static void register_flashled(void)
     	};
     ESP_ERROR_CHECK( esp_console_cmd_register(&cmd) );
 	}
+
+static int last_crash_info(int argc, char **argv)
+	{
+	logCrashInfo();
+    return 0;
+	}
+
+static void register_get_crash_info(void)
+	{
+    const esp_console_cmd_t cmd = {
+        .command = "lastcrash",
+        .help = "Software reset of the chip",
+        .hint = NULL,
+        .func = &last_crash_info,
+    	};
+    ESP_ERROR_CHECK( esp_console_cmd_register(&cmd) );
+	}
+
+int do_system_cmd(int argc, char **argv)
+	{
+	int ret = 1;
+	if(!argc || !argv || !argv[0])
+		return 0;
+	//ESP_LOGI(TAG, "%d, %s", argc, argv[0]);
+	if(!strcmp(argv[0], "uptime"))
+		uptime(argc, argv);
+	else if(!strcmp(argv[0], "heap"))
+		heap_size(argc, argv);
+	else if(!strcmp(argv[0], "ls"))
+		ls_files(argc, argv);
+	else if(!strcmp(argv[0], "mkdir"))
+		mk_dir(argc, argv);
+	else if(!strcmp(argv[0], "free"))
+		free_mem(argc, argv);
+	else if(!strcmp(argv[0], "restart"))
+		restart(argc, argv);
+	else if(!strcmp(argv[0], "version"))
+		get_version(argc, argv);
+	else if(!strcmp(argv[0], "ping"))
+		do_ping_cmd(argc, argv);
+	else if(!strcmp(argv[0], "boot"))
+		boot_from(argc, argv);
+	else if(!strcmp(argv[0], "cat"))
+		cat_file(argc, argv);
+	else if(!strcmp(argv[0], "rm"))
+		rm_file(argc, argv);
+	else if(!strcmp(argv[0], "nvsconf"))
+		nvs_conf(argc, argv);
+	else if(!strcmp(argv[0], "echo"))
+		echo(argc, argv);
+	else if(!strcmp(argv[0], "flashled"))
+		do_flashled(argc, argv);
+	else if(!strcmp(argv[0], "lastcrash"))
+		last_crash_info(argc, argv);
+#ifdef OTA_SUPPORT
+	else if(!strcmp(argv[0], "ota"))
+		ota_start(argc, argv);
+#endif
+#ifdef CONFIG_FREERTOS_USE_STATS_FORMATTING_FUNCTIONS
+	else if(!strcmp(argv[0], "tasks"))
+		tasks_info(argc, argv);
+#endif
+	else
+		ret = 0;
+	return ret;
+	}
+	

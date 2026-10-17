@@ -40,6 +40,9 @@ should not really be here
 	  - used to generate WifFi state messages */
 const PAR_WIFI = "check_wifi";
 
+/*crash info available	*/
+const PAR_CRASHINFO = "crash_info";
+
 // Operations
 /* Upload operation status */
 const OP_UPLOAD = "upload";
@@ -90,6 +93,9 @@ const CMD_REBOOT = "esp_reboot";
  * no parameters: embedded side will use [ts] field in the header
  */
 const CMD_SYNCTIME = "sync_tyme";
+
+/* Clear crash info stored in g_crash struct */
+const CMD_CLEARCRASHINFO = "clear_crash";
 
 // Responses
 /* Generic command response */

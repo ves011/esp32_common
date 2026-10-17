@@ -45,6 +45,9 @@ should not really be here
 	  - used to generate WifFi state messages */
 #define PAR_WIFI                     "check_wifi"
 
+/*crash info available	*/
+#define PAR_CRASHINFO				"crash_info"
+
 /* Operations */
 /* Upload operation status */
 #define OP_UPLOAD                    "upload"
@@ -95,6 +98,9 @@ should not really be here
  * no parameters: embedded side will use [ts] field in the header
  */
 #define CMD_SYNCTIME                 "sync_tyme"
+
+/* Clear crash info stored in g_crash struct */
+#define CMD_CLEARCRASHINFO 			"clear_crash"
 
 /* Responses */
 /* Generic command response */

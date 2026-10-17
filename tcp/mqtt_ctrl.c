@@ -88,7 +88,7 @@
 #endif
 */
 
-#define PROCESS_MESSAGE_BY_HANDLER 0
+#define PROCESS_MESSAGE_BY_HANDLER 1
 
 #include "freertos/idf_additions.h"
     static QueueHandle_t mqtt_rx_queue;
