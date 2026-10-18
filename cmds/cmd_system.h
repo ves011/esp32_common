@@ -34,7 +34,6 @@ void register_ping(void);
 //int set_console(int argc, char **argv);
 int do_system_cmd(int argc, char **argv);
 
-
 #ifdef __cplusplus
 }
 #endif

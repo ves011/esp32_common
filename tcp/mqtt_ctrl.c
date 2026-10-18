@@ -90,11 +90,13 @@
 
 #define PROCESS_MESSAGE_BY_HANDLER 1
 
+#if PROCESS_MESSAGE_BY_HANDLER == 0
 #include "freertos/idf_additions.h"
-    static QueueHandle_t mqtt_rx_queue;
-    static TaskHandle_t mqtt_rx_task_handle;
-    static void mqtt_rx_task(void *arg);
-	static int parse_argv(char *payload, char ***argv_out);
+static QueueHandle_t mqtt_rx_queue;
+static TaskHandle_t mqtt_rx_task_handle;
+static void mqtt_rx_task(void *arg);
+static int parse_argv(char *payload, char ***argv_out);
+#endif
 
 
 esp_mqtt_client_handle_t mqtt_client_handle;
