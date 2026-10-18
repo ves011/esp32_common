@@ -59,7 +59,7 @@ int my_log_vprintf(const char *fmt, va_list arguments)
         case CONSOLE_MQTT:
         	{
 			static char buf[MAX_LOG_LINE_SIZE];
-			int n = vsnprintf(buf, sizeof(buf), fmt, arguments);
+			vsnprintf(buf, sizeof(buf), fmt, arguments);
     		buf[sizeof(buf) - 1] = '\0';
 #if (COMM_PROTO & TCP_PROTO) == TCP_PROTO || (COMM_PROTO & MQTT_PROTO) == MQTT_PROTO
             // best‑effort forward; no buffering

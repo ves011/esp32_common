@@ -967,7 +967,7 @@ static int light_sleep(int argc, char **argv)
     fflush(stdout);
     fsync(fileno(stdout));
     esp_light_sleep_start();
-    esp_sleep_wakeup_cause_t cause = esp_sleep_get_wakeup_cause();
+	esp_sleep_wakeup_cause_t cause = esp_sleep_get_wakeup_causes();
     const char *cause_str;
     switch (cause) 
     	{
