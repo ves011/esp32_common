@@ -619,7 +619,7 @@ static int wifi_scan(bool usenvs)
 			{
 			print_auth_mode(ap_list_buffer[i].authmode, logbuf);
 			sprintf(mac, "(%02x:%02x:%02x:%02x:%02x:%02x)", ap_list_buffer[i].bssid[0], ap_list_buffer[i].bssid[1], ap_list_buffer[i].bssid[2],
-					ap_list_buffer[i].bssid[3], ap_list_buffer[i].bssid[3], ap_list_buffer[i].bssid[5]);
+					ap_list_buffer[i].bssid[3], ap_list_buffer[i].bssid[4], ap_list_buffer[i].bssid[5]);
 
 			ESP_LOGI(WIFITAG, "%-18s%18s%5d%8d               %-s", ap_list_buffer[i].ssid, mac, ap_list_buffer[i].rssi, ap_list_buffer[i].primary, logbuf);
 			}

@@ -40,40 +40,6 @@
 #include "utils.h"
 #include "mqtt_ctrl.h"
 
-/*
-#if ACTIVE_CONTROLLER == WMON_CONTROLLER
-	#include "wmon.h"
-#endif
-#if ACTIVE_CONTROLLER == PUMP_CONTROLLER
-	#include "adc_op.h"
-	#include "pumpop.h"
-#elif ACTIVE_CONTROLLER == AGATE_CONTROLLER
-	#include "gateop.h"
-#elif ACTIVE_CONTROLLER == WESTA_CONTROLLER
-	#include "westaop.h"
-#elif ACTIVE_CONTROLLER == NAVIGATOR
-	#include "nmea_parser.h"
-	#include "mpu6050.h"
-	#include "ptst.h"
-	#include "hmc5883.h"
-#endif
-#if ACTIVE_CONTROLLER == WATER_CONTROLLER || ACTIVE_CONTROLLER == WP_CONTROLLER
-	#include "waterop.h"
-	#include "pumpop.h"
-	#include "ad7811.h"
-#endif
-#if ACTIVE_CONTROLLER == FLOOR_HC
-	#include "temps.h"
-	#include "actuator.h"
-#endif
-#if ACTIVE_CONTROLLER == THERMOSTAT
-	#include "temps.h"
-#endif
-#if ACTIVE_CONTROLLER == DS18B20_ALIGNEMNT
-	#include "temps.h"
-#endif
-*/
-/*
 #if CONFIG_IDF_TARGET_ESP32C3
     #define PROCESS_MESSAGE_BY_HANDLER 1
 #elif CONFIG_IDF_TARGET_ESP32S3 || CONFIG_IDF_TARGET_ESP32
@@ -82,23 +48,11 @@
     static QueueHandle_t mqtt_rx_queue;
     static TaskHandle_t mqtt_rx_task_handle;
     static void mqtt_rx_task(void *arg);
-	static int parse_argv(char *payload, char ***argv_out);
 #else
     #define PROCESS_MESSAGE_BY_HANDLER 0
 #endif
-*/
 
-#define PROCESS_MESSAGE_BY_HANDLER 1
-
-#if PROCESS_MESSAGE_BY_HANDLER == 0
-#include "freertos/idf_additions.h"
-static QueueHandle_t mqtt_rx_queue;
-static TaskHandle_t mqtt_rx_task_handle;
-static void mqtt_rx_task(void *arg);
 static int parse_argv(char *payload, char ***argv_out);
-#endif
-
-
 esp_mqtt_client_handle_t mqtt_client_handle;
 static const char *TAG = "MQTTClient";
 static esp_netif_ip_info_t dev_ipinfo;
@@ -110,7 +64,6 @@ char TOPIC_CTRL[MQTT_TOPIC_SIZE], TOPIC_LOG[MQTT_TOPIC_SIZE], TOPIC_KA[MQTT_TOPI
 #if ACTIVE_CONTROLLER == WP_CONTROLLER
 	char *TOPIC_STATE_A, *TOPIC_MONITOR_A;
 #endif
-static char USER_MQTT[48];
 
 app_cmd_handler_t app_cmd_handler;
 static int connect_fail_count = 0;
@@ -149,13 +102,6 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
 			ESP_LOGI(TAG, "MQTT_EVENT_CONNECTED");
 			subscribe(TOPIC_CTRL);
 			subscribe(DEVICE_TOPIC_Q);
-/*
-#if ACTIVE_CONTROLLER == WATER_CONTROLLER
-			subscribe(DEVICE_TOPIC_R);
-			subscribe(WATER_PUMP_DESC"/monitor");
-			subscribe(WATER_PUMP_DESC"/state");
-#endif
-*/
 			get_sta_conf(NULL, &dev_ipinfo);
 			publish_MQTT_client_status();
 			xEventGroupSetBits(comm_event_group, MQTT_CONNECTED_BIT);
@@ -190,107 +136,61 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
 			break;
 		case MQTT_EVENT_DATA:
 			{
-#if PROCESS_MESSAGE_BY_HANDLER == 0			
 			mqtt_rx_msg_t msg = {0};
 			msg.topic   = strndup(event->topic, event->topic_len);
 			if(msg.topic)
 				{
 				msg.payload = malloc(event->data_len + 2);
-				
 				if(msg.payload)
 					{
 					memcpy(msg.payload, event->data, event->data_len);
-					msg.payload[event->data_len] = ' ';
-					msg.payload[event->data_len + 1] = 0;
-					if (xQueueSend(mqtt_rx_queue, &msg, pdMS_TO_TICKS(10)) != pdTRUE) 
+					int ml = event->data_len;
+					while(ml - 1 >= 0 && (msg.payload[ml - 1] == '\n' || msg.payload[ml - 1] == '\r'))
 						{
-        				free(msg.topic);
-        				free(msg.payload);
-    					}
+						msg.payload[ml - 1] = 0;
+						ml--;
+						}
+					msg.payload[ml] = ' ';
+					msg.payload[ml + 1] = 0;
 					}
 				else
 					free(msg.topic);
 				}
-			}
-#else		
-			char *topic, *msg, **argv;
-    		int i, argc;	
-			topic = msg = NULL;
-			topic = malloc(event->topic_len + 1);
-			if(!topic)
+			if(msg.topic && msg.payload)
 				{
-				ESP_LOGE(TAG, "Cannot allocate memory for local copy of mqtt topic");
-				break;
-				}
-			memcpy(topic, event->topic, event->topic_len);
-			topic[event->topic_len] = 0;
-			msg = malloc(event->data_len + 2);
-			if(!msg)
-				{
-				ESP_LOGE(TAG, "Cannot allocate memory for local copy of mqtt message");
-				free(topic);
-				break;
-				}
-			memcpy(msg, event->data, event->data_len);
-			int ml = event->data_len;
-			while(ml - 1 >= 0 && (msg[ml - 1] == '\n' || msg[ml - 1] == '\r'))
+#if PROCESS_MESSAGE_BY_HANDLER == 0			
+				xQueueSend(mqtt_rx_queue, &msg, pdMS_TO_TICKS(10)); 
+#else	
+				char **argv;
+				int argc = 0;
+				if(controller_op_registered)
 					{
-					msg[ml - 1] = 0;
-					ml--;
-					}
-			msg[ml] = ' ';
-			msg[ml + 1] = 0;
-/*
- * parse event_data to argc/argv arguments to be passed further  
-*/
-			if(controller_op_registered == 1)
-				{
-				//ESP_LOGI(TAG, "mqttctrl msg |%s| - %d", msg, strlen(msg));
-				argc = 0;
-				argv = NULL;
-				char *pchr = strtok(msg, " ");
-				while(pchr)
-					{
-					void *tmp = realloc(argv, (argc + 1) * sizeof(char *));
-					if(tmp)
+					argc = parse_argv(msg.payload, &argv);
+					if(argc)
 						{
-						argv = tmp;
-						argv[argc] = malloc(strlen(pchr) + 1);
-						if(argv[argc])
+						if(strcmp(msg.topic, DEVICE_TOPIC_Q) == 0)
 							{
-							strcpy(argv[argc], pchr);
-							//ESP_LOGI(TAG, "mqttctrl %d - |%s| - %d", argc, argv[argc], strlen(argv[argc]));
-							argc++;
+							if(argc && !strcmp(argv[0], "reqID"))
+								publish_MQTT_client_status();
 							}
 						else
-							break;
+							app_cmd_handler(argc, argv);
+
+						for (int i = 0; i < argc; i++)
+							{
+							if(argv[i])
+								free(argv[i]);
+							}
+						if(argv)
+							free(argv);	
 						}
-					else
-						break;
-					pchr = strtok(NULL, " ");
 					}
-				if(argc == 0)
-					break;
-				
-				if(strcmp(topic, DEVICE_TOPIC_Q) == 0)
-					{
-					if(argc && !strcmp(argv[0], "reqID"))
-						publish_MQTT_client_status();
-					}
-				else
-					app_cmd_handler(argc, argv);
-				
-				for(i = 0; i < argc; i++)
-					free(argv[i]);
-				free(argv);
+				free(msg.topic);
+				free(msg.payload);
+#endif					
 				}
-			if(topic) 
-				free(topic);
-			if(msg) 
-				free(msg);
-			}
-#endif			
 			break;
+			}
 		case MQTT_EVENT_ERROR:
 			ESP_LOGI(TAG, "MQTT_EVENT_ERROR");
 			if (event->error_handle->error_type == MQTT_ERROR_TYPE_TCP_TRANSPORT)
@@ -456,7 +356,6 @@ int get_MQTT_connection_state(char *id)
 	return 1;
 	}
 	
-#if !PROCESS_MESSAGE_BY_HANDLER
 static int parse_argv(char *payload, char ***argv_out)
 	{
     int argc = 0;
@@ -473,14 +372,14 @@ static int parse_argv(char *payload, char ***argv_out)
         if (!argv[argc]) 
         	break;
         argc++;
-        p = strtok(NULL, " ");
+        p = strtok(NULL, " \n");
     	}
 
     *argv_out = argv;
     return argc;
 	}
 
-
+#if !PROCESS_MESSAGE_BY_HANDLER
 static void mqtt_rx_task(void *arg)
 	{
     mqtt_rx_msg_t msg;
@@ -507,12 +406,16 @@ static void mqtt_rx_task(void *arg)
             			publish_MQTT_client_status();
     					}
 					for (int i = 0; i < argc; i++)
-        				free(argv[i]);
-    				free(argv);
+						{
+						if(argv[i])
+							free(argv[i]);
+						}
+					if(argv)
+    					free(argv);
     				}
     			}
-	        free(msg.topic);
-    	    free(msg.payload);
+			free(msg.payload);
+			free(msg.topic);
     	    }
     	}
 	}

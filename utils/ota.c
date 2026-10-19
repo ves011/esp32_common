@@ -26,13 +26,7 @@
 
 #define OTA_URL_SIZE 256
 
-#define TAG "OTA_TASK"
-
-static void http_cleanup(esp_http_client_handle_t client)
-	{
-    esp_http_client_close(client);
-    esp_http_client_cleanup(client);
-	}
+#define TAG "OTA"
 
 void print_sha256 (const uint8_t *image_hash, const char *label)
 	{
@@ -46,16 +40,19 @@ void print_sha256 (const uint8_t *image_hash, const char *label)
 	}
 static esp_partition_t *get_updateable_partition(const char *plabel)
 	{
-	const esp_partition_t *np = NULL;
+	const esp_partition_t *np = NULL, *p = NULL;
 	const esp_partition_t *running = esp_ota_get_running_partition();
 	esp_partition_iterator_t pit = esp_partition_find(ESP_PARTITION_TYPE_APP, ESP_PARTITION_SUBTYPE_ANY, NULL);
     while(pit)
     	{
-    	np = esp_partition_get(pit);
-    	if(np)
+    	p= esp_partition_get(pit);
+    	if(p)
     		{
-    		if(!strcmp(np->label, plabel) && np != running && np->type == ESP_PARTITION_TYPE_APP)
+    		if(!strcmp(p->label, plabel) && p != running && p->type == ESP_PARTITION_TYPE_APP)
+                {
+                np = p;
 				break;
+                }
     		}
     	pit = esp_partition_next(pit);
     	}
