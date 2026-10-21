@@ -216,6 +216,8 @@ int mqtt_start(app_cmd_handler_t app_exec_funcion)
 	xEventGroupClearBits(comm_event_group, MQTT_CONNECTED_BIT);
 	if(app_exec_funcion)
 		app_cmd_handler = app_exec_funcion;
+	if(!app_cmd_handler)
+		return ESP_FAIL;
 	int needed = snprintf(NULL, 0, "%s%02d", dev_conf.dev_name, dev_conf.dev_id);
 	if (needed < 0) 
 		return ESP_FAIL;

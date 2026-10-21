@@ -7,6 +7,7 @@
 
 #include <string.h>
 #include <stdio.h>
+#include "freertos/idf_additions.h"
 #include "project_specific.h"
 #ifdef ADC_ESP32
 //#include "sdkconfig.h"
@@ -48,6 +49,7 @@ static adc_oneshot_unit_handle_t adc1_handle;
 static SemaphoreHandle_t adcval_mutex;
 static int *adc_ch_vect, adc_no_chn;
 static int chn_to_use[8];
+
 static int adc_init = 0;
 #ifdef CONTINUOUS_MODE
 	static adc_continuous_handle_t adc1_handle_cont;
@@ -186,7 +188,7 @@ static bool IRAM_ATTR adc_timer_callback(gptimer_handle_t ad_timer, const gptime
     	adc_msg_t msg;
    	    msg.source = *(int *)args;
    	    msg.val = sample_count;
-   		xQueueSendFromISR(adc_evt_queue, &msg, NULL);
+   		xQueueSendFromISR(adc_evt_queue, &msg, &high_task_awoken);
     	}
     return high_task_awoken == pdTRUE; // return whether we need to yield at the end of ISR
 	}
@@ -214,7 +216,7 @@ void config_adc_timer()
 void adc_init5(int nr_chn, int *chn_no)
 	{
 	adc1_handle = NULL;
-	adc_evt_queue = xQueueCreate(5, sizeof(adc_msg_t));
+	adc_evt_queue = xQueueCreate(3, sizeof(adc_msg_t));
 	adcval_mutex = xSemaphoreCreateMutex();
 	if(!adcval_mutex)
 		{
@@ -242,7 +244,7 @@ void adc_init5(int nr_chn, int *chn_no)
 //!!!
 int adc_get_data(int *chn, int n_chn, int **s_vect, int nr_samp)
 	{
-	int ret = ESP_FAIL;
+	int ret = ESP_FAIL, stop_err;
 	adc_msg_t msg;
 	int q_wait = (SAMPLE_PERIOD * nr_samp) / 1000 + 50;
 	
@@ -257,40 +259,37 @@ int adc_get_data(int *chn, int n_chn, int **s_vect, int nr_samp)
     	}
 	if(xSemaphoreTake(adcval_mutex, ( TickType_t ) 120 ) == pdTRUE)
     	{
-		adc_raw = s_vect;
-		adc_ch_vect = chn;
-		adc_no_chn = n_chn;
-		sample_count = 0;
-		nr_samples = nr_samp;
-
-		gptimer_set_raw_count(adc_timer, 0);
-		gptimer_start(adc_timer);
-		if(xQueueReceive(adc_evt_queue, &msg, q_wait / portTICK_PERIOD_MS) == pdPASS)
+		//ensure the timer is stopped 
+		stop_err = gptimer_stop(adc_timer);
+		if (stop_err == ESP_OK || stop_err == ESP_ERR_INVALID_STATE) 
 			{
-			int bat_v = 0;
-			for(int n = 0; n < n_chn; n++)
+			adc_raw = s_vect;
+			adc_ch_vect = chn;
+			adc_no_chn = n_chn;
+			sample_count = 0;
+			nr_samples = nr_samp;
+			xQueueReset(adc_evt_queue);
+			gptimer_set_raw_count(adc_timer, 0);
+			gptimer_start(adc_timer);
+			if(xQueueReceive(adc_evt_queue, &msg, q_wait / portTICK_PERIOD_MS) == pdPASS)
 				{
-				//ESP_LOGI(TAG, "chn calh: %d, %x", n, (unsigned int)adc1_cal_handle[n]);
-				for(int j = 0; j < nr_samp; j++)
+				for(int n = 0; n < n_chn; n++)
 					{
-					adc_cali_raw_to_voltage(/*adc1_cal_handle[chn[n]]*/adc1_cal_handle[n], *(adc_raw[n] + j), (adc_raw[n] + j));
-					#ifdef BAT_ADC
-					if(chn[n] == BAT_ADC_CHANNEL)
-						{
-						bat_v += *(adc_raw[n] + j);
-						}
-					#endif
+					for(int j = 0; j < nr_samp; j++)
+						adc_cali_raw_to_voltage(/*adc1_cal_handle[chn[n]]*/adc1_cal_handle[n], *(adc_raw[n] + j), (adc_raw[n] + j));
 					}
+				ret = ESP_OK;
 				}
-			if(bat_v)
+			else
 				{
-				bat_v /= nr_samp;
+				ESP_LOGI(TAG, "ADC not completed in %d (ms)", q_wait);
+				stop_err = gptimer_stop(adc_timer);
+				if (stop_err != ESP_OK && stop_err != ESP_ERR_INVALID_STATE) 
+				    ESP_LOGE(TAG, "gptimer_stop failed: %s", esp_err_to_name(stop_err));
 				}
-
-			ret = ESP_OK;
 			}
 		else
-			ESP_LOGI(TAG, "ADC not completed in %d (ms)", q_wait);
+			ESP_LOGI(TAG, "cannot stop adc timer");
 		xSemaphoreGive(adcval_mutex);
     	}
 	else

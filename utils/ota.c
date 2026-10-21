@@ -65,7 +65,7 @@ static esp_partition_t *get_updateable_partition(const char *plabel)
 
 int ota_task(const char *url, const char *pname)
 	{
-    int ret_val = ESP_OK;
+    int ret_val = ESP_OK, mqtt_on = 0;
     esp_err_t err;
     
     /* Handles that require careful resource tracking and cleanup */
@@ -93,11 +93,12 @@ int ota_task(const char *url, const char *pname)
 #if (COMM_PROTO & MQTT_PROTO) == MQTT_PROTO
         if (mqtt_client_handle) 
             {
+            mqtt_on = 1;
             ESP_LOGI(TAG, "Disconnecting and DESTROYING MQTT TLS Client to free up SRAM...");
             
             // This stops the client and frees ALL MbedTLS and transmission heap buffers
             esp_mqtt_client_destroy(mqtt_client_handle); 
-            //mqtt_client_handle = NULL; // Zero out the handle globally to prevent dangling pointers
+            mqtt_client_handle = NULL; // Zero out the handle globally to prevent dangling pointers
             
             // Optional: Wait a few milliseconds for FreeRTOS to clean up the deleted task memory
             vTaskDelay(pdMS_TO_TICKS(100)); 
@@ -168,7 +169,7 @@ int ota_task(const char *url, const char *pname)
                                     {
                                     // \r drops the cursor back to the start of the line. 
                                     // fflush forces the stdout buffer to push to the UART line immediately.
-                                    printf("\r\t\t[OTA] Progress: %3d%% (%d / %lld bytes)", current_percentage, binary_read, len);
+                                    my_printf("\r\t\t[OTA] Progress: %3d%% (%d / %lld bytes)", current_percentage, binary_read, len);
                                     fflush(stdout); 
                                     last_printed_percentage = current_percentage;
                                     }
@@ -238,7 +239,7 @@ int ota_task(const char *url, const char *pname)
         else
             ESP_LOGE(TAG, "Failed to initialize HTTP client");
 #if (COMM_PROTO & MQTT_PROTO) == MQTT_PROTO
-        if (mqtt_client_handle) 
+        if (mqtt_on) 
             mqtt_start(NULL);
 #endif            
 		}
