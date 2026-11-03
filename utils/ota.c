@@ -90,6 +90,7 @@ int ota_task(const char *url, const char *pname)
 		} 
     else 
 		{
+#if 0       //no longer needed after lvgl memory allocation fix
 #if (COMM_PROTO & MQTT_PROTO) == MQTT_PROTO
         if (mqtt_client_handle) 
             {
@@ -105,6 +106,8 @@ int ota_task(const char *url, const char *pname)
             ESP_LOGI(TAG, "Free heap space after killing MQTT: %lu bytes", (unsigned long)esp_get_free_heap_size());
             }
 #endif
+#endif
+        ESP_LOGI(TAG, "Free heap space after killing MQTT: %lu bytes", (unsigned long)esp_get_free_heap_size());
         running = esp_ota_get_running_partition();
         ESP_LOGI(TAG, "Running partition type %d subtype %d (offset 0x%08lx)",
                  running->type, running->subtype, (unsigned long)running->address);
@@ -126,6 +129,7 @@ int ota_task(const char *url, const char *pname)
         if (client)
 			{
             err = esp_http_client_open(client, 0);
+            ESP_LOGI(TAG, "Free heap space after killing MQTT: %lu bytes", (unsigned long)esp_get_free_heap_size());
             if (err == ESP_OK) 
 				{
                 len = esp_http_client_fetch_headers(client);
@@ -238,10 +242,12 @@ int ota_task(const char *url, const char *pname)
 			}
         else
             ESP_LOGE(TAG, "Failed to initialize HTTP client");
+#if 0       //no longer needed after lvgl memory allocation fix            
 #if (COMM_PROTO & MQTT_PROTO) == MQTT_PROTO
         if (mqtt_on) 
             mqtt_start(NULL);
 #endif            
+#endif
 		}
     return ret_val;
 	}

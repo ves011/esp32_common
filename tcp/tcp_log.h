@@ -11,6 +11,13 @@
 #define TRANSPORT_TCP	1
 #define TRANSPORT_MQTT	2
 
+#define LOGMSG_QUEUE_SIZE		5
+//#if CONFIG_IDF_TARGET_ESP32C3
+//	#define MAX_LOG_LINE_SIZE	512
+//#else
+	#define MAX_LOG_LINE_SIZE	1024
+//#endif
+
 //#define LOG_SERVER			"proxy.gnet"
 //#define LOG_PORT			8081
 

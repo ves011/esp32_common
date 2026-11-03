@@ -147,13 +147,6 @@ typedef enum
 #define DEVICE_TOPIC_R				"gnetdev/response"
 #define DEVICE_TOPIC_L				"gnetdev/log"
 
-
-#if CONFIG_IDF_TARGET_ESP32C3
-	#define MAX_LOG_LINE_SIZE	512
-#else
-	#define MAX_LOG_LINE_SIZE	1024
-#endif
-
 /* -------------------------------------------------
  * Connectivity bits in event group
  *  -------------------------------------------------*/

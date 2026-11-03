@@ -41,7 +41,6 @@ QueueHandle_t tcp_log_evt_queue = NULL;
 static void tcp_log_task(void *pvParameters);
 static int reconnect(int *sock);
 static int log_level = 1;
-#define MSG_QUEUE_SIZE		5
 
 // Control marker for terminating the task (first 2 bytes)
 #define TCP_LOG_CTL0 0x01
@@ -122,7 +121,7 @@ int tcp_log_init(int level)
 				}
 			if(res)
 				freeaddrinfo(res);
-
+#if 0       //no longer needed after lvgl memory allocation fix
 #if CONFIG_IDF_TARGET_ESP32C3							
 #ifdef WITH_CONSOLE
 	#define SSIZE		2048
@@ -132,6 +131,9 @@ int tcp_log_init(int level)
 #else
 #define SSIZE			4096
 #endif		
+#else
+#define SSIZE			4096
+#endif
 			if(!tcp_log_task_handle)
 				{
 				xTaskCreate(tcp_log_task, "TCP_log_task", SSIZE, NULL, USER_TASK_PRIORITY, &tcp_log_task_handle);
@@ -192,7 +194,7 @@ static void tcp_log_task(void *pvParameters)
 	static char buf[MAX_LOG_LINE_SIZE];
 	int sendsock = -1;
 	if(!tcp_log_evt_queue)
-		tcp_log_evt_queue = xQueueCreate(MSG_QUEUE_SIZE, MAX_LOG_LINE_SIZE);
+		tcp_log_evt_queue = xQueueCreate(LOGMSG_QUEUE_SIZE, MAX_LOG_LINE_SIZE);
 	if(!tcp_log_evt_queue)
 		{
 		tcp_log_task_handle = NULL;

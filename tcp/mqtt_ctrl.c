@@ -40,6 +40,7 @@
 #include "utils.h"
 #include "mqtt_ctrl.h"
 
+#if 0       //no longer needed after lvgl memory allocation fix
 #if CONFIG_IDF_TARGET_ESP32C3
     #define PROCESS_MESSAGE_BY_HANDLER 1
 #elif CONFIG_IDF_TARGET_ESP32S3 || CONFIG_IDF_TARGET_ESP32
@@ -50,6 +51,13 @@
     static void mqtt_rx_task(void *arg);
 #else
     #define PROCESS_MESSAGE_BY_HANDLER 0
+#endif
+#else
+	#define PROCESS_MESSAGE_BY_HANDLER 0
+    #include "freertos/idf_additions.h"
+    static QueueHandle_t mqtt_rx_queue;
+    static TaskHandle_t mqtt_rx_task_handle;
+    static void mqtt_rx_task(void *arg);
 #endif
 
 static int parse_argv(char *payload, char ***argv_out);
@@ -158,9 +166,10 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
 				}
 			if(msg.topic && msg.payload)
 				{
-#if PROCESS_MESSAGE_BY_HANDLER == 0			
+//#if PROCESS_MESSAGE_BY_HANDLER == 0			
 				xQueueSend(mqtt_rx_queue, &msg, pdMS_TO_TICKS(10)); 
-#else	
+//#else	
+/*
 				char **argv;
 				int argc = 0;
 				if(controller_op_registered)
@@ -187,7 +196,8 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
 					}
 				free(msg.topic);
 				free(msg.payload);
-#endif					
+*/				
+//#endif					
 				}
 			break;
 			}
