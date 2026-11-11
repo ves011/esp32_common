@@ -26,6 +26,8 @@ typedef enum
 	CRASH_BROWNOUT
 	} crash_type_t;
 
+#define CRASH_BT_MAX_DEPTH                  16
+
 typedef struct 
 	{
     uint32_t magic;
@@ -49,7 +51,19 @@ typedef struct
 
     char panic_reason[32];
     char panic_description[64];
-    
+
+#if CONFIG_IDF_TARGET_ARCH_RISCV // RISC-V registers & backtrace
+    uint32_t panic_ra;
+    uint32_t panic_mcause;
+    uint32_t panic_mtval;
+#elif CONFIG_IDF_TARGET_ARCH_XTENSA // Xtensa registers & backtrace
+    uint32_t panic_a0;
+    uint32_t panic_exc;
+    uint32_t panic_excvaddr;
+#endif    
+    uint32_t bt_count;
+    uint32_t bt[CRASH_BT_MAX_DEPTH];   
+    bool     bt_corrupted; 
 	} crash_record_t;
 
 #define CRASH_ERROR_CHECK(x)                       \
@@ -57,6 +71,8 @@ do {                                               \
     esp_err_t __err = (x);                         \
     if (__err != ESP_OK)                           \
     	{                                          \
+        g_crash->bt_count = 0;                     \
+        g_crash->bt_corrupted = false;             \
         g_crash->reset_reason = 0;                 \
 		g_crash->task[0] = 0;                      \
 		g_crash->panic_exception = 0;              \
@@ -88,8 +104,8 @@ do {                                               \
 #define PRODUCTION_PART_NAME		"ota_0"
 #define RECOVERY_PART_NAME			"ota_1"
 	
-#define CRASH_RTC_SIZE  0x100
-#define CRASH_RTC_PLATFORM_RESERVED_SIZE 0x18
+#define CRASH_RTC_SIZE                      0x200
+#define CRASH_RTC_PLATFORM_RESERVED_SIZE    0x18
 #define CRASH_RTC_END   (SOC_RTC_DATA_HIGH - CRASH_RTC_PLATFORM_RESERVED_SIZE)
 #define CRASH_RTC_START (CRASH_RTC_END - CRASH_RTC_SIZE)
 

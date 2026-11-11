@@ -17,6 +17,7 @@
 #include "project_specific.h"
 #include "common_defines.h"
 #include "crash_handler.h"
+#include "tcp_log.h"
 #include "utils.h"
 
 dev_config_t dev_conf;

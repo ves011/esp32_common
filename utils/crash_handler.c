@@ -11,12 +11,17 @@
 #include "esp_system.h"
 #include "freertos/idf_additions.h"
 #include <string.h>
+#if CONFIG_IDF_TARGET_ARCH_RISCV
+	#include <riscv/rvruntime-frames.h>
+#endif
+#include <sdkconfig.h>
 #include "esp_timer.h"
 #include "esp_log.h"
 //#include "esp_rom_sys.h"
 #include "esp_system.h"
 #include "esp_private/panic_internal.h"
 #include "heap_memory_layout.h"
+#include "esp_memory_utils.h"
 #include "time.h"
 #include "utils.h"
 #include "crash_handler.h"
@@ -39,7 +44,95 @@ static void crash_copy_string(volatile char *dst, size_t dst_size, const char *s
 
     *dst = '\0';
 	}
+/*
+ * Custom panic handler wrapper
+ *
+ * This function is called by the ESP-IDF panic handler when a panic occurs.
+ * It captures the panic information and stores it in the crash record structure.
+ */
+ void __wrap_esp_panic_handler(panic_info_t *info)
+	{
+    g_crash->reset_reason = 0;
+    g_crash->err = 0;
+    g_crash->line = 0;
+    g_crash->file[0] = 0;
+    g_crash->func[0] = 0;
+    g_crash->task[0] = 0;
+    g_crash->crash_time = g_crash->boot_time;
+    g_crash->crash_hb = g_crash->boot_hb;
+    g_crash->crash_type = CRASH_EXCEPTION;
+    g_crash->panic_exception = info->exception;
+    g_crash->panic_addr = (uintptr_t)info->addr;
+    g_crash->panic_core = info->core;
+    g_crash->panic_pseudo_excause = info->pseudo_excause;
+    crash_copy_string(g_crash->panic_reason, sizeof(g_crash->panic_reason), info->reason);
+    crash_copy_string(g_crash->panic_description, sizeof(g_crash->panic_description), info->description);
 
+    g_crash->bt_count = 0;
+    g_crash->bt_corrupted = false;
+
+#if CONFIG_IDF_TARGET_ARCH_RISCV
+    g_crash->panic_ra = 0;
+    g_crash->panic_mcause = 0;
+    g_crash->panic_mtval = 0;
+
+    if (info->frame != NULL) {
+        RvExcFrame *frame = (RvExcFrame *)info->frame;
+        g_crash->panic_ra = frame->ra;
+        g_crash->panic_mcause = frame->mcause;
+        g_crash->panic_mtval = frame->mtval;
+
+        g_crash->bt[g_crash->bt_count++] = frame->mepc;
+        if (frame->ra != 0 && frame->ra != frame->mepc) {
+            g_crash->bt[g_crash->bt_count++] = frame->ra;
+        }
+
+        uint32_t *sp = (uint32_t *)frame->sp;
+        if (esp_ptr_in_dram(sp)) {
+            for (int i = 0; i < 64 && g_crash->bt_count < CRASH_BT_MAX_DEPTH; i++) {
+                uint32_t word = sp[i];
+                if (esp_ptr_executable((void *)word) &&
+                    g_crash->bt[g_crash->bt_count - 1] != word) {
+                    g_crash->bt[g_crash->bt_count++] = word;
+                }
+            }
+        }
+    }
+
+#elif CONFIG_IDF_TARGET_ARCH_XTENSA
+    g_crash->panic_a0 = 0;
+    g_crash->panic_exc = 0;
+    g_crash->panic_excvaddr = 0;
+
+    if (info->frame != NULL) {
+        XtExcFrame *frame = (XtExcFrame *)info->frame;
+        g_crash->panic_a0 = esp_cpu_process_stack_pc(frame->a0);
+        g_crash->panic_exc = frame->exccause;
+        g_crash->panic_excvaddr = frame->excvaddr;
+
+        esp_backtrace_frame_t stk = {
+            .pc = frame->pc,
+            .sp = frame->a1,
+            .next_pc = frame->a0,
+            .exc_frame = frame
+        };
+
+        g_crash->bt[g_crash->bt_count++] = esp_cpu_process_stack_pc(stk.pc);
+
+        while (g_crash->bt_count < CRASH_BT_MAX_DEPTH && stk.next_pc != 0) {
+            if (!esp_backtrace_get_next_frame(&stk)) {
+                g_crash->bt_corrupted = true;
+                break;
+            }
+            g_crash->bt[g_crash->bt_count++] = esp_cpu_process_stack_pc(stk.pc);
+        }
+    }
+#endif
+
+    g_crash->magic = CRASH_MAGIC;
+    __real_esp_panic_handler(info);
+}
+/*
 void __wrap_esp_panic_handler(panic_info_t *info)
 	{
 	g_crash->reset_reason = 0;
@@ -61,7 +154,7 @@ void __wrap_esp_panic_handler(panic_info_t *info)
 	//esp_rom_printf("\n*** CUSTOM PANIC WRAPPER ***\n");
     __real_esp_panic_handler(info);
 	}
-
+*/
 void vApplicationStackOverflowHook(TaskHandle_t task,  char *task_name)
 	{
 	static char buf[128];
@@ -70,6 +163,8 @@ void vApplicationStackOverflowHook(TaskHandle_t task,  char *task_name)
 	g_crash->line = 0;
 	g_crash->file[0] = 0;
 	g_crash->func[0] = 0;
+	g_crash->bt_count = 0;
+    g_crash->bt_corrupted = false;
 
 	g_crash->panic_exception = 0;
     g_crash->panic_addr = 0;
@@ -181,6 +276,22 @@ void logCrashInfo()
 			ESP_LOGI(TAG, "  - panic_pseudo_excause: %u", g_crash->panic_pseudo_excause);
 			ESP_LOGI(TAG, "  - panic_reason: %s", g_crash->panic_reason);
 			ESP_LOGI(TAG, "  - panic_description: %s", g_crash->panic_description);
+#if CONFIG_IDF_TARGET_ARCH_RISCV
+			ESP_LOGI(TAG, "  - panic_ra: 0x%08X", g_crash->panic_ra);
+			ESP_LOGI(TAG, "  - panic_mcause: 0x%08X", g_crash->panic_mcause);
+			ESP_LOGI(TAG, "  - panic_mtval: 0x%08X", g_crash->panic_mtval);
+#elif CONFIG_IDF_TARGET_ARCH_XTENSA
+			ESP_LOGI(TAG, "  - panic_a0: 0x%08X", g_crash->panic_a0);
+			ESP_LOGI(TAG, "  - panic_exc: 0x%08X", g_crash->panic_exc);
+			ESP_LOGI(TAG, "  - panic_excvaddr: 0x%08X", g_crash->panic_excvaddr);			
+#endif			
+			ESP_LOGI(TAG, "  - bt_state: %s", g_crash->bt_corrupted ? "CORRUPTED" : "OK");
+			if(!g_crash->bt_corrupted)
+				{
+				ESP_LOGI(TAG, "  - bt_count: %u", g_crash->bt_count);
+				for(int i = 0; i < g_crash->bt_count && !g_crash->bt_corrupted; i++)
+					ESP_LOGI(TAG, "    - bt[%d]: 0x%08X", i, g_crash->bt[i]);
+				}
 			}
 		else
 			{
